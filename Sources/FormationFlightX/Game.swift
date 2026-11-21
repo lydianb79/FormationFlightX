@@ -30,9 +30,9 @@ struct Mate: Identifiable { var id: UInt32; var number: Int; var name: String; v
 struct ChatLine: Identifiable { var id: Int; var name: String; var text: String; var mine = false; var system = false; var time = 0.0 }
 
 enum Overlay {
-    case none, menu, aircraft, sites, environment, help, splash, formation, lobby
+    case none, menu, aircraft, sites, environment, help, splash, formation, lobby, options
     /// The simulation is frozen while these are open.
-    var pausesSim: Bool { self == .menu || self == .aircraft || self == .sites || self == .splash || self == .formation || self == .lobby }
+    var pausesSim: Bool { self == .menu || self == .aircraft || self == .sites || self == .splash || self == .formation || self == .lobby || self == .options }
 }
 
 final class HUDModel: ObservableObject {
@@ -213,6 +213,11 @@ final class Game {
     var sessionRunning = false
     var sessionCount: UInt32 = 0        // starts and restarts so far, as the host counts them
     var sessionSeen: UInt32 = 0         // the last start this pilot acted on
+    // racing through gates
+    var raceNext = 0, raceLaps = 0, raceRunning = false
+    var raceTime: Float = 0, raceBest: Float? = nil
+    var racePrev = V3.zero
+    var gateMarker: (pos: V3, dir: V3, w: Float, h: Float)? = nil
     var launchGrace: Float = 0          // seconds after a launch during which wings pass through each other
     var lobbyReturn = false             // a browser opened from the lobby goes back to it
     var leadEpoch: UInt32 = 0
@@ -352,6 +357,7 @@ final class Game {
         lastY = aircraft.pos.y; climb = 0
         stationTime = 0; flownTime = 0
         launchGrace = 6
+        resetRace()
     }
 
     func selectAircraft(_ i: Int) {
@@ -381,6 +387,7 @@ final class Game {
         if site.panorama != nil { cameraMode = 0 } else { timeOfDay = Game.time(forSite: site.defaultTime) }
         siteVersion += 1
         if challenge { spawnBalloons() }
+        raceBest = nil
         resetAircraft()
         for w in wingmen where w.ai != nil { place(w) }
         helloAcc = 1
@@ -593,6 +600,11 @@ final class Game {
                 break
             }
         }
+        if !aircraft.crashed && terrain.strikes(p, reach: 0.3 * aircraft.spec.span) {
+            // flown into something built: a gate post, a wall, a tower
+            aircraft.crashed = true; aircraft.crashImpact = length(aircraft.vel); aircraft.vel *= 0.1
+        }
+        updateRace(dt: dt)
         if terrain.overWater(aircraft.pos) {
             // ditched: the model stops and floats
             if !aircraft.crashed { aircraft.crashed = true; aircraft.crashImpact = max(length(aircraft.vel) * 0.6, 4); say("Splash!") }
@@ -839,6 +851,7 @@ final class Game {
         s.input = autopilotOn ? "Demo pilot" : input.source
         s.time = (site.panorama != nil ? (photoLight == 0 ? "Photo site" : Game.photoLightNames[photoLight]) : Game.timeNames[timeOfDay]) + (timeScale < 1 ? String(format: " · %.0f%% speed", timeScale * 100) : "")
         if challenge { s.score = String(format: "Balloons %d/%d   %.1f s", score, balloons.count, challengeTime) }
+        else if !terrain.gates.isEmpty { s.score = raceStatus }
         if aircraft.crashed { s.message = "CRASHED" }
         else if paused { s.message = "PAUSED" }
         else if messageTimer > 0 { s.message = message }

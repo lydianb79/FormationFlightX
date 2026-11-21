@@ -306,7 +306,7 @@ extension Game {
         w.crashTimer = 0
         let home = terrain.pilotPos
         if n == 0 {
-            let p = V3(home.x - 110, home.y + FormationPilot.altitude, home.z - 70)
+            let p = V3(home.x - 110, home.y + FormationPilot.altitude(site), home.z - 70)
             ac.reset(pos: V3(p.x, max(p.y, terrain.height(p.x, p.z) + 22), p.z), heading: -.pi / 2, speed: FormationPilot.cruise(spec))
         } else if let lead = flying(leadID), !lead.crashed, let s = slot(n), lead.pos.y - terrain.height(lead.pos.x, lead.pos.z) > 10 {
             let (f, _) = Formation.frame(of: lead)
@@ -338,6 +338,8 @@ extension Game {
                 if w.crashTimer > 3 { place(w) }
             } else if !terrain.contains(ac.pos) || !ac.pos.y.isFinite || terrain.overWater(ac.pos) {
                 place(w)
+            } else if terrain.strikes(ac.pos, reach: 0.3 * ac.spec.span) {
+                ac.crashed = true; ac.crashImpact = length(ac.vel); ac.vel *= 0.1
             } else if n == 0 {
                 w.controls = w.ai!.lead(ac, terrain: terrain, reach: formationReach, dt: sdt)
             } else if let lead = flying(leadID), !lead.crashed, let s = slot(n) {

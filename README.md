@@ -8,7 +8,7 @@ A formation flight trainer for RC flying wings on macOS, written in Swift and re
 
 The look is its own: an evening-sky theme, a menu down the left edge with the flying site in view, and its own icon and splash.
 
-FormationFlightX is built on [FlightCore OSX](https://github.com/lydianb79/FlightCoreOSX): the flight physics, the eleven flying wings, the twenty 3D flying sites, the weather, the sound and the renderer come from there unchanged. What is new is everything about flying together.
+FormationFlightX is built on [FlightCore OSX](https://github.com/lydianb79/FlightCoreOSX): the flight physics, the eleven flying wings, the weather, the sound and the renderer come from there. The flying sites, the menu music, the look and everything about flying together are its own.
 
 ## Build and run
 
@@ -29,7 +29,7 @@ Run the app bundle rather than the bare binary when you want multiplayer: macOS 
 There is no server, no account and no host. Every copy of the app announces itself on the local network with Bonjour and looks for the others; each pilot then sends their wing's position straight to the others over UDP, sixty times a second. Macs on the same Wi-Fi or cable network find each other by themselves, and so do Macs with Wi-Fi on but no shared network, over Apple's peer-to-peer Wi-Fi.
 
 - **Five pilots at most.** Each copy flies with the first four others it meets and ignores any more.
-- **Groups.** Pilots with the same group name (Formation panel) fly together, so two formations can share one network. An empty group flies with anyone.
+- **Groups.** Pilots with the same group name (Options) fly together, so two formations can share one network. An empty group flies with anyone.
 - **The host runs the session** (see below): where it flies, the weather and daylight, and when it starts and stops.
 - **The lead calls the formation.** Formation and spacing are the lead's. Until someone claims the lead, the pilot whose copy has the lowest network number leads. Press **U** (or **Take the Lead**) to claim it; press it again to hand it back.
 - **All copies need the same version.** This version's messages are not understood by earlier builds.
@@ -44,20 +44,51 @@ Nothing to set up: Macs on the same Wi-Fi or cable network find each other by th
 
 One pilot hosts and the others connect to the host. There is still no server: the host's copy of the app passes each pilot's positions on to the others.
 
-1. **The host** opens the Formation panel and switches on **Host a session**. The panel then shows **your public address**, for example `203.0.113.5:47800`, with a Copy button; the lobby shows it too. The app also asks the router to open UDP port 47800 (NAT-PMP, PCP or UPnP) and says whether it did.
+1. **The host** opens **Options** and switches on **Host a session**. It then shows **your public address**, for example `203.0.113.5:47800`, with a Copy button; the lobby shows it too. The app also asks the router to open UDP port 47800 (NAT-PMP, PCP or UPnP) and says whether it did.
 2. **The others** type that address under **Or join a host** and press **Connect**. The panel says when the host is answering.
 
 If the router does not open the port by itself, the panel says so, in amber under the address: forward UDP port 47800 to the host's Mac in the router's settings (the panel gives the Mac's address on your network). The public address shown is right either way, but nobody outside gets through until the port is open.
 
-The public address comes from the router when it opens the port. Otherwise the app asks a public "what is my address" service (api.ipify.org, then checkip.amazonaws.com, then icanhazip.com); this happens only while hosting is on, and it is the one thing the app ever asks of anyone outside the formation. The address is shown in the Formation panel and the lobby, not on the flight screen, so it does not end up in a stream or a screenshot by accident. A host name works as well as a number. If the internet provider shares one public address between customers (carrier-grade NAT), that connection cannot host; let someone else host, or put the Macs on one virtual network (ZeroTier, Tailscale) and join the host's address there.
+The public address comes from the router when it opens the port. Otherwise the app asks a public "what is my address" service (api.ipify.org, then checkip.amazonaws.com, then icanhazip.com); this happens only while hosting is on, and it is the one thing the app ever asks of anyone outside the formation. The address is shown in Options and the lobby, not on the flight screen, so it does not end up in a stream or a screenshot by accident. A host name works as well as a number. If the internet provider shares one public address between customers (carrier-grade NAT), that connection cannot host; let someone else host, or put the Macs on one virtual network (ZeroTier, Tailscale) and join the host's address there.
 
 Who hosts has nothing to do with who leads: any pilot can take the lead. Pilots on the host's own network join in by themselves and fly with the online ones. Everyone's traffic to an online pilot goes by way of the host, so the host's connection sets the delay.
 
 Anyone who knows the address can connect while hosting is on. Set a group name to keep strangers out of the formation, and switch hosting off afterwards; that also closes the port on the router.
 
+## Flying sites
+
+Eighteen sites, none of them from FlightCore OSX. The site browser filters by kind.
+
+| Site | Kind | |
+|---|---|---|
+| Stadium Circuit | Race Tracks | Eight gates in a loop on a sports ground; all left turns, two gates raised |
+| Forest Slalom | Race Tracks | Seven gates along a ride cut through tall forest |
+| Canyon Run | Race Tracks | Seven gates down a winding canyon sixty metres deep, four high ones back along the rim |
+| Pylon Park | Obstacles | A slalom of pylons, three walls with windows, an arch, a limbo bar, a tunnel, two hoops |
+| Container Yard | Obstacles | Lanes between stacked containers, gaps to dart through, gantry cranes to fly under |
+| Downtown | Cities | Towers up to 120 m on a grid of 24 m streets, walkways across the avenues |
+| Harbour Town | Cities | Low streets, quay cranes, two ships, and a bridge with 26 m of air under the deck |
+| Heather Downs | Fields | Open downland; the easy one |
+| Rice Terraces | Fields | A level step on a terraced hillside |
+| Outback Aerodrome | Airfields | 460 m of red dirt, hangars and a tower |
+| Karst Valley | Mountains | A valley floor between limestone towers |
+| Caldera | Mountains | The floor of a crater, ringed by its wall |
+| Archipelago | Water | The largest of a scatter of islands in shallow sea |
+| Coral Atoll | Water | A ring of coral sixty metres wide round a lagoon |
+| Badlands | Desert | A flat among gullied clay hills |
+| Oasis | Desert | Gravel plain, a green-ringed pool, palm groves |
+| Frozen Lake | Winter | A strip on a kilometre of ice |
+| Tundra | Winter | Snow-patched grass and black meltwater pools |
+
+**Racing.** On a race track the next gate glows. Fly through the first gate to start the clock, then through the gates in order; a gate out of order does not count. Every lap's time is shown, your best is kept until the site changes, and when you fly with others each lap is announced in the chat. The host's **Start Session** puts everyone on the launch line at once, which makes it a race. Gate posts are solid.
+
+**Hitting things.** Everything built on a site is solid: gate posts, pylons, walls, containers, cranes, buildings, bridges, ships. So are trees, as before. A wing that touches one is wrecked and starts again a few seconds later.
+
+**The computer lead** flies its racetrack above whatever is built: 38 m on open sites, higher over the yard, the harbour and the city (140 m over Downtown).
+
 ## Sessions
 
-Whenever pilots fly together, one of them is the **host**: the pilot who switched on **Host a session** in the Formation panel, or, if nobody did, the one whose copy has the lowest network number. The lobby shows who it is.
+Whenever pilots fly together, one of them is the **host**: the pilot who switched on **Host a session** in Options, or, if nobody did, the one whose copy has the lowest network number. The lobby shows who it is.
 
 - **Start Session:** everyone is put at the launch point and flies. The host's own **Take off** does the same when no session is running.
 - **Restart:** the same again, at any time: everyone back to the launch point.
@@ -67,7 +98,7 @@ Whenever pilots fly together, one of them is the **host**: the pilot who switche
 
 Other pilots cannot fly while the session is stopped; their **Take off** button waits for the host. A pilot who joins while a session is running goes straight into it. If the host leaves, the next pilot in line becomes host and the session carries on as it was.
 
-Before joining a host, enter your **pilot name**: it is at the top of the lobby and in the Formation panel, and **Connect** stays off while it is empty.
+Before joining a host, enter your **pilot name**: it is at the top of the lobby and in Options, and **Connect** stays off while it is empty.
 
 For the first six seconds after a launch, wings pass through each other, so that five pilots starting side by side can sort themselves out.
 
@@ -104,6 +135,7 @@ Measured over 150 seconds of racetrack with each of the eleven wings (`--formtes
 ## Holding your slot
 
 - A **ring** in the air marks your slot: amber while you are off station, green when you are in it.
+- **Formations** in the main menu holds the five shapes and the spacing; **Options** holds the rest: the pilots, your name and group, the network, hosting and joining.
 - The **formation box** (top left) shows your number, the formation, every other wing's distance, and how far you are from your slot. The little scope beside it is a top view with your wing in the middle and the slot as a circle; the bar on its right is the height difference.
 - **On station** counts the share of your flying time spent inside the slot. The lead sees how far each wingman is off their slot instead.
 - **J** puts you in the air a little behind your slot at the lead's speed, so you can practise the last part of a join-up again and again. **Space** starts with a hand launch from the pilots' position.
@@ -136,12 +168,18 @@ Formations for up to five: vic, echelon right, echelon left, line astern, line a
 | `Net.swift` | Bonjour discovery, hosting and joining, UDP transport and the message types |
 | `Voice.swift` | Microphone capture, Opus coding, playback of the other pilots |
 | `Formation.swift` | Formation shapes and slots, smoothing of network pilots, the computer pilot |
+| `Structures.swift` | Gates, walls, containers, city blocks: where they stand, what they look like, hitting them, lap timing |
+| `World.swift` | The sites: their landscapes and ground colours (the `FormationFlightX` cases), on FlightCore's terrain code |
 | `FormationGame.swift` | Roster, lead, slots, collisions, chat, what is sent and shown |
 | everything else | FlightCore OSX, limited to flying wings and 3D sites |
 
-Command-line checks: `--voicetest` sends speech and chat through the coder and the message format with no audio hardware; `--formtest` flies the computer partners with every wing and prints how well they hold formation; `--formtrace <wing> <0|1>` prints one flight in detail; `--net --netlog --name <name>` runs a windowed copy that logs who it sees; add `--host`, or `--join <address>`, and `--nobonjour` to try the online path on one Mac.
+Command-line checks: `--sitetest` checks on every site that the five launch lanes are clear, that each gate is open with a way in and out and is counted in order, and that the computer lead's racetrack clears the ground and everything built; `--voicetest` sends speech and chat through the coder and the message format with no audio hardware; `--formtest` flies the computer partners with every wing and prints how well they hold formation; `--formtrace <wing> <0|1>` prints one flight in detail; `--net --netlog --name <name>` runs a windowed copy that logs who it sees; add `--host`, or `--join <address>`, and `--nobonjour` to try the online path on one Mac.
 
 ## Not yet done
+
+- The new sites were checked by rendering each one and by `--sitetest`; none of the race tracks or obstacle courses has been flown by hand, so how hard they are is a guess.
+- Computer wingmen do not steer round buildings, gate posts or trees. Behind a computer lead they stay above everything; behind you they follow where you go, and hit what is in the way.
+- Buildings and containers do not disturb the wind.
 
 - Tested with copies on one Mac only: local discovery with two copies, and a host with two joiners (local discovery switched off, so everything went by way of the host). Separate Macs, peer-to-peer Wi-Fi and a real internet path with its delay have not been tried, and the router on the test network did not open the port by itself, so the automatic port opening has only been seen to fail politely.
 - The session controls and the five-pilot limit were tested with copies on one Mac: a host and one guest through start, stop, restart, a change of site and daylight, and the wing lock; and a host with five joiners, of whom each flew with four others. With more than five copies, who ignores whom is not coordinated.

@@ -73,6 +73,7 @@ final class Renderer: NSObject, MTKViewDelegate {
     private var partMeshes: [GPUMesh?] = []
     private var fleetMeshes: [String: [GPUMesh?]] = [:]         // the other pilots' models, by aircraft name
     private var slotMesh: GPUMesh?
+    private var panelMesh: GPUMesh?         // a unit square, for lighting up the next race gate
     private var siteVersion = -1, aircraftVersion = -1
     private var shadow1Key = -1
     private var lastTime = CACurrentMediaTime()
@@ -102,6 +103,7 @@ final class Renderer: NSObject, MTKViewDelegate {
         balloonMesh = { var b = MeshBuilder(); b.ellipsoid(center: .zero, radii: V3(0.6, 0.72, 0.6), color: rgb(1, 1, 1), seg: 12, rings: 8)
             b.cylinder(from: V3(0, -0.7, 0), to: V3(0, -0.82, 0), r0: 0.03, r1: 0.07, seg: 6, color: rgb(1, 1, 1)); return GPUMesh(dev, b) }()
         windsockMesh = GPUMesh(dev, buildWindsock())
+        panelMesh = { var b = MeshBuilder(); b.quad(V3(-0.5, -0.5, 0), V3(0.5, -0.5, 0), V3(0.5, 0.5, 0), V3(-0.5, 0.5, 0), rgb(1, 1, 1)); return GPUMesh(dev, b) }()
         slotMesh = {
             // a ring facing along the flight path, one unit in radius, with four ticks pointing at its centre
             var b = MeshBuilder()
@@ -241,7 +243,9 @@ final class Renderer: NSObject, MTKViewDelegate {
                 if panoTex == nil { game.say("Could not load panorama image", 6) }
             } else {
                 terrainMesh = GPUMesh(device, game.terrain.buildMesh())
-                sceneryMesh = GPUMesh(device, game.terrain.buildScenery())
+                var scenery = game.terrain.buildScenery()
+                game.terrain.buildStructureMesh(into: &scenery)
+                sceneryMesh = GPUMesh(device, scenery)
                 func upload(_ b: MeshBuilder, _ cell: Float) -> [GPUChunk] {
                     chunked(b, cell: cell).compactMap { c in GPUMesh(device, c.mesh).map { GPUChunk(mesh: $0, center: c.center, radius: c.radius) } }
                 }
@@ -402,6 +406,13 @@ final class Renderer: NSObject, MTKViewDelegate {
             let name = w.aircraft.spec.name
             if fleetMeshes[name] == nil { fleetMeshes[name] = w.aircraft.spec.parts.map { GPUMesh(device, $0.mesh) } }
             add(w.aircraft, fleetMeshes[name]!)
+        }
+        if let gm = game.gateMarker, let mesh = panelMesh {
+            // the gate to fly through next glows, brighter as the clock runs
+            let f = gm.dir, r = cross(f, V3(0, 1, 0))
+            let rot = M4(columns: (V4(r.x, r.y, r.z, 0), V4(0, 1, 0, 0), V4(-f.x, -f.y, -f.z, 0), V4(0, 0, 0, 1)))
+            let pulse = 0.2 + 0.08 * sin(game.env.time * 4)
+            acBlend.append(DrawItem(mesh: mesh, model: M4.translation(gm.pos) * rot * M4(diagonal: V4(gm.w, gm.h, 1, 1)), tint: V4(1, 0.78, 0.2, pulse), material: 4))
         }
         if let sm = game.slotMarker, let mesh = slotMesh, !game.aircraft.crashed {
             // where this pilot belongs: amber while off station, green when in the slot

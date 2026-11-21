@@ -141,7 +141,8 @@ struct FormationPilot {
     private var thrI: Float = 0.55, pitchI: Float = 0
     /// Racetrack corners relative to the pilot's position (x east, z south): long straights, wide turns.
     static let circuit: [SIMD2<Float>] = [SIMD2(190, -70), SIMD2(190, -300), SIMD2(-190, -300), SIMD2(-190, -70)]
-    static let altitude: Float = 38
+    /// Height of the racetrack above the pilots, unless the site asks for more to clear what is built there.
+    static func altitude(_ site: SiteSpec) -> Float { site.cruiseAlt }
 
     private func inner(_ ac: Aircraft, rollT: Float, pitchT: Float, throttle: Float) -> Controls {
         var c = Controls()
@@ -180,7 +181,7 @@ struct FormationPilot {
         if length(to) < max(55, radius + 12) { wp = (wp + 1) % FormationPilot.circuit.count }
         let herr = headingError(ac, to: to)
         let ground = max(terrain.height(ac.pos.x, ac.pos.z), terrain.site.waterLevel ?? -1e9)
-        let altT = max(home.y + FormationPilot.altitude, ground + 22)
+        let altT = max(home.y + FormationPilot.altitude(terrain.site), ground + 22)
         // after a hand launch, climb straight ahead before the first turn so the others can form up behind
         let low = ac.pos.y - ground < 12
         let rollT = low ? 0 : clampf(herr * 1.1, -maxBank, maxBank)

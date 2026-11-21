@@ -994,6 +994,58 @@ if CommandLine.arguments.contains("--selftest") {
     exit(0)
 }
 
+if CommandLine.arguments.contains("--sitetest") {
+    // Every site: is the launch path clear, are the gates open and flyable in order, is the computer lead's
+    // racetrack clear of the ground and of everything built, and does the lap count work?
+    for (i, site) in SiteSpec.all.enumerated() {
+        let g = Game(site: i, aircraft: 0)
+        g.aiPartners = false
+        let t = g.terrain, home = t.pilotPos
+        var problems: [String] = []
+        // hand launch: from beside the pilots, straight out and climbing, five abreast
+        for n in 0..<5 { for k in 0..<60 {
+            let p = home + V3(2 + 3 * Float(n), 1.9 + 0.12 * Float(k) * 2, -3 - Float(k) * 2)
+            if t.strikes(p, reach: 1) || p.y < t.height(p.x, p.z) + 0.5 { problems.append("launch lane \(n) blocked \(k * 2) m out"); break }
+        } }
+        // the computer lead's racetrack
+        let alt = home.y + FormationPilot.altitude(site)
+        var lowest = Float.infinity
+        let c = FormationPilot.circuit
+        for k in 0..<c.count { for f in stride(from: Float(0), to: 1, by: 0.02) {
+            let a = c[k], b = c[(k + 1) % c.count]
+            let p = V3(home.x + a.x + (b.x - a.x) * f, 0, home.z + a.y + (b.y - a.y) * f)
+            let ground = max(t.height(p.x, p.z), site.waterLevel ?? -1e9)
+            lowest = min(lowest, max(alt, ground + 22) - ground)
+            for off in [Float(-12), 0, 12] where t.strikes(V3(p.x + off, max(alt, ground + 22), p.z + off), reach: 3) { problems.append("racetrack hits a structure"); break }
+        } }
+        // gates: open, above the ground, and counted
+        for (k, gate) in t.gates.enumerated() {
+            if t.strikes(gate.c, reach: 1) { problems.append("gate \(k + 1) is blocked") }
+            if gate.c.y - gate.h / 2 < t.height(gate.c.x, gate.c.z) - 0.2 { problems.append("gate \(k + 1) is in the ground") }
+            for s in [Float(-25), 25] where t.strikes(gate.c + gate.dir * s, reach: 1.5) || (gate.c + gate.dir * s).y < t.height(gate.c.x + gate.dir.x * s, gate.c.z + gate.dir.z * s) + 1 {
+                problems.append("gate \(k + 1): no way \(s < 0 ? "in" : "out")")
+            }
+        }
+        var laps = ""
+        if !t.gates.isEmpty {
+            g.resetRace()
+            for _ in 0..<2 { for gate in t.gates {
+                g.racePrev = gate.c - gate.dir * 3; g.aircraft.pos = gate.c + gate.dir * 1; g.updateRace(dt: 2)
+            } }
+            let first = t.gates[0]
+            g.racePrev = first.c - first.dir * 3; g.aircraft.pos = first.c + first.dir * 1; g.updateRace(dt: 2)
+            // out of order: the second gate again must not count
+            let before = g.raceNext
+            let third = t.gates[min(3, t.gates.count - 1)]
+            g.racePrev = third.c - third.dir * 3; g.aircraft.pos = third.c + third.dir * 1; g.updateRace(dt: 2)
+            laps = String(format: "  laps %d (expect 2), best %.0f s (expect %d), out of order %@", g.raceLaps, g.raceBest ?? -1, 2 * t.gates.count, g.raceNext == before ? "ignored" : "COUNTED")
+        }
+        print(String(format: "SITE %2d %-18@ %-11@ boxes %4d gates %2d trees %4d  lead %3.0f m up, %3.0f m clear%@  %@", i, site.name as NSString, site.category as NSString, t.boxes.count, t.gates.count,
+                     t.trees.count, FormationPilot.altitude(site), lowest, laps, problems.isEmpty ? "ok" : "PROBLEMS: " + Array(Set(problems)).sorted().joined(separator: "; ")))
+    }
+    exit(0)
+}
+
 if CommandLine.arguments.contains("--voicetest") {
     // Speech from one pilot to another without any audio hardware: a tone goes in at one end, through the
     // coder, the message format and the decoder, and must come out at the other end as loud as it went in.
@@ -1195,7 +1247,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--joinup") { for _ in 0..<600 { game.frame(dt: 1 / 60) }; game.joinUp(quiet: true) }
         if CommandLine.arguments.contains("--menu") { game.hud.overlay = .menu }
         if interactive || CommandLine.arguments.contains("--splash") { game.hud.overlay = .splash }
-        if let o = arg("--overlay") { game.hud.overlay = ["aircraft": .aircraft, "sites": .sites, "environment": .environment, "help": .help, "menu": .menu, "splash": .splash, "formation": .formation, "lobby": .lobby][o] ?? .none }
+        if let o = arg("--overlay") { game.hud.overlay = ["aircraft": .aircraft, "sites": .sites, "environment": .environment, "help": .help, "menu": .menu, "splash": .splash, "formation": .formation, "lobby": .lobby, "options": .options][o] ?? .none }
         game.hud.openControllerSetup = { [unowned self] in self.showSetup() }
         if let c = Int(arg("--cam") ?? "") { game.cameraMode = c }
         if let z = Int(arg("--zoom") ?? "") { game.zoomMode = z }
@@ -1384,7 +1436,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         siteItems.insert(.separator(), at: 1)
         menu("Flying Site", siteItems)
         var formItems: [NSMenuItem] = [
-            ClosureMenuItem("Formation and Pilots…", key: "f", mods: [.command, .shift]) { g.cameFromMenu = g.hud.overlay == .menu; g.hud.overlay = .formation },
+            ClosureMenuItem("Formations…", key: "f", mods: [.command, .shift]) { g.cameFromMenu = g.hud.overlay == .menu; g.hud.overlay = .formation },
+            ClosureMenuItem("Options: Pilots and Network…", key: "o", mods: [.command, .shift]) { g.cameFromMenu = g.hud.overlay == .menu; g.hud.overlay = .options },
             ClosureMenuItem("Lobby and Chat…", key: "l", mods: [.command, .shift]) { g.cameFromMenu = g.hud.overlay == .menu; g.hud.overlay = .lobby },
             .separator(),
             ClosureMenuItem("Join Up on the Lead", key: "j") { g.keyDown(38) },

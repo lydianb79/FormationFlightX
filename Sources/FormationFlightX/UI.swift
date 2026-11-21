@@ -184,7 +184,7 @@ struct HUDView: View {
                         .padding(.trailing, 4).allowsHitTesting(false)
                         HStack(spacing: 5) {
                             BarButton(icon: s.unread > 0 ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right", help: "Lobby: chat and voice (Return)") { m.game.cameFromMenu = false; m.overlay = m.overlay == .lobby ? .none : .lobby }
-                            BarButton(icon: "person.3.fill", help: "Formation and pilots") { m.game.cameFromMenu = false; m.overlay = m.overlay == .formation ? .none : .formation }
+                            BarButton(icon: "person.3.fill", help: "Options: pilots, hosting and joining") { m.game.cameFromMenu = false; m.overlay = m.overlay == .options ? .none : .options }
                             BarButton(icon: "wind", help: "Wind, weather and time of day") { m.game.cameFromMenu = false; m.overlay = m.overlay == .environment ? .none : .environment }
                             BarButton(icon: "gamecontroller", help: "Controller setup") { m.openControllerSetup?() }
                             BarButton(icon: "questionmark", help: "Keyboard controls (H)") { m.game.cameFromMenu = false; m.overlay = m.overlay == .help ? .none : .help }
@@ -262,6 +262,7 @@ struct HUDView: View {
                 case .help: HelpView(m: m)
                 case .formation: FormationPanel(m: m)
                 case .lobby: LobbyView(m: m)
+                case .options: OptionsPanel(m: m)
                 case .splash: SplashView(m: m).transition(.asymmetric(insertion: .identity, removal: .scale(scale: 1.35).combined(with: .opacity)))
                 case .none: EmptyView()
                 }
@@ -435,7 +436,7 @@ struct SiteBrowser: View {
     @State private var selected = 0
     @AppStorage("siteFilter") private var filter = "All"       // stays as it was left, also after a restart
     @State private var search = ""
-    private static let categories = ["Fields", "Airfields", "Mountains", "Water", "Desert", "Winter"]
+    private static let categories = ["Race Tracks", "Obstacles", "Cities", "Fields", "Airfields", "Mountains", "Water", "Desert", "Winter"]
     private var all: [SiteSpec] { SiteSpec.all }
     private func matches(_ s: SiteSpec, _ f: String) -> Bool {
         switch f {
@@ -484,6 +485,9 @@ struct SiteBrowser: View {
                 VStack(alignment: .leading, spacing: 2) {
                     filterRow("All", icon: "square.grid.2x2")
                     heading("LANDSCAPE")
+                    filterRow("Race Tracks", icon: "flag.checkered")
+                    filterRow("Obstacles", icon: "square.grid.3x3.middle.filled")
+                    filterRow("Cities", icon: "building.2")
                     filterRow("Fields", icon: "leaf")
                     filterRow("Airfields", icon: "airplane.departure")
                     filterRow("Mountains", icon: "mountain.2")
@@ -706,8 +710,11 @@ struct MainMenu: View {
                         picture: { ZStack { Backdrop { EmptyView() }; if let i = m.thumbnail(spec) { Image(nsImage: i).resizable().scaledToFit().padding(3) } } }) { g.cameFromMenu = true; m.overlay = .aircraft }
                     row("FLYING SITE", site.displayName, g.together && !g.isHost ? "Chosen by the host, \(g.name(of: g.hostID))" : site.kindLabel,
                         picture: { ZStack { Color.black.opacity(0.3); if let i = m.sitePreview(site) { Image(nsImage: i).resizable().scaledToFill() } } }) { g.cameFromMenu = true; m.overlay = .sites }
-                    row("OPTIONS", "\(g.formation.name) · \(Formation.spacingNames[g.spacing].lowercased())", m.s.mates.isEmpty ? "Flying alone" : "With " + m.s.mates.map { $0.name }.joined(separator: ", "),
+                    row("FORMATIONS", g.formation.name, "\(Formation.spacingNames[g.spacing]) spacing" + (g.isLead ? "" : " · called by \(g.name(of: g.leadID))"),
                         picture: { ZStack { LinearGradient(colors: [Theme.brandDeep, Theme.brand.opacity(0.7)], startPoint: .bottomLeading, endPoint: .topTrailing); FormationGlyph(kind: g.formation, count: max(g.order.count, 3)).padding(10) } }) { g.cameFromMenu = true; m.overlay = .formation }
+                    row("OPTIONS", m.s.mates.isEmpty ? "Flying alone" : "With " + m.s.mates.map { $0.name }.joined(separator: ", "),
+                        g.net.hosting ? "Hosting a session" : (g.net.joined != nil ? "Joined a host" : (g.multiplayer ? "Pilots, your name, hosting and joining" : "Network off")),
+                        picture: { symbol("gearshape.2.fill") }) { g.cameFromMenu = true; m.overlay = .options }
                     row("LOBBY", g.together ? (g.sessionRunning ? "Session running" : "Session stopped") : "Meet other pilots",
                         g.together ? "\(g.remotePilots.count + 1) pilots · chat and voice" : (m.s.net.isEmpty ? "Host or join, chat and voice" : m.s.net), badge: m.s.unread > 0 ? "\(m.s.unread)" : nil,
                         picture: { symbol("bubble.left.and.bubble.right.fill") }) { g.cameFromMenu = true; m.overlay = .lobby }
@@ -1003,7 +1010,7 @@ struct FormationPanel: View {
     var body: some View {
         let g = m.game!
         let leading = g.isLead
-        Sheet(m: m, title: "Formation", subtitle: "Up to five pilots, on your network or over the internet, with no server", back: g.cameFromMenu ? .menu : .none, width: 940, height: 680) {
+        Sheet(m: m, title: "Formations", subtitle: leading ? "The shape the formation flies, and how close" : "Called by the lead, \(g.name(of: g.leadID))", back: g.cameFromMenu ? .menu : .none, width: 520, height: 600) {
             HStack(alignment: .top, spacing: 0) {
                 // the shape
                 VStack(alignment: .leading, spacing: 8) {
@@ -1037,9 +1044,49 @@ struct FormationPanel: View {
                     }
                     Spacer(minLength: 0)
                 }
-                .padding(20).frame(width: 400)
-                .disabled(false)
-                Rectangle().fill(Theme.stroke).frame(width: 1)
+                .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+}
+
+/// Everything about flying with others that is not the formation itself: who is there, who leads, your
+/// name, and how the pilots find each other.
+struct OptionsPanel: View {
+    @ObservedObject var m: HUDModel
+
+    private func heading(_ t: String) -> some View {
+        Text(t).font(.system(size: 9.5, weight: .heavy)).tracking(1.5).foregroundColor(Theme.paper.opacity(0.55))
+    }
+    private func field(_ title: String, _ text: Binding<String>, _ prompt: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.system(size: 12, weight: .medium)).foregroundColor(Theme.paper.opacity(0.9))
+            TextField(prompt, text: text).textFieldStyle(.plain).font(.system(size: 13.5)).foregroundColor(Theme.paper)
+                .padding(.horizontal, 9).padding(.vertical, 7)
+                .background(RoundedRectangle(cornerRadius: 7).fill(Theme.paper.opacity(0.08)))
+                .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.stroke, lineWidth: 1))
+        }
+    }
+    private func person(_ number: Int, _ name: String, _ detail: String, me: Bool) -> some View {
+        HStack(spacing: 10) {
+            Text("\(number)").font(.system(size: 13, weight: .heavy)).foregroundColor(number == 1 ? Theme.paper : Theme.ink)
+                .frame(width: 26, height: 26).background(Circle().fill(number == 1 ? Theme.brand : Theme.paper.opacity(0.8)))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name + (me ? "  (you)" : "")).font(.system(size: 13.5, weight: .semibold)).foregroundColor(Theme.paper)
+                Text(detail).font(.system(size: 11)).foregroundColor(Theme.dim)
+            }
+            Spacer()
+            Text(number == 1 ? "LEAD" : "WING").font(.system(size: 9.5, weight: .heavy)).tracking(1.2).foregroundColor(Theme.faint)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 9).fill(Theme.card))
+    }
+
+    var body: some View {
+        let g = m.game!
+        let leading = g.isLead
+        Sheet(m: m, title: "Options", subtitle: "Up to five pilots, on your network or over the internet, with no server", back: g.cameFromMenu ? .menu : .none, width: 560, height: 720) {
+            HStack(alignment: .top, spacing: 0) {
                 // the pilots
                 VStack(alignment: .leading, spacing: 10) {
                     heading("PILOTS")
@@ -1184,7 +1231,7 @@ struct LobbyView: View {
                     if others.isEmpty {
                         Text("Other pilots appear here when they are on your network, or when you host or join a formation over the internet.")
                             .font(.system(size: 11)).foregroundColor(Theme.faint).fixedSize(horizontal: false, vertical: true)
-                        Button { m.overlay = .formation } label: { Text("Host or Join…").frame(maxWidth: .infinity) }.buttonStyle(QuietButton())
+                        Button { m.overlay = .options } label: { Text("Host or Join…").frame(maxWidth: .infinity) }.buttonStyle(QuietButton())
                     }
                     heading("VOICE").padding(.top, 8)
                     Picker("", selection: Binding(get: { v.mode.rawValue }, set: { v.mode = VoiceChat.Mode(rawValue: $0) ?? .off; m.objectWillChange.send() })) {
@@ -1192,7 +1239,7 @@ struct LobbyView: View {
                     }
                     .pickerStyle(.segmented).labelsHidden()
                     if !g.net.running {
-                        Text("Voice needs the network: switch on “Fly with other pilots” in the Formation panel.")
+                        Text("Voice needs the network: switch on “Fly with other pilots” in Options.")
                             .font(.system(size: 11)).foregroundColor(Theme.dim).fixedSize(horizontal: false, vertical: true)
                     } else if let p = v.micProblem {
                         Text(p).font(.system(size: 11)).foregroundColor(Theme.paper.opacity(0.9)).fixedSize(horizontal: false, vertical: true)
