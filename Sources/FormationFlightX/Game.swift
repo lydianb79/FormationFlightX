@@ -141,6 +141,9 @@ struct Balloon { var pos: V3; var color: V4; var alive = true }
 struct Debris { var part: Int; var pos: V3; var q: simd_quatf; var vel: V3; var omega: V3; var offset: V3 }
 
 /// Smoke / dust puff, drawn as a camera-facing quad.
+/// One point of a smoke trail. A trail is a ribbon through its points, widening and thinning with age.
+struct TrailPoint { var pos: V3; var vel: V3; var age: Float; var wide: Float; var gap = false }
+
 struct Particle { var pos: V3; var vel: V3; var age: Float; var life: Float; var size: Float; var color: V4; var fall: Float = 0 }      // fall > 0: a leaf, which drops and flutters
 
 struct Lighting { var sunDir: V3; var sun: V3; var ambient: V3; var zenith: V3; var horizon: V3 }
@@ -202,8 +205,13 @@ final class Game {
     static var noShowcase = false
     static var showLog = CommandLine.arguments.contains("--showlog")
     var mapRange: Float = 120
+    // smoke trails, by whose they are; the last point of a trail that is being laid rides on the aircraft
+    var trails: [UInt32: [TrailPoint]] = [:]
+    var trailLaid: [UInt32: (frame: Int, since: Float)] = [:]
+    var trailFrame = 0
+    static let trailLife: Float = 5
     var showFlight: [Wingman] = []
-    var showAcc: Float = 0, showSmoke: Float = 0, showShotTime: Float = 0, showAngle: Float = 0
+    var showAcc: Float = 0, showShotTime: Float = 0, showAngle: Float = 0
     var showShot = 0, showKey = -1, showSnap = true
     var showEye = V3.zero, showTarget = V3.zero
     var formation: FormationKind = FormationKind(rawValue: UserDefaults.standard.integer(forKey: "formation")) ?? .vic { didSet { UserDefaults.standard.set(formation.rawValue, forKey: "formation") } }
@@ -598,6 +606,7 @@ final class Game {
         if sp > 3 { advanceMs.append(length(aircraft.renderPos - before) / sp * 1000) }
         updateFormation(dt: dt, realDt: realDt)
         updateShowcase(dt: dt)
+        if (!paused && !simHeld) || showcaseActive { ageSmoke(dt * (showcaseActive ? 1 : timeScale)) }
         updateCamera(dt)
         updateSound()
         messageTimer -= dt
@@ -747,16 +756,7 @@ final class Game {
             debris[i] = d
         }
         // smoke trail
-        if smokeOn && !aircraft.crashed && aircraft.power > 0.08 {
-            smokeAcc += dt * 70
-            let wind = env.windVec
-            while smokeAcc >= 1 {
-                smokeAcc -= 1
-                let p = aircraft.pos + aircraft.q.act(aircraft.spec.smokePos) - aircraft.vel * (rng.next() * dt)
-                particles.append(Particle(pos: p, vel: wind * 0.8 + aircraft.vel * 0.08 + V3(rng.range(-0.4, 0.4), rng.range(-0.2, 0.5), rng.range(-0.4, 0.4)),
-                                          age: 0, life: rng.range(3.5, 5), size: rng.range(0.12, 0.2), color: V4(0.96, 0.96, 0.97, 0.5)))
-            }
-        }
+        if smokeOn && !aircraft.crashed && aircraft.power > 0.08 { laySmoke(net.id, from: aircraft, dt: dt) }
         for i in particles.indices {
             particles[i].age += dt
             if particles[i].fall > 0 {
@@ -773,6 +773,37 @@ final class Game {
         }
         particles.removeAll { $0.age >= $0.life }
         if particles.count > 900 { particles.removeFirst(particles.count - 900) }
+    }
+
+    /// Lay smoke behind an aircraft this frame. The trail's newest point stays on the aircraft; a new one is dropped
+    /// every few hundredths of a second and from then on drifts with the wind.
+    func laySmoke(_ id: UInt32, from ac: Aircraft, dt: Float) {
+        let p = ac.renderPos + ac.renderQ.act(ac.spec.smokePos)
+        let fresh = TrailPoint(pos: p, vel: env.windVec * 0.8 + V3(rng.range(-0.3, 0.3), rng.range(0, 0.35), rng.range(-0.3, 0.3)), age: 0, wide: rng.range(0.75, 1.3) * clampf(ac.spec.span / 1.3, 0.4, 1.6))   // a small model lays a thin trail
+        var t = trails[id] ?? []
+        let laid = trailLaid[id]
+        if laid == nil || laid!.frame < trailFrame - 1 || t.isEmpty {
+            // the smoke has just come on: a new stretch, not joined to whatever is still hanging in the air
+            var first = fresh; first.gap = true
+            t.append(first); t.append(fresh)
+            trailLaid[id] = (trailFrame, 0)
+        } else {
+            var since = laid!.since + dt
+            if since >= 0.035 { since = 0; t.append(fresh) } else { t[t.count - 1].pos = p; t[t.count - 1].age = 0 }
+            trailLaid[id] = (trailFrame, since)
+        }
+        trails[id] = t
+    }
+
+    /// The smoke in the air drifts, ages and goes.
+    func ageSmoke(_ dt: Float) {
+        trailFrame += 1
+        for (id, var t) in trails {
+            let live = trailLaid[id].map { $0.frame >= trailFrame - 1 } ?? false
+            for i in t.indices where !(live && i == t.count - 1) { t[i].age += dt; t[i].pos += t[i].vel * dt; t[i].vel *= 1 - min(0.5 * dt, 1) }
+            t.removeAll { $0.age >= Game.trailLife }
+            trails[id] = t.isEmpty ? nil : t
+        }
     }
 
     func snapCamera() { camSnap = true }

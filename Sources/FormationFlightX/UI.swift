@@ -585,6 +585,10 @@ struct SplashView: View {
     @State private var pulse = false
     @State private var progress: CGFloat = 0
     private static let image: NSImage? = resourceURL("Splash.jpg").flatMap { NSImage(contentsOf: $0) }
+    private static let logo: NSImage? = resourceURL("RockFPV.png").flatMap { NSImage(contentsOf: $0) }
+    @State private var titled = false
+    @State private var tagged = false
+    @State private var credited = false
     private static let hold: Double = 4.0
 
     var body: some View {
@@ -613,8 +617,39 @@ struct SplashView: View {
                 // a soft dark edge that eases off as the picture arrives
                 RadialGradient(colors: [.clear, .black.opacity(arrived ? 0.28 : 0.75)], center: .center, startRadius: g.size.height * 0.35, endRadius: g.size.height * 1.05)
                     .allowsHitTesting(false)
+            }
+            .frame(width: g.size.width, height: g.size.height)
+            .clipped()
+            // the title comes up from below once the picture has settled, the line under it and the credit after it
+            .overlay(alignment: .bottomLeading) {
+                let u = g.size.width / 1280
+                VStack(alignment: .leading, spacing: 0) {
+                    (Text("FormationFlight").foregroundColor(Theme.paper) + Text("X").foregroundColor(Theme.amber))
+                        .font(.system(size: 92 * u, weight: .bold, design: .rounded))
+                        .shadow(color: .black.opacity(0.45), radius: 14 * u, y: 5 * u)
+                        .opacity(titled ? 1 : 0).offset(y: titled ? 0 : 46 * u)
+                    Text("Fly together").font(.system(size: 31 * u, weight: .medium, design: .rounded)).foregroundColor(Theme.paper.opacity(0.9))
+                        .shadow(color: .black.opacity(0.4), radius: 8 * u, y: 2 * u)
+                        .padding(.top, 2 * u).padding(.leading, 5 * u)
+                        .opacity(tagged ? 1 : 0).offset(x: tagged ? 0 : -30 * u)
+                    HStack(spacing: 14 * u) {
+                        if let logo = Self.logo {
+                            Image(nsImage: logo).resizable().frame(width: 62 * u, height: 62 * u).clipShape(Circle())
+                                .overlay(Circle().stroke(Theme.paper.opacity(0.85), lineWidth: 1.5 * u)).shadow(color: .black.opacity(0.5), radius: 7 * u, y: 2 * u)
+                        }
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("Created by").font(.system(size: 14 * u, weight: .medium, design: .rounded)).foregroundColor(Theme.paper.opacity(0.75))
+                            Text("Rock FPV").font(.system(size: 28 * u, weight: .bold, design: .rounded)).foregroundColor(Theme.paper)
+                        }
+                    }
+                    .padding(.top, 30 * u).padding(.leading, 4 * u)
+                    .opacity(credited ? 1 : 0).offset(y: credited ? 0 : 16 * u)
+                }
+                .padding(.leading, 74 * u).padding(.bottom, 86 * u)
+                .allowsHitTesting(false)
+            }
+            .overlay(alignment: .bottom) {
                 VStack(spacing: 12) {
-                    Spacer()
                     Text("PRESS ANY KEY").font(.system(size: 11, weight: .heavy)).tracking(3)
                         .foregroundColor(Theme.paper.opacity(pulse ? 0.95 : 0.4))
                         .opacity(arrived ? 1 : 0)
@@ -627,7 +662,6 @@ struct SplashView: View {
                     .padding(.bottom, 22)
                 }
             }
-            .frame(width: g.size.width, height: g.size.height)
         }
         .ignoresSafeArea()
         .contentShape(Rectangle())
@@ -640,6 +674,9 @@ struct SplashView: View {
         guard !arrived else { return }
         withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 1.1)) { arrived = true }
         withAnimation(.easeInOut(duration: 1.2).delay(0.35)) { sweep = true }
+        withAnimation(.spring(response: 0.7, dampingFraction: 0.78).delay(0.45)) { titled = true }
+        withAnimation(.easeOut(duration: 0.6).delay(0.95)) { tagged = true }
+        withAnimation(.easeOut(duration: 0.6).delay(1.3)) { credited = true }
         withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true).delay(0.5)) { pulse = true }
         withAnimation(.linear(duration: Self.hold)) { progress = 1 }
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.hold) { if m.overlay == .splash { m.overlay = .menu } }
@@ -704,7 +741,7 @@ struct MainMenu: View {
                     VStack(alignment: .leading, spacing: 0) {
                         (Text("FormationFlight").foregroundColor(Theme.paper) + Text("X").foregroundColor(Theme.brand))
                             .font(.system(size: 29, weight: .bold, design: .rounded))
-                        Text("Fly wings together").font(.system(size: 12, weight: .medium, design: .rounded)).foregroundColor(Theme.dim)
+                        Text("Fly together").font(.system(size: 12, weight: .medium, design: .rounded)).foregroundColor(Theme.dim)
                     }
                 }
                 .padding(.bottom, 22)

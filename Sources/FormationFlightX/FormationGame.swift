@@ -390,15 +390,7 @@ extension Game {
 
         // smoke from the others
         if running {
-            wingSmokeAcc += sdt * 40
-            let puffs = Int(wingSmokeAcc); wingSmokeAcc -= Float(puffs)
-            for w in wingmen where w.smoke && w.present(now) && !w.aircraft.crashed && puffs > 0 {
-                let ac = w.aircraft
-                for k in 0..<min(puffs, 4) {
-                    particles.append(Particle(pos: ac.pos + ac.q.act(ac.spec.smokePos) - ac.vel * (Float(k) / 40), vel: env.windVec * 0.8 + ac.vel * 0.08,
-                                              age: 0, life: 3.5, size: 0.16, color: V4(0.96, 0.96, 0.97, 0.5)))
-                }
-            }
+            for w in wingmen where w.smoke && w.present(now) && !w.aircraft.crashed { laySmoke(w.id, from: w.aircraft, dt: sdt) }
         }
 
         // voice: on while the network is; push to talk is the B key in flight and a button in the lobby

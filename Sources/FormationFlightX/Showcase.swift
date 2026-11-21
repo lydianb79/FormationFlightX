@@ -3,7 +3,7 @@ import Foundation
 import QuartzCore
 
 // What goes on behind the menus: a flight of five of the chosen aircraft flies the site in the chosen formation,
-// and a camera follows it, cutting from one view to the next. Nothing here touches the pilot's
+// trailing smoke, and a camera follows it, cutting from one view to the next. Nothing here touches the pilot's
 // own aircraft, which waits where it was left.
 
 extension Game {
@@ -25,6 +25,7 @@ extension Game {
             w.aircraft.updateRenderPose(ahead: 0)
         }
         showShot = Int(CACurrentMediaTime()) % 5; showShotTime = 0; showSnap = true
+        for w in showFlight { trailLaid[w.id] = nil }
     }
 
     private var showSpacing: Float { Formation.spacing(spacing, span: showFlight[0].aircraft.spec.span) }
@@ -37,11 +38,12 @@ extension Game {
         p.y = max(p.y, terrain.gnd(p.x, p.z) + 6)
         ac.reset(pos: p, heading: atan2(-f.x, -f.z), speed: max(length(lead.vel), ac.spec.stallSpeed * 1.4))
         showFlight[n].crashTimer = 0
+        trailLaid[showFlight[n].id] = nil
     }
 
     func updateShowcase(dt: Float) {
         guard showcaseActive else {
-            if !showFlight.isEmpty { showFlight = []; particles.removeAll(); snapCamera() }
+            if !showFlight.isEmpty { for w in showFlight { trails[w.id] = nil; trailLaid[w.id] = nil }; showFlight = []; snapCamera() }
             return
         }
         let key = siteVersion * 1000 + aircraftIndex
@@ -71,6 +73,7 @@ extension Game {
             showAcc -= h
         }
         for w in showFlight { w.aircraft.updateRenderPose(ahead: showAcc) }
+        for w in showFlight where !w.aircraft.crashed { laySmoke(w.id, from: w.aircraft, dt: dt) }
     }
 
     /// The camera for the showcase. Returns false when it does not apply and the pilot's own camera should.

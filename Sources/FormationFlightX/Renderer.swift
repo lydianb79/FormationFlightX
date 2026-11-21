@@ -545,6 +545,7 @@ final class Renderer: NSObject, MTKViewDelegate {
                 }
                 if let om = GPUMesh(device, ob) { drawItems(enc, [DrawItem(mesh: om, model: .identity, material: 4)], fragment: true) }
             }
+            if let tm = trailMesh() { drawItems(enc, [DrawItem(mesh: tm, model: .identity, material: 3)], fragment: true) }
             if let pm = particleMesh() { drawItems(enc, [DrawItem(mesh: pm, model: .identity, material: 3)], fragment: true) }
             enc.endEncoding()
         }
@@ -687,6 +688,39 @@ final class Renderer: NSObject, MTKViewDelegate {
     }
 
     /// Camera-facing quads for all smoke and dust particles, oldest first.
+    /// Smoke trails: each a pair of crossed ribbons through its points, soft at the edges, wider and fainter with age.
+    private func trailMesh() -> GPUMesh? {
+        guard !game.trails.isEmpty else { return nil }
+        var b = MeshBuilder()
+        let up = V3(0, 1, 0), life = Game.trailLife
+        for t in game.trails.values where t.count >= 2 {
+            // the two edges of each ribbon at every point, then the quads between neighbours
+            var edge: [(V3, V3, V3, V3, V4)] = []
+            edge.reserveCapacity(t.count)
+            for i in t.indices {
+                let a = t[max(i - 1, 0)].gap && i > 0 ? t[i].pos : t[max(i - (t[i].gap ? 0 : 1), 0)].pos
+                let c = t[min(i + 1, t.count - 1)].pos
+                var dir = c - a
+                dir = length(dir) > 1e-4 ? normalize(dir) : V3(0, 0, 1)
+                var s1 = cross(dir, up)
+                s1 = length(s1) > 0.05 ? normalize(s1) : V3(1, 0, 0)
+                let s2 = cross(s1, dir), p = t[i]
+                let w = (0.05 + 0.24 * sqrt(p.age)) * p.wide
+                let fade = 1 - p.age / life
+                let alpha = 0.42 * min(1, p.age * 7 + 0.25) * fade * sqrt(fade)
+                edge.append((p.pos - s1 * w, p.pos + s1 * w, p.pos - s2 * w, p.pos + s2 * w, V4(0.96, 0.96, 0.97, alpha)))
+            }
+            for i in 1..<t.count where !t[i].gap {
+                let p = edge[i - 1], q = edge[i]
+                for (a0, a1, b0, b1) in [(p.0, p.1, q.0, q.1), (p.2, p.3, q.2, q.3)] {
+                    b.v(a0, V3(-1, 0, 0), p.4); b.v(a1, V3(1, 0, 0), p.4); b.v(b1, V3(1, 0, 0), q.4)
+                    b.v(a0, V3(-1, 0, 0), p.4); b.v(b1, V3(1, 0, 0), q.4); b.v(b0, V3(-1, 0, 0), q.4)
+                }
+            }
+        }
+        return GPUMesh(device, b)
+    }
+
     private func particleMesh() -> GPUMesh? {
         guard !game.particles.isEmpty else { return nil }
         let fwd = normalize(game.target - game.eye)
