@@ -279,11 +279,24 @@ final class FormationNet {
 
     /// Ask the router to let pilots on the internet reach this Mac, or stop asking.
     func setHosting(_ on: Bool) {
-        if on { let p = port; mapping.open(port: p == 0 ? FormationNet.port : p) } else { mapping.close() }
+        if on { let p = port; mapping.open(port: p == 0 ? FormationNet.port : p); lookup.start() } else { mapping.close(); lookup.stop() }
     }
     var hosting: Bool { mapping.wanted }
-    /// What the host tells the others, once the router has answered: "address:port".
-    var publicAddress: String? { mapping.address }
+    private let lookup = PublicAddressLookup()
+    /// The router opened the port by itself.
+    var portOpened: Bool { mapping.address != nil }
+    /// What the host tells the others: "address:port". From the router if it opened the port; otherwise the
+    /// address the internet sees this connection as, with the port this copy listens on.
+    var publicAddress: String? {
+        if let a = mapping.address { return a }
+        guard let ip = lookup.address else { return nil }
+        let p = port == 0 ? FormationNet.port : port
+        return ip.contains(":") ? "[\(ip)]:\(p)" : "\(ip):\(p)"
+    }
+    /// Still asking what the public address is.
+    var findingAddress: Bool { mapping.address == nil && lookup.address == nil && lookup.busy }
+    /// This Mac's address on its own network, for the router's port forwarding and for pilots on the same network.
+    var localAddress: String? { PublicAddressLookup.localIPv4() }
     /// Why there is no public address, if the router has refused or does not answer.
     var hostingProblem: String? { mapping.problem }
     /// How many pilots are connected to this copy as their host.
@@ -485,5 +498,73 @@ final class PortMapping {
         wanted = false
         if let r = ref { DNSServiceRefDeallocate(r); ref = nil }
         lock.lock(); result = nil; trouble = nil; lock.unlock()
+    }
+}
+
+
+/// Finds the address the internet sees this connection as. A Mac behind a router cannot know that by itself,
+/// and a router that will not open a port will often not say either, so a public "what is my address" service
+/// is asked. Nothing is sent but the request itself; this happens only while hosting is switched on.
+final class PublicAddressLookup {
+    private static let services = ["https://api.ipify.org", "https://checkip.amazonaws.com", "https://icanhazip.com"]
+    private let lock = NSLock()
+    private var found: String?, working = false, wanted = false
+    private var task: URLSessionDataTask?
+
+    var address: String? { lock.lock(); defer { lock.unlock() }; return found }
+    var busy: Bool { lock.lock(); defer { lock.unlock() }; return working }
+
+    func start() {
+        lock.lock(); let go = !wanted; wanted = true; if go { working = true; found = nil }; lock.unlock()
+        if go { ask(0) }
+    }
+
+    func stop() {
+        lock.lock(); wanted = false; working = false; found = nil; let t = task; task = nil; lock.unlock()
+        t?.cancel()
+    }
+
+    private func ask(_ i: Int) {
+        guard i < PublicAddressLookup.services.count, let url = URL(string: PublicAddressLookup.services[i]) else {
+            lock.lock(); working = false; lock.unlock(); return
+        }
+        var req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 6)
+        req.setValue("FormationFlightX", forHTTPHeaderField: "User-Agent")
+        let t = URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
+            guard let s = self else { return }
+            s.lock.lock(); let still = s.wanted; s.lock.unlock()
+            guard still else { return }
+            // only a bare address is accepted, whatever the service sends
+            if let d = data, d.count < 64, let text = String(data: d, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), PublicAddressLookup.isAddress(text) {
+                s.lock.lock(); s.found = text; s.working = false; s.lock.unlock()
+            } else {
+                s.ask(i + 1)
+            }
+        }
+        lock.lock(); task = t; lock.unlock()
+        t.resume()
+    }
+
+    static func isAddress(_ s: String) -> Bool {
+        var a4 = in_addr(), a6 = in6_addr()
+        return inet_pton(AF_INET, s, &a4) == 1 || inet_pton(AF_INET6, s, &a6) == 1
+    }
+
+    /// The first private IPv4 address of an active network interface.
+    static func localIPv4() -> String? {
+        var list: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&list) == 0, let first = list else { return nil }
+        defer { freeifaddrs(list) }
+        var p: UnsafeMutablePointer<ifaddrs>? = first
+        while let i = p {
+            defer { p = i.pointee.ifa_next }
+            let flags = Int32(i.pointee.ifa_flags)
+            guard flags & IFF_UP != 0, flags & IFF_LOOPBACK == 0, let sa = i.pointee.ifa_addr, sa.pointee.sa_family == UInt8(AF_INET) else { continue }
+            var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            guard getnameinfo(sa, socklen_t(sa.pointee.sa_len), &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0 else { continue }
+            let ip = String(cString: host)
+            if ip.hasPrefix("192.168.") || ip.hasPrefix("10.") || (ip.hasPrefix("172.") && (16...31).contains(Int(ip.split(separator: ".")[1]) ?? 0)) { return ip }
+        }
+        return nil
     }
 }

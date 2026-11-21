@@ -44,10 +44,12 @@ Nothing to set up: Macs on the same Wi-Fi or cable network find each other by th
 
 One pilot hosts and the others connect to the host. There is still no server: the host's copy of the app passes each pilot's positions on to the others.
 
-1. **The host** opens the Formation panel and switches on **Host**. The app asks the router to open UDP port 47800 (NAT-PMP, PCP or UPnP) and then shows the address to give out, for example `203.0.113.5:47800`.
+1. **The host** opens the Formation panel and switches on **Host a session**. The panel then shows **your public address**, for example `203.0.113.5:47800`, with a Copy button; the lobby shows it too. The app also asks the router to open UDP port 47800 (NAT-PMP, PCP or UPnP) and says whether it did.
 2. **The others** type that address under **Or join a host** and press **Connect**. The panel says when the host is answering.
 
-If the router does not open the port by itself, the panel says so: forward UDP port 47800 to the host's Mac in the router's settings and give the others your public address followed by `:47800`. A host name works as well as a number. If the internet provider shares one public address between customers (carrier-grade NAT), that connection cannot host; let someone else host, or put the Macs on one virtual network (ZeroTier, Tailscale) and join the host's address there.
+If the router does not open the port by itself, the panel says so, in amber under the address: forward UDP port 47800 to the host's Mac in the router's settings (the panel gives the Mac's address on your network). The public address shown is right either way, but nobody outside gets through until the port is open.
+
+The public address comes from the router when it opens the port. Otherwise the app asks a public "what is my address" service (api.ipify.org, then checkip.amazonaws.com, then icanhazip.com); this happens only while hosting is on, and it is the one thing the app ever asks of anyone outside the formation. The address is shown in the Formation panel and the lobby, not on the flight screen, so it does not end up in a stream or a screenshot by accident. A host name works as well as a number. If the internet provider shares one public address between customers (carrier-grade NAT), that connection cannot host; let someone else host, or put the Macs on one virtual network (ZeroTier, Tailscale) and join the host's address there.
 
 Who hosts has nothing to do with who leads: any pilot can take the lead. Pilots on the host's own network join in by themselves and fly with the online ones. Everyone's traffic to an online pilot goes by way of the host, so the host's connection sets the delay.
 

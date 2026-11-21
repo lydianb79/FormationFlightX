@@ -7,7 +7,7 @@ enum FormationKind: Int, CaseIterable {
 
     var name: String { ["Vic", "Echelon right", "Echelon left", "Line astern", "Line abreast"][rawValue] }
     var blurb: String {
-        ["Wingmen stepped back on both sides of the lead, even numbers on the left",
+        ["Wingmen stepped back on both sides of the lead, even numbers on the right",
          "Every wingman stepped back to the right of the one ahead",
          "Every wingman stepped back to the left of the one ahead",
          "One behind the other, each a little lower than the one ahead",

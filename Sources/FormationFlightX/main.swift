@@ -1298,7 +1298,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--netlog") {
             Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [unowned self] _ in
                 let g = self.game!, now = CACurrentMediaTime()
-                var line = "NET \(g.pilotName) [port \(g.net.port)\(g.net.hosting ? " hosting at \(g.net.publicAddress ?? g.net.hostingProblem ?? "…")" : "")\(g.net.joined.map { " joined \($0.target) \($0.answering ? "ok" : "silent")" } ?? "") guests \(g.net.guestCount)] lead \(g.name(of: g.leadID)) site \(g.siteIndex)"
+                var line = "NET \(g.pilotName) [port \(g.net.port)\(g.net.hosting ? " hosting, public address \(g.net.publicAddress.map { PublicAddressLookup.isAddress(String($0.split(separator: ":")[0])) ? "found (IPv4), port \($0.split(separator: ":").last ?? "")" : "found" } ?? (g.net.findingAddress ? "being looked up" : "NOT found")), router \(g.net.portOpened ? "opened the port" : "did not open the port"), local \(g.net.localAddress == nil ? "none" : "found")" : "")\(g.net.joined.map { " joined \($0.target) \($0.answering ? "ok" : "silent")" } ?? "") guests \(g.net.guestCount)] lead \(g.name(of: g.leadID)) site \(g.siteIndex)"
                 for w in g.wingmen { line += String(format: " | %@ %@ %.0f m away%@", w.name, w.present(now) ? "flying" : "absent", distance(w.aircraft.pos, g.aircraft.pos), w.ai != nil ? " (computer)" : "") }
                 line += " | session \(g.sessionRunning ? "RUN" : "stop") #\(g.sessionCount) host \(g.name(of: g.hostID)) | me: \(g.hud.overlay) wing \(g.aircraftIndex) tod \(g.timeOfDay)"
                 if let e = g.slotError { line += String(format: " | slot error %.1f m", length(e)) }

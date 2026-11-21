@@ -1081,18 +1081,7 @@ struct FormationPanel: View {
                         }
                         .toggleStyle(.switch).controlSize(.small)
                         if g.net.hosting {
-                            if let a = g.net.publicAddress {
-                                HStack(spacing: 8) {
-                                    Text(a).font(.system(size: 13.5, weight: .semibold, design: .monospaced)).foregroundColor(Theme.paper).textSelection(.enabled)
-                                    Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(a, forType: .string) }.buttonStyle(QuietButton())
-                                    Spacer(minLength: 0)
-                                }
-                                Text("Give this address to the other pilots. \(g.net.guestCount == 0 ? "Nobody has connected yet." : "\(g.net.guestCount) connected.")")
-                                    .font(.system(size: 11)).foregroundColor(Theme.dim).fixedSize(horizontal: false, vertical: true)
-                            } else {
-                                Text((g.net.hostingProblem ?? "Asking the router to open the port…") + (g.net.hostingProblem == nil ? "" : " Forward UDP port \(String(g.net.port)) to this Mac in the router, then give the others your public address followed by :\(String(g.net.port)).\(g.net.guestCount == 0 ? "" : " \(g.net.guestCount) connected.")"))
-                                    .font(.system(size: 11)).foregroundColor(Theme.dim).fixedSize(horizontal: false, vertical: true)
-                            }
+                            HostAddress(m: m)
                         } else {
                             HStack(alignment: .bottom, spacing: 8) {
                                 field("Or join a host", Binding(get: { g.hostAddress }, set: { g.hostAddress = String($0.prefix(80)); m.objectWillChange.send() }), "address:47800")
@@ -1263,6 +1252,15 @@ struct LobbyView: View {
                     if locked {
                         Text("You can change your wing when the host stops the session.").font(.system(size: 11)).foregroundColor(Theme.faint).fixedSize(horizontal: false, vertical: true)
                     }
+                    if g.net.hosting, let a = g.net.publicAddress {
+                        HStack(spacing: 6) {
+                            Image(systemName: g.net.portOpened ? "globe" : "exclamationmark.triangle.fill").font(.system(size: 11)).foregroundColor(g.net.portOpened ? Theme.brand : Theme.amber)
+                            Text(a).font(.system(size: 12, weight: .semibold, design: .monospaced)).foregroundColor(Theme.paper).textSelection(.enabled).lineLimit(1).minimumScaleFactor(0.7)
+                            Spacer(minLength: 0)
+                            Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(a, forType: .string) }.buttonStyle(.plain).font(.system(size: 11, weight: .semibold)).foregroundColor(Theme.brand)
+                        }
+                        .help(g.net.portOpened ? "Your public address: give it to the other pilots" : "Your public address. The router has not opened the port: see the Formation panel")
+                    }
                     if g.together && g.isHost {
                         HStack(spacing: 7) {
                             Button { g.startSession() } label: { Text(g.sessionRunning ? "Restart" : "Start Session").frame(maxWidth: .infinity) }.buttonStyle(PrimaryButton())
@@ -1339,6 +1337,41 @@ private struct ChatLog: View {
             }
             .onChange(of: lines.last?.id) { _ in DispatchQueue.main.async { proxy.scrollTo("end", anchor: .bottom) } }
             .onAppear { proxy.scrollTo("end", anchor: .bottom) }
+        }
+    }
+}
+
+
+/// What a host gives the other pilots: the public address, and whether the router lets them in.
+private struct HostAddress: View {
+    @ObservedObject var m: HUDModel
+    var body: some View {
+        let net = m.game.net
+        VStack(alignment: .leading, spacing: 5) {
+            if let a = net.publicAddress {
+                Text("YOUR PUBLIC ADDRESS").font(.system(size: 9.5, weight: .heavy)).tracking(1.5).foregroundColor(Theme.paper.opacity(0.55))
+                HStack(spacing: 8) {
+                    Text(a).font(.system(size: 15, weight: .semibold, design: .monospaced)).foregroundColor(Theme.paper).textSelection(.enabled).lineLimit(1).minimumScaleFactor(0.7)
+                    Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(a, forType: .string) }.buttonStyle(QuietButton())
+                    Spacer(minLength: 0)
+                }
+                if net.portOpened {
+                    Label("The router has opened the port. Give this address to the other pilots.", systemImage: "checkmark.circle.fill")
+                        .font(.system(size: 11)).foregroundColor(Theme.dim).fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Label((net.hostingProblem ?? "The router has not opened the port yet.") + " Until UDP port \(String(net.port)) is forwarded to this Mac\(net.localAddress.map { " (\($0))" } ?? "") in the router, pilots elsewhere cannot get through.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11)).foregroundColor(Theme.amber).fixedSize(horizontal: false, vertical: true)
+                }
+            } else {
+                Text(net.findingAddress ? "Finding your public address…" : "Your public address could not be found (no internet connection?).")
+                    .font(.system(size: 11.5)).foregroundColor(Theme.dim).fixedSize(horizontal: false, vertical: true)
+            }
+            if let l = net.localAddress {
+                Text("Pilots on your own network find you by themselves; if they do not, they can join \(l):\(String(net.port)).")
+                    .font(.system(size: 11)).foregroundColor(Theme.faint).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+            }
+            Text(net.guestCount == 0 ? "Nobody has connected yet." : "\(net.guestCount) connected from outside.").font(.system(size: 11)).foregroundColor(Theme.dim)
         }
     }
 }

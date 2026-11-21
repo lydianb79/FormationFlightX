@@ -478,7 +478,8 @@ extension Game {
         if net.running {
             if !remotePilots.isEmpty { s.net = "\(remotePilots.count + 1) pilots connected" }
             else if let j = net.joined { s.net = j.answering ? "Connected to \(j.target); waiting for the others" : "Calling \(j.target)…" }
-            else if net.hosting { s.net = net.publicAddress.map { "Hosting at \($0); waiting for pilots" } ?? "Hosting; waiting for pilots" }
+            // (the address itself stays in the panels: the flight screen is what gets streamed and shared)
+            else if net.hosting { s.net = "Hosting; waiting for pilots" }
             else { s.net = net.status }
         }
         else { s.net = multiplayer ? "" : "Network off" }
