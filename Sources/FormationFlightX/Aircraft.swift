@@ -374,8 +374,8 @@ final class Aircraft {
             wanted = k * (1 - spec.trimSpeed * spec.trimSpeed / (airspeed * airspeed))
         }
         sinceReset += dt
-        wanted *= smoothstep(3, 6, sinceReset)
-        ease += (wanted - ease) * min(1, dt / 0.5)
+        // (it acts from the throw on: easing it in lets a powerful wing zoom to the vertical in the first second)
+        ease += (wanted - ease) * min(1, dt / 0.08)            // (as fast as a servo: any lag lets the nose come up first)
         servo += (V3(c.aileron, clampf(c.elevator - ease, -1, 1), c.rudder) - servo) * min(1, dt / 0.04)
         if spec.hasFlaps { flap += clampf(c.flaps - flap, -dt / 1.5, dt / 1.5) }
         if spec.hasRetracts { gear += clampf((c.gearUp && !crashed ? 1 : 0) - gear, -dt / 1.2, dt / 1.2) }

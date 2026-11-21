@@ -225,6 +225,8 @@ final class Game {
     var showShot = 0, showKey = -1, showSnap = true
     var showEye = V3.zero, showTarget = V3.zero
     var showLast = V3.zero
+    var showLeadQ = simd_quatf(ix: 0, iy: 0, iz: 0, r: 1), showSnapQ = true, showSlotsFresh = true
+    var showRock = [V3](repeating: .zero, count: 5), showRockT: Float = 0
     var formation: FormationKind = FormationKind(rawValue: UserDefaults.standard.integer(forKey: "formation")) ?? .vic { didSet { UserDefaults.standard.set(formation.rawValue, forKey: "formation") } }
     var spacing: Int = (UserDefaults.standard.object(forKey: "spacing") as? Int) ?? 1 { didSet { UserDefaults.standard.set(spacing, forKey: "spacing") } }
     /// Computer-flown partners fill the formation while no other pilot is connected.
@@ -370,13 +372,19 @@ final class Game {
     }
 
     /// How fast an aircraft leaves the hand: a good throw, and always clear of the stall.
-    static func throwSpeed(_ spec: AircraftSpec) -> Float { max(clampf(spec.stallSpeed * 1.7, 4, 9), spec.stallSpeed * 1.3) }
+    /// How much of the nose-up with speed the pitch trim takes out. All of it: with any left in, an aircraft with
+    /// power to spare turns that power into a steep climb hands-off, which is what pilots call pulling up.
+    static let speedTrimShare: Float = Float(ProcessInfo.processInfo.environment["FFX_SHARE"] ?? "") ?? 1
+
+    static func throwSpeed(_ spec: AircraftSpec) -> Float { max(clampf(spec.stallSpeed * 1.7, 4, 9), spec.stallSpeed * 1.45) }
+    /// How far nose up an aircraft is held, and thrown.
+    static let throwAngle: Float = 15 * deg
 
     /// Hold the aircraft in the hand, nose a little up, until the launch button.
     private func hold(at p: V3, heading: Float) {
         aircraft.reset(pos: p, heading: heading, speed: 0)
         handPos = p
-        handQ = simd_quatf(angle: heading, axis: V3(0, 1, 0)) * simd_quatf(angle: 10 * deg, axis: V3(1, 0, 0))
+        handQ = simd_quatf(angle: heading, axis: V3(0, 1, 0)) * simd_quatf(angle: Game.throwAngle, axis: V3(1, 0, 0))
         aircraft.q = handQ
         inHand = true
     }

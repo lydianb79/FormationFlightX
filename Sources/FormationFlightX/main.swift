@@ -1017,16 +1017,47 @@ if let di = CommandLine.arguments.firstIndex(of: "--handsoff"), di + 1 < Command
     exit(0)
 }
 
+if let name = CommandLine.arguments.firstIndex(of: "--pitchtrace").map({ CommandLine.arguments[$0 + 1] }) {
+    // One aircraft, hands off throughout, the throttle moved as a pilot would: thrown from the hand at full throttle,
+    // throttle back to half at 12 s, full again at 24 s. Prints attitude, climb and speed twice a second.
+    guard let spec = AircraftLibrary.all.first(where: { $0.name.lowercased().contains(name.lowercased()) }) else { print("no aircraft called \(name)"); exit(1) }
+    let ac = Aircraft(spec); ac.unlimitedBattery = true
+    ac.reset(pos: V3(0, 1.9, 0), heading: 0, speed: Game.throwSpeed(spec))
+    ac.q = ac.q * simd_quatf(angle: Game.throwAngle, axis: V3(1, 0, 0)); ac.vel = ac.q.act(V3(0, 0, -Game.throwSpeed(spec)))
+    print(String(format: "%@  (eased by %.2f flat out above %.0f km/h)", spec.name as NSString, spec.speedTrim, spec.trimSpeed * 3.6))
+    for k in 0..<36000 {
+        let t = Float(k) / 1000
+        var c = Controls(); c.throttle = t < 12 || t >= 24 ? 1 : 0.5; c.aileron = spec.rollTrim + clampf(-1.5 * ac.roll, -0.3, 0.3)
+        ac.step(dt: 0.001, c: c, terrain: Terrain.flat, wind: .zero, rollMu: 0.05)
+        ac.pos.x = 0; ac.pos.z = 0
+        if k % 500 == 0 {
+            let gamma = atan2(ac.vel.y, length(V3(ac.vel.x, 0, ac.vel.z))) / deg
+            print(String(format: "t %4.1f  thr %3.0f%%  pitch %+5.1f°  climb angle %+5.1f°  height %6.1f m  speed %5.1f km/h  trim fed in %.2f%@", t, c.throttle * 100, ac.pitch / deg, gamma, ac.pos.y, ac.airspeed * 3.6, ac.ease, ac.crashed ? "  CRASHED" : ""))
+        }
+    }
+    exit(0)
+}
+
 if CommandLine.arguments.contains("--powertest") {
     // How much stick it takes to hold each aircraft level on half and on full throttle: the elevator as a share
     // of full throw and of the low-rate throw the aircraft starts on (negative = forward).
     print("aircraft                       half throttle            full throttle")
     var worst: Float = 0, sum: Float = 0, n: Float = 0
     for spec in AircraftLibrary.all where spec.kind == .airplane && spec.category != "Gliders" {
-        let h = levelElevator(spec, throttle: 0.5), f = levelElevator(spec, throttle: 1)
+        let h = levelElevator(spec, throttle: 0.5), f = levelElevator(spec, throttle: 1, seconds: 60)
         print(String(format: "%-28@ %5.0f km/h  %+4.0f%% (%+4.0f%% of low)   %5.0f km/h  %+4.0f%% (%+4.0f%% of low)", spec.name as NSString,
                      h.speed * 3.6, h.elev * 100, h.elev / spec.lowRate * 100, f.speed * 3.6, f.elev * 100, f.elev / spec.lowRate * 100))
         if f.elev.isFinite { worst = max(worst, -f.elev / spec.lowRate); sum += -f.elev / spec.lowRate; n += 1 }
+        if CommandLine.arguments.contains("--verbose") && spec.name.contains("Chupito") {
+            var plain = spec; plain.speedTrim = 0; plain.speedTrimHalf = 0
+            let p1 = levelElevator(plain, throttle: 1, seconds: 60), p2 = levelElevator(plain, throttle: 1, seconds: 30, from: 167 / 3.6)
+            let w1 = levelElevator(spec, throttle: 1, seconds: 30, from: 167 / 3.6)
+            let ac = Aircraft(spec); ac.unlimitedBattery = true; ac.reset(pos: V3(0, 400, 0), heading: 0, speed: 221 / 3.6)
+            var c = Controls(); c.throttle = 1
+            for _ in 0..<300 { ac.step(dt: 0.001, c: c, terrain: Terrain.flat, wind: .zero, rollMu: 0.05) }
+            print(String(format: "      with easing, 30 s from 167 km/h: %.0f km/h needs %+.3f; ease fed in at %.0f km/h: %.3f", w1.speed * 3.6, w1.elev, ac.airspeed * 3.6, ac.ease))
+            print(String(format: "      without easing: full throttle %.0f km/h needs %+.3f (60 s from slow) / %.0f km/h %+.3f (30 s from 167 km/h); half gain %.3f at %.0f, full gain %.3f at %.0f", p1.speed * 3.6, p1.elev, p2.speed * 3.6, p2.elev, spec.speedTrimHalf, spec.speedHalf * 3.6, spec.speedTrim, spec.speedFull * 3.6))
+        }
         if CommandLine.arguments.contains("--verbose") { print(String(format: "      eased by %.2f flat out (%.0f km/h), %.2f on half throttle (%.0f km/h), above %.0f km/h (stall %.0f km/h)", spec.speedTrim, spec.speedFull * 3.6, spec.speedTrimHalf, spec.speedHalf * 3.6, spec.trimSpeed * 3.6, spec.stallSpeed * 3.6)) }
     }
     print(String(format: "full throttle: mean %.0f%% of the low-rate throw forward, worst %.0f%%", sum / n * 100, worst * 100))
@@ -1034,7 +1065,9 @@ if CommandLine.arguments.contains("--powertest") {
     var lowest: Float = 99, lowName = "", sunk = 0
     for spec in AircraftLibrary.all where spec.kind == .airplane && spec.handLaunch && !spec.props.isEmpty {
         let ac = Aircraft(spec); ac.unlimitedBattery = true
-        ac.reset(pos: V3(2, 1.9, -3), heading: 0, speed: clampf(spec.stallSpeed * 1.7, 4, 9))
+        // thrown as the game throws: a little nose up, at Game.throwSpeed
+        ac.reset(pos: V3(2, 1.9, -3), heading: 0, speed: Game.throwSpeed(spec))
+        ac.q = ac.q * simd_quatf(angle: Game.throwAngle, axis: V3(1, 0, 0)); ac.vel = ac.q.act(V3(0, 0, -Game.throwSpeed(spec)))
         var c = Controls(); c.throttle = 1; c.aileron = spec.rollTrim
         var low: Float = 99
         for _ in 0..<4000 { ac.step(dt: 0.001, c: c, terrain: Terrain.flat, wind: .zero, rollMu: 0.05); low = min(low, ac.pos.y) }
@@ -1043,11 +1076,12 @@ if CommandLine.arguments.contains("--powertest") {
             // the same launch with the easing off, to tell what it is responsible for
             var plain = spec; plain.speedTrim = 0
             let b = Aircraft(plain); b.unlimitedBattery = true
-            b.reset(pos: V3(2, 1.9, -3), heading: 0, speed: clampf(spec.stallSpeed * 1.7, 4, 9))
+            b.reset(pos: V3(2, 1.9, -3), heading: 0, speed: Game.throwSpeed(spec))
+            b.q = b.q * simd_quatf(angle: Game.throwAngle, axis: V3(1, 0, 0)); b.vel = b.q.act(V3(0, 0, -Game.throwSpeed(spec)))
             for _ in 0..<4000 { b.step(dt: 0.001, c: c, terrain: Terrain.flat, wind: .zero, rollMu: 0.05) }
             sunk += 1
             print(String(format: "   %@: lowest %.1f m, after 4 s at %.1f m%@   (without the easing: %.1f m%@; launched at %.0f km/h, stalls at %.0f)", spec.name as NSString, low, ac.pos.y, ac.crashed ? ", CRASHED" : "",
-                         b.pos.y, b.crashed ? ", CRASHED" : "", clampf(spec.stallSpeed * 1.7, 4, 9) * 3.6, spec.stallSpeed * 3.6))
+                         b.pos.y, b.crashed ? ", CRASHED" : "", Game.throwSpeed(spec) * 3.6, spec.stallSpeed * 3.6))
         }
     }
     print(String(format: "hand launch, full throttle, hands off: %d aircraft end below the launch height; the lowest point of any is %.1f m (%@)", sunk, lowest, lowName as NSString))
@@ -1060,7 +1094,7 @@ if CommandLine.arguments.contains("--flighttest") {
     // by itself with the sticks let go. The figures in brackets are what the real aircraft is reported to do.
     let real: [String: (stall: ClosedRange<Float>, cruise: ClosedRange<Float>, top: ClosedRange<Float>)] = [
         "Alight Flik Wing": (22...32, 40...60, 75...100), "HeeWing F-01": (28...38, 55...75, 100...130), "AtomRC Dolphin": (27...36, 50...68, 90...115),
-        "SonicModell AR Wing": (26...35, 48...65, 95...115), "TBS Chupito": (32...40, 55...90, 135...165),
+        "SonicModell AR Wing": (26...35, 48...65, 95...115), "TBS Chupito": (32...42, 90...150, 205...235),
         "AtomRC Penguin": (32...42, 45...62, 85...105), "HeeWing T1 Ranger": (26...34, 42...58, 78...98), "HeeWing T2 Cruza": (33...42, 50...68, 95...115),
         "ZOHD Altus": (27...35, 45...60, 85...105), "HeeWing H1 Hunter": (20...28, 30...45, 55...75), "AtomRC Swordfish": (33...42, 50...68, 95...115), "ZOHD Drift": (18...26, 28...42, 55...75)]
     let terrain = Terrain(site: SiteSpec.all[0])

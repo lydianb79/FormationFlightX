@@ -853,11 +853,11 @@ func trimRoll(_ spec0: AircraftSpec) -> AircraftSpec {
 
 /// The elevator it takes to fly level at a given throttle, as a fraction of full throw (negative = stick forward),
 /// and the speed the aircraft settles at.
-func levelElevator(_ spec: AircraftSpec, throttle: Float, seconds: Float = 30) -> (elev: Float, speed: Float) {
+func levelElevator(_ spec: AircraftSpec, throttle: Float, seconds: Float = 30, from start: Float? = nil) -> (elev: Float, speed: Float) {
     let terrain = Terrain.flat
     let ac = Aircraft(spec)
     ac.unlimitedBattery = true
-    ac.reset(pos: V3(0, 400, 0), heading: 0, speed: spec.stallSpeed * 1.8)
+    ac.reset(pos: V3(0, 400, 0), heading: 0, speed: start ?? spec.stallSpeed * 1.8)
     for i in ac.levels.indices { ac.levels[i] = throttle }
     var sum: Float = 0, n: Float = 0, integ: Float = 0
     let steps = Int(seconds * 100)
@@ -882,19 +882,30 @@ func easeTrim(_ spec0: AircraftSpec) -> AircraftSpec {
     var spec = spec0
     guard spec.kind == .airplane, !spec.props.isEmpty, spec.trimSpeed > 0 else { return spec }       // (a glider with a motor counts)
     spec.speedTrim = 0
-    func run(_ thr: Float) -> (elev: Float, speed: Float) {
-        var f = levelElevator(spec, throttle: thr, seconds: thr < 1 ? 30 : 16)       // on half throttle the speed takes longer to settle
+    func run(_ thr: Float, from start: Float? = nil) -> (elev: Float, speed: Float) {
+        var f = levelElevator(spec, throttle: thr, seconds: 30, from: start)
         // a slow starter has not settled in that time: give it longer
         if !f.elev.isFinite || f.elev > -0.02 { f = levelElevator(spec, throttle: thr, seconds: 40) }
         return f
     }
-    func gain(_ f: (elev: Float, speed: Float)) -> Float { clampf(-f.elev / (1 - spec.trimSpeed * spec.trimSpeed / (f.speed * f.speed)), 0, 0.8) }
-    let f = run(1)
+    func gain(_ f: (elev: Float, speed: Float)) -> Float { clampf(Game.speedTrimShare * -f.elev / (1 - spec.trimSpeed * spec.trimSpeed / (f.speed * f.speed)), 0, 0.8) }
+    // (both runs are flown before any easing is set; the fast one starts from the slow one's speed and a bit, so a
+    // quick aircraft reaches its top speed within the run)
+    let h = run(0.5)
+    let f = run(1, from: h.elev.isFinite ? h.speed * 1.25 : nil)
     guard f.elev.isFinite, f.elev < -0.02, f.speed > spec.trimSpeed * 1.15 else { return spec }
-    let h = run(0.5)                                            // (both runs are flown before any easing is set)
     spec.speedTrim = gain(f); spec.speedFull = f.speed
     if h.elev.isFinite, h.elev < 0, h.speed > spec.trimSpeed * 1.15, h.speed < f.speed - 1 { spec.speedTrimHalf = gain(h); spec.speedHalf = h.speed }
     else { spec.speedTrimHalf = spec.speedTrim; spec.speedHalf = spec.trimSpeed }
+    // check: fly the two again with the trim in, and add whatever stick each still needs (twice; it converges fast)
+    for _ in 0..<2 {
+        let f2 = levelElevator(spec, throttle: 1, seconds: 30, from: f.speed)
+        if f2.elev.isFinite, f2.speed > spec.trimSpeed * 1.15 { spec.speedTrim = clampf(spec.speedTrim + gain(f2) * (f2.elev < 0 ? 1 : -1) * (f2.elev < 0 ? 1 : 0) - (f2.elev > 0 ? f2.elev / (1 - spec.trimSpeed * spec.trimSpeed / (f2.speed * f2.speed)) : 0), 0, 0.8) }
+        if spec.speedHalf > spec.trimSpeed {
+            let h2 = levelElevator(spec, throttle: 0.5, seconds: 30, from: spec.speedHalf)
+            if h2.elev.isFinite, h2.speed > spec.trimSpeed * 1.15 { spec.speedTrimHalf = clampf(spec.speedTrimHalf - h2.elev / (1 - spec.trimSpeed * spec.trimSpeed / (h2.speed * h2.speed)), 0, 0.8) }
+        }
+    }
     return spec
 }
 
@@ -1652,10 +1663,10 @@ enum AircraftLibrary {
                 $0.fuseLen = 0.42; $0.noseZ = -0.2; $0.fuseW = 0.12; $0.fuseH = 0.07; $0.thick = 0.1; $0.washout = 2.5
                 $0.margin = 0.1; $0.trimCL = 0.27; $0.ailThrow = 14; $0.elevThrow = 13; $0.tough = 2; $0.cdA = 0.003; $0.endurance = 540
                 $0.fuse = rgb(0.07, 0.07, 0.08); $0.wingTop = rgb(0.07, 0.07, 0.08); $0.wingBottom = rgb(0.07, 0.07, 0.08); $0.tail = rgb(0.07, 0.07, 0.08); $0.accent = rgb(0.85, 0.12, 0.1); $0.foamLook = true; $0.leColor = rgb(0.85, 0.12, 0.1); $0.tipColor = rgb(0.95, 0.95, 0.94); $0.finH = 0.075; $0.finChord = 0.12; $0.wingBands = true; $0.finChecker = true; $0.sound = 280 },
-            wing("TBS Chupito", "800 mm of black EPP on six cells: stalls at thirty-five, cruises at sixty and runs to a hundred and fifty kilometres an hour") {
-                $0.span = 0.8; $0.rootChord = 0.32; $0.tipChord = 0.18; $0.sweep = -0.06; $0.mass = 0.65; $0.thrust = 16; $0.pitchSpeed = 52; $0.propDia = 0.13
-                $0.fuseLen = 0.5; $0.noseZ = -0.24; $0.fuseW = 0.08; $0.fuseH = 0.07; $0.finH = 0.12; $0.finChord = 0.16; $0.thick = 0.085; $0.washout = 1
-                $0.winglets = false; $0.finZ = 0.1; $0.margin = 0.08; $0.trimCL = 0.14; $0.ailThrow = 12; $0.elevThrow = 10; $0.tough = 1.8; $0.cdA = 0.0022; $0.endurance = 300
+            wing("TBS Chupito", "800 mm of black EPP on six cells: stalls at forty, cruises at well over a hundred and runs to two hundred and twenty kilometres an hour") {
+                $0.span = 0.8; $0.rootChord = 0.32; $0.tipChord = 0.18; $0.sweep = -0.06; $0.mass = 0.65; $0.thrust = 18; $0.pitchSpeed = 125; $0.propDia = 0.13
+                $0.fuseLen = 0.5; $0.noseZ = -0.24; $0.fuseW = 0.08; $0.fuseH = 0.07; $0.finH = 0.12; $0.finChord = 0.16; $0.thick = 0.06; $0.washout = 1
+                $0.winglets = false; $0.finZ = 0.1; $0.margin = 0.08; $0.trimCL = 0.14; $0.ailThrow = 12; $0.elevThrow = 10; $0.tough = 1.8; $0.cdA = 0.0008; $0.endurance = 300
                 $0.fuse = rgb(0.07, 0.07, 0.08); $0.wingTop = rgb(0.07, 0.07, 0.08); $0.wingBottom = rgb(0.07, 0.07, 0.08); $0.tail = rgb(0.07, 0.07, 0.08); $0.accent = rgb(0.07, 0.07, 0.08); $0.dihedral = 3; $0.foamLook = true; $0.sound = 420 },
             wing("AtomRC Penguin", "750 mm lifting body with stub wings and two motors: slow enough to learn FPV on, with the pull of a twin when you want it") {
                 $0.span = 0.75; $0.rootChord = 0.34; $0.tipChord = 0.17; $0.sweep = 0.1; $0.mass = 0.68; $0.thrust = 9.5; $0.pitchSpeed = 30; $0.propDia = 0.127

@@ -1225,6 +1225,8 @@ struct OptionsPanel: View {
         let g = m.game!
         let leading = g.isLead
         Sheet(m: m, title: "Options", subtitle: "Up to five pilots, on your network or over the internet, with no server", back: g.cameFromMenu ? .menu : .none, width: 560, height: 720) {
+            // (the panel scrolls, so its title and close button stay in view however tall the window is)
+            ScrollView(.vertical, showsIndicators: true) {
             HStack(alignment: .top, spacing: 0) {
                 // the pilots
                 VStack(alignment: .leading, spacing: 10) {
@@ -1305,6 +1307,7 @@ struct OptionsPanel: View {
                     Spacer(minLength: 0)
                 }
                 .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+            }
             }
         }
     }

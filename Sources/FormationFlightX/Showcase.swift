@@ -26,6 +26,7 @@ extension Game {
         }
         showShot = Int(CACurrentMediaTime()) % 5; showShotTime = 0; showSnap = true
         for w in showFlight { trailLaid[w.id] = nil }
+        showSnapQ = true; showSlotsFresh = true
     }
 
     private var showSpacing: Float { Formation.spacing(spacing, span: showFlight[0].aircraft.spec.span) }
@@ -51,7 +52,7 @@ extension Game {
         let lead = showFlight[0].aircraft
         // the lead flies the racetrack, wide enough for the outermost wingman; the others hold their slots
         let reach = showSpacing * (1...4).map { abs(formation.offset($0).x) }.max()!
-        for (n, w) in showFlight.enumerated() {
+        for (n, w) in showFlight.enumerated() where n == 0 {
             let ac = w.aircraft
             if ac.crashed || !terrain.contains(ac.pos) || !ac.pos.y.isFinite || terrain.overWater(ac.pos) || terrain.strikes(ac.pos, reach: 0.3 * ac.spec.span) {
                 if Game.showLog { print(String(format: "SHOW number %d reset: crashed %@ strikes %@ water %@ outside %@ at (%.0f %.0f %.0f) above ground %.0f", n + 1, "\(ac.crashed)", "\(terrain.strikes(ac.pos, reach: 0.3 * ac.spec.span))", "\(terrain.overWater(ac.pos))", "\(!terrain.contains(ac.pos))", ac.pos.x, ac.pos.y, ac.pos.z, ac.pos.y - terrain.gnd(ac.pos.x, ac.pos.z))); fflush(stdout) }
@@ -61,18 +62,45 @@ extension Game {
                 w.controls = Controls()
             } else if n == 0 {
                 w.controls = w.ai!.lead(ac, terrain: terrain, reach: reach, dt: dt)
-            } else {
-                w.controls = w.ai!.follow(ac, lead: lead, slot: Formation.slot(n, lead: lead, kind: formation, spacing: showSpacing), terrain: terrain, dt: dt)
             }
         }
         let h: Float = 0.001
         showAcc += dt
         while showAcc >= h {
             env.advance(dt: h, at: lead.pos, airspeed: lead.airspeed, terrain: terrain)
-            for w in showFlight { w.aircraft.step(dt: h, c: w.controls, terrain: terrain, wind: env.wind(at: w.aircraft.pos, terrain: terrain), rollMu: site.rollMu) }
+            // in steady air: gusts would rock the whole flight, which behind a menu just looks shaky
+            lead.step(dt: h, c: showFlight[0].controls, terrain: terrain, wind: env.windVec, rollMu: site.rollMu)
             showAcc -= h
         }
-        for w in showFlight { w.aircraft.updateRenderPose(ahead: showAcc) }
+        lead.updateRenderPose(ahead: showAcc)
+        // the lead's attitude as drawn, with the last flicker of its corrections smoothed away
+        showLeadQ = showSnapQ ? lead.renderQ : simd_slerp(showLeadQ, lead.renderQ, min(1, dt * 5))
+        showSnapQ = false
+        lead.renderQ = showLeadQ
+        // the four wingmen sit in their slots as a display team does: steady, each easing about a little on its own
+        let (f, r) = Formation.frame(of: lead), t = env.time
+        for n in 1..<showFlight.count {
+            let ac = showFlight[n].aircraft
+            let o = formation.offset(n) * showSpacing
+            let drift = (r * sin(t * 0.37 + Float(n) * 1.9) + V3(0, 0.6 * sin(t * 0.29 + Float(n) * 2.7), 0) + f * sin(t * 0.23 + Float(n))) * (0.06 * showSpacing)
+            var want = lead.renderPos + r * o.x + V3(0, o.y, 0) - f * o.z + drift
+            want.y = max(want.y, terrain.gnd(want.x, want.z) + 3)
+            if showSlotsFresh || distance(ac.renderPos, want) > 30 { ac.renderPos = want }
+            else { ac.renderPos += (want - ac.renderPos) * min(1, dt * 4) }
+            ac.renderQ = showLeadQ
+            ac.pos = ac.renderPos; ac.q = showLeadQ; ac.vel = lead.vel; ac.crashed = false
+            ac.levels = lead.levels; ac.spin = lead.spin
+        }
+        showSlotsFresh = false
+        if Game.showLog {
+            // how much each one rocks: mean roll rate and pitch rate in degrees a second
+            for (n, w) in showFlight.enumerated() { showRock[n] += V3(abs(w.aircraft.omega.z), abs(w.aircraft.omega.x), 1) / deg * dt * V3(1, 1, deg / dt) }
+            showRockT += dt
+            if showRockT > 5 {
+                print("SHOW rocking (roll, pitch deg/s): " + showRock.enumerated().map { String(format: "%d: %.0f %.0f", $0.offset + 1, $0.element.x / showRockT, $0.element.y / showRockT) }.joined(separator: "  ")); fflush(stdout)
+                showRock = [V3](repeating: .zero, count: 5); showRockT = 0
+            }
+        }
         if Game.showLog {
             // a jump in where the lead is drawn, beyond what its speed accounts for, would put a kink in its smoke
             let p = lead.renderPos, step = distance(p, showLast), want = length(lead.vel) * dt
