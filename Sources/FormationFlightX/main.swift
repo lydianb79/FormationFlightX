@@ -1109,7 +1109,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let n = UserDefaults.standard.string(forKey: "lastSite"), let i = SiteSpec.all.firstIndex(where: { $0.name == n }) { siteArg = i }
         }
         game = Game(site: siteArg, aircraft: acArg)
+        if CommandLine.arguments.contains("--nobonjour") { game.net.discovery = false }
         game.netAllowed = interactive || CommandLine.arguments.contains("--net")
+        if CommandLine.arguments.contains("--host") { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [unowned self] in self.game.net.setHosting(true) } }
+        if let h = arg("--join") { game.net.join(h) }
         if let n = arg("--name") { game.pilotName = n }
         if CommandLine.arguments.contains("--noai") { game.aiPartners = false }
         if CommandLine.arguments.contains("--lead") { game.leadEpoch = 1 }
@@ -1220,7 +1223,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--netlog") {
             Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [unowned self] _ in
                 let g = self.game!, now = CACurrentMediaTime()
-                var line = "NET \(g.pilotName) [\(g.net.status)] lead \(g.name(of: g.leadID)) site \(g.siteIndex)"
+                var line = "NET \(g.pilotName) [port \(g.net.port)\(g.net.hosting ? " hosting at \(g.net.publicAddress ?? g.net.hostingProblem ?? "…")" : "")\(g.net.joined.map { " joined \($0.target) \($0.answering ? "ok" : "silent")" } ?? "") guests \(g.net.guestCount)] lead \(g.name(of: g.leadID)) site \(g.siteIndex)"
                 for w in g.wingmen { line += String(format: " | %@ %@ %.0f m away%@", w.name, w.present(now) ? "flying" : "absent", distance(w.aircraft.pos, g.aircraft.pos), w.ai != nil ? " (computer)" : "") }
                 if let e = g.slotError { line += String(format: " | slot error %.1f m", length(e)) }
                 print(line); fflush(stdout)

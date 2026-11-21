@@ -980,7 +980,7 @@ struct FormationPanel: View {
     var body: some View {
         let g = m.game!
         let leading = g.isLead
-        Sheet(m: m, title: "Formation", subtitle: "Up to three pilots, straight from Mac to Mac", back: g.cameFromMenu ? .menu : .none, width: 900, height: 600) {
+        Sheet(m: m, title: "Formation", subtitle: "Up to three pilots, on your network or over the internet, with no server", back: g.cameFromMenu ? .menu : .none, width: 940, height: 680) {
             HStack(alignment: .top, spacing: 0) {
                 // the shape
                 VStack(alignment: .leading, spacing: 8) {
@@ -1035,10 +1035,10 @@ struct FormationPanel: View {
                         field("Pilot name", Binding(get: { g.pilotName }, set: { g.pilotName = String($0.prefix(24)); m.objectWillChange.send() }), "Your name")
                         field("Group", Binding(get: { g.group }, set: { g.group = String($0.prefix(24)); m.objectWillChange.send() }), "Everyone")
                     }
-                    Text("Pilots with the same group name fly together. Leave it empty to fly with anyone on the network.")
+                    Text("Pilots with the same group name fly together. Leave it empty to fly with anyone.")
                         .font(.system(size: 11)).foregroundColor(Theme.faint).fixedSize(horizontal: false, vertical: true)
                     Toggle(isOn: Binding(get: { g.multiplayer }, set: { g.multiplayer = $0; m.objectWillChange.send() })) {
-                        Text("Fly with pilots on the local network").font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.cream.opacity(0.9))
+                        Text("Fly with other pilots").font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.cream.opacity(0.9))
                     }
                     .toggleStyle(.switch).controlSize(.small)
                     Toggle(isOn: Binding(get: { g.aiPartners }, set: { g.aiPartners = $0; m.objectWillChange.send() })) {
@@ -1051,9 +1051,41 @@ struct FormationPanel: View {
                             Text(m.s.net).font(.system(size: 11.5)).foregroundColor(Theme.dim).fixedSize(horizontal: false, vertical: true)
                         }
                     }
+                    if g.multiplayer {
+                        heading("OVER THE INTERNET").padding(.top, 6)
+                        Toggle(isOn: Binding(get: { g.net.hosting }, set: { g.net.setHosting($0); m.objectWillChange.send() })) {
+                            Text("Host: let pilots elsewhere connect to me").font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.cream.opacity(0.9))
+                        }
+                        .toggleStyle(.switch).controlSize(.small)
+                        if g.net.hosting {
+                            if let a = g.net.publicAddress {
+                                HStack(spacing: 8) {
+                                    Text(a).font(.system(size: 13.5, weight: .semibold, design: .monospaced)).foregroundColor(Theme.cream).textSelection(.enabled)
+                                    Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(a, forType: .string) }.buttonStyle(QuietButton())
+                                    Spacer(minLength: 0)
+                                }
+                                Text("Give this address to the other pilots. \(g.net.guestCount == 0 ? "Nobody has connected yet." : "\(g.net.guestCount) connected.")")
+                                    .font(.system(size: 11)).foregroundColor(Theme.dim).fixedSize(horizontal: false, vertical: true)
+                            } else {
+                                Text((g.net.hostingProblem ?? "Asking the router to open the port…") + (g.net.hostingProblem == nil ? "" : " Forward UDP port \(String(g.net.port)) to this Mac in the router, then give the others your public address followed by :\(String(g.net.port)).\(g.net.guestCount == 0 ? "" : " \(g.net.guestCount) connected.")"))
+                                    .font(.system(size: 11)).foregroundColor(Theme.dim).fixedSize(horizontal: false, vertical: true)
+                            }
+                        } else {
+                            HStack(alignment: .bottom, spacing: 8) {
+                                field("Or join a host", Binding(get: { g.hostAddress }, set: { g.hostAddress = String($0.prefix(80)); m.objectWillChange.send() }), "address:47800")
+                                Button(g.net.joined == nil ? "Connect" : "Disconnect") {
+                                    if g.net.joined == nil { g.net.join(g.hostAddress) } else { g.net.leave() }
+                                    m.objectWillChange.send()
+                                }
+                                .buttonStyle(QuietButton()).disabled(g.net.joined == nil && g.hostAddress.trimmingCharacters(in: .whitespaces).isEmpty)
+                            }
+                            if let j = g.net.joined {
+                                Text(j.answering ? "Connected to \(j.target)." : "No answer from \(j.target) yet. The host has to switch on hosting, and the address must be the one their app shows.")
+                                    .font(.system(size: 11)).foregroundColor(j.answering ? Theme.cream.opacity(0.85) : Theme.dim).fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
                     Spacer(minLength: 0)
-                    Text("No server and no account: the Macs find each other on the same Wi-Fi or cable network, or directly over peer-to-peer Wi-Fi, and exchange positions sixty times a second.")
-                        .font(.system(size: 11)).foregroundColor(Theme.faint).fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(20).frame(maxWidth: .infinity, alignment: .leading)
             }

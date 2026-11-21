@@ -191,6 +191,8 @@ final class Game {
     var pilotName: String = UserDefaults.standard.string(forKey: "pilotName") ?? "Pilot \(Int.random(in: 10...99))" { didSet { UserDefaults.standard.set(pilotName, forKey: "pilotName") } }
     /// Only pilots with the same group name fly together, so two groups can share one network.
     var group: String = UserDefaults.standard.string(forKey: "group") ?? "" { didSet { UserDefaults.standard.set(group, forKey: "group") } }
+    /// The online host last joined, kept for next time.
+    var hostAddress: String = UserDefaults.standard.string(forKey: "hostAddress") ?? "" { didSet { UserDefaults.standard.set(hostAddress, forKey: "hostAddress") } }
     var leadEpoch: UInt32 = 0
     var order: [UInt32] = []            // the formation: lead first, then numbers 2 and 3
     var slotMarker: (pos: V3, fwd: V3, radius: Float, good: Bool)? = nil

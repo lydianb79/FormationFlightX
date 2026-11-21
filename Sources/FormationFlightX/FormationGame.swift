@@ -327,7 +327,12 @@ extension Game {
             }
             s.mates.append(Mate(id: id, number: k + 1, name: w.name, detail: detail, good: good))
         }
-        if net.running { s.net = remotePilots.isEmpty ? net.status : "\(remotePilots.count + 1) pilots connected" }
+        if net.running {
+            if !remotePilots.isEmpty { s.net = "\(remotePilots.count + 1) pilots connected" }
+            else if let j = net.joined { s.net = j.answering ? "Connected to \(j.target); waiting for the others" : "Calling \(j.target)…" }
+            else if net.hosting { s.net = net.publicAddress.map { "Hosting at \($0); waiting for pilots" } ?? "Hosting; waiting for pilots" }
+            else { s.net = net.status }
+        }
         else { s.net = multiplayer ? "" : "Network off" }
     }
 }

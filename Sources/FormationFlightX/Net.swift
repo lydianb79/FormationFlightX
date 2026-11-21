@@ -1,6 +1,7 @@
 import Foundation
 import Network
 import QuartzCore
+import dnssd
 import simd
 
 // Serverless multiplayer. Every copy of the app advertises itself on the local network with Bonjour and
@@ -117,18 +118,34 @@ enum NetCodec {
 
 /// Finds the other pilots and carries the messages. All Network.framework work happens on one private queue;
 /// received messages wait in an inbox that the game empties once per frame.
+///
+/// Two ways of meeting:
+/// - On a local network every copy advertises itself with Bonjour and sends straight to every other copy.
+/// - Over the internet one pilot hosts and the others connect to the host's address. The host answers each of
+///   them down the path their own packets opened through their router, and passes every pilot's messages on to
+///   the others, so only the host needs a port that can be reached from outside.
 final class FormationNet {
     static let serviceType = "_formflightx._udp"
+    static let port: UInt16 = 47800
     let id: UInt32
+    /// Off for tests that should use only the direct connection.
+    var discovery = true
     private let queue = DispatchQueue(label: "formationflightx.net")
     private var listener: NWListener?
     private var browser: NWBrowser?
-    private var outgoing: [String: NWConnection] = [:]      // by the other side's service name
+    private var outgoing: [String: NWConnection] = [:]      // local pilots, by the number they advertise
     private var incoming: [ObjectIdentifier: NWConnection] = [:]
+    private var flowID: [ObjectIdentifier: UInt32] = [:]    // who is at the other end of each incoming flow
+    private var flowSeen: [ObjectIdentifier: Double] = [:]
+    private var hostLink: NWConnection?                     // this pilot's connection to an online host
     private let lock = NSLock()
     private var inbox: [(Data, Double)] = []
     private var statusText = "Off"
+    private var hostSeen = 0.0, hostTarget = ""
+    private var guests = 0
+    private var listenPort: UInt16 = 0
     private(set) var running = false
+    private let mapping = PortMapping()
 
     init(id: UInt32 = UInt32.random(in: 1000...UInt32.max)) { self.id = id }
 
@@ -139,7 +156,6 @@ final class FormationNet {
     private func parameters() -> NWParameters {
         let p = NWParameters.udp
         p.includePeerToPeer = true
-        p.allowLocalEndpointReuse = true
         return p
     }
 
@@ -148,20 +164,32 @@ final class FormationNet {
         running = true
         setStatus("Looking for other pilots…")
         queue.async { [self] in
-            do {
-                let l = try NWListener(using: parameters())
-                l.service = NWListener.Service(name: "\(id)", type: FormationNet.serviceType)
+            // the well-known port, so that a host has one number to give out; another copy on the same Mac takes any port
+            var l = try? NWListener(using: parameters(), on: NWEndpoint.Port(rawValue: FormationNet.port)!)
+            var fixed = l != nil
+            func begin(_ l: NWListener) {
+                if discovery { l.service = NWListener.Service(name: "\(id)", type: FormationNet.serviceType) }
                 l.newConnectionHandler = { [weak self] c in self?.accept(c) }
-                l.stateUpdateHandler = { [weak self] st in
-                    if case .failed(let e) = st { self?.setStatus("Network unavailable (\(e.localizedDescription))") }
-                    if case .waiting(let e) = st { self?.setStatus("Waiting for the network (\(e.localizedDescription))") }
+                l.stateUpdateHandler = { [weak self, weak l] st in
+                    guard let s = self else { return }
+                    switch st {
+                    case .ready:
+                        s.lock.lock(); s.listenPort = l?.port?.rawValue ?? 0; s.lock.unlock()
+                    case .failed(let e):
+                        // the port is taken (a second copy on this Mac): listen on any port instead
+                        if fixed, let any = try? NWListener(using: s.parameters()) { fixed = false; l?.cancel(); s.listener = any; begin(any) }
+                        else { s.setStatus("Network unavailable (\(e.localizedDescription))") }
+                    case .waiting(let e): s.setStatus("Waiting for the network (\(e.localizedDescription))")
+                    default: break
+                    }
                 }
                 l.start(queue: queue)
-                listener = l
-            } catch {
-                setStatus("Network unavailable (\(error.localizedDescription))")
-                return
             }
+            if l == nil { l = try? NWListener(using: parameters()); fixed = false }
+            guard let made = l else { setStatus("Network unavailable"); return }
+            listener = made
+            begin(made)
+            guard discovery else { return }
             let b = NWBrowser(for: .bonjour(type: FormationNet.serviceType, domain: nil), using: parameters())
             b.browseResultsChangedHandler = { [weak self] results, _ in self?.found(results) }
             b.stateUpdateHandler = { [weak self] st in
@@ -178,14 +206,71 @@ final class FormationNet {
         guard running else { return }
         running = false
         setStatus("Off")
+        mapping.close()
         queue.async { [self] in
             listener?.cancel(); listener = nil
             browser?.cancel(); browser = nil
             outgoing.values.forEach { $0.cancel() }; outgoing = [:]
-            incoming.values.forEach { $0.cancel() }; incoming = [:]
+            incoming.values.forEach { $0.cancel() }; incoming = [:]; flowID = [:]; flowSeen = [:]
+            hostLink?.cancel(); hostLink = nil
         }
-        lock.lock(); inbox = []; lock.unlock()
+        lock.lock(); inbox = []; hostTarget = ""; guests = 0; lock.unlock()
     }
+
+    // MARK: Online
+
+    /// The port this copy listens on (the well-known one unless another copy on this Mac has it).
+    var port: UInt16 { lock.lock(); defer { lock.unlock() }; return listenPort }
+
+    /// Ask the router to let pilots on the internet reach this Mac, or stop asking.
+    func setHosting(_ on: Bool) {
+        if on { let p = port; mapping.open(port: p == 0 ? FormationNet.port : p) } else { mapping.close() }
+    }
+    var hosting: Bool { mapping.wanted }
+    /// What the host tells the others, once the router has answered: "address:port".
+    var publicAddress: String? { mapping.address }
+    /// Why there is no public address, if the router has refused or does not answer.
+    var hostingProblem: String? { mapping.problem }
+    /// How many pilots are connected to this copy as their host.
+    var guestCount: Int { lock.lock(); defer { lock.unlock() }; return guests }
+
+    /// Connect to a host: "name-or-address" or "name-or-address:port".
+    func join(_ address: String) {
+        var host = address.trimmingCharacters(in: .whitespaces), port = FormationNet.port
+        if host.hasPrefix("["), let end = host.firstIndex(of: "]") {                 // [IPv6]:port
+            let rest = host[host.index(after: end)...]
+            if rest.hasPrefix(":"), let p = UInt16(rest.dropFirst()) { port = p }
+            host = String(host[host.index(after: host.startIndex)..<end])
+        } else if host.filter({ $0 == ":" }).count == 1, let i = host.lastIndex(of: ":"), let p = UInt16(host[host.index(after: i)...]) {
+            port = p; host = String(host[..<i])
+        }
+        guard !host.isEmpty, let nwPort = NWEndpoint.Port(rawValue: port) else { return }
+        lock.lock(); hostTarget = "\(host):\(port)"; hostSeen = 0; lock.unlock()
+        queue.async { [self] in
+            hostLink?.cancel()
+            let c = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: parameters())
+            c.stateUpdateHandler = { [weak self, weak c] st in
+                guard let s = self, let c = c, s.hostLink === c else { return }
+                if case .failed = st { s.hostLink = nil }
+            }
+            c.start(queue: queue)
+            hostLink = c
+            receive(c, flow: nil)
+        }
+    }
+
+    func leave() {
+        lock.lock(); hostTarget = ""; lock.unlock()
+        queue.async { [self] in hostLink?.cancel(); hostLink = nil }
+    }
+
+    /// The host this copy is connected or connecting to, and whether the host is answering.
+    var joined: (target: String, answering: Bool)? {
+        lock.lock(); defer { lock.unlock() }
+        return hostTarget.isEmpty ? nil : (hostTarget, CACurrentMediaTime() - hostSeen < 3)
+    }
+
+    // MARK: Local discovery
 
     private func found(_ results: Set<NWBrowser.Result>) {
         var seen = Set<String>()
@@ -208,39 +293,77 @@ final class FormationNet {
         for (name, c) in outgoing where !seen.contains(name) { c.cancel(); outgoing[name] = nil }
     }
 
+    // MARK: Receiving
+
+    private func drop(_ key: ObjectIdentifier) {
+        incoming[key]?.cancel()
+        incoming[key] = nil; flowID[key] = nil; flowSeen[key] = nil
+    }
+
     private func accept(_ c: NWConnection) {
-        // a restarted or roaming peer shows up as a new flow; old ones are dropped when they fail or pile up
-        if incoming.count > 16 { incoming.values.forEach { $0.cancel() }; incoming = [:] }
+        let now = CACurrentMediaTime()
+        // flows that have gone quiet belong to pilots who left, or to a path that changed
+        for (k, t) in flowSeen where now - t > 10 { drop(k) }
+        if incoming.count > 24 { c.cancel(); return }
         let key = ObjectIdentifier(c)
-        incoming[key] = c
+        incoming[key] = c; flowSeen[key] = now
         c.stateUpdateHandler = { [weak self] st in
             switch st {
-            case .failed, .cancelled: self?.incoming[key] = nil
+            case .failed, .cancelled: self?.drop(key)
             default: break
             }
         }
         c.start(queue: queue)
-        receive(c)
+        receive(c, flow: key)
     }
 
-    private func receive(_ c: NWConnection) {
+    /// Guests of this host: flows from pilots who are not reachable through local discovery.
+    private func guestFlows() -> [(ObjectIdentifier, UInt32)] {
+        flowID.filter { outgoing["\($0.value)"] == nil }.map { ($0.key, $0.value) }
+    }
+
+    private func receive(_ c: NWConnection, flow: ObjectIdentifier?) {
         c.receiveMessage { [weak self, weak c] data, _, _, error in
             guard let s = self, let c = c else { return }
-            if let d = data, !d.isEmpty {
+            if let d = data, d.count >= 7, d.count < 512, d[d.startIndex] == NetCodec.magic {
                 let now = CACurrentMediaTime()
-                s.lock.lock()
-                if s.inbox.count < 600 { s.inbox.append((d, now)) }
-                s.lock.unlock()
+                let b = d.startIndex
+                let sender = UInt32(d[b + 3]) | UInt32(d[b + 4]) << 8 | UInt32(d[b + 5]) << 16 | UInt32(d[b + 6]) << 24
+                if sender != s.id {
+                    s.lock.lock()
+                    if s.inbox.count < 600 { s.inbox.append((d, now)) }
+                    if flow == nil { s.hostSeen = now }
+                    s.lock.unlock()
+                    if let key = flow {
+                        s.flowSeen[key] = now
+                        if s.flowID[key] != sender {
+                            // the same pilot on a new path replaces the old one
+                            for (k, v) in s.flowID where v == sender && k != key { s.drop(k) }
+                            s.flowID[key] = sender
+                        }
+                        // The host passes messages on: between its guests, and between guests and the pilots on
+                        // its own local network, who cannot reach each other.
+                        let guests = s.guestFlows()
+                        let fromGuest = s.outgoing["\(sender)"] == nil
+                        for (k, who) in guests where who != sender { s.incoming[k]?.send(content: d, completion: .idempotent) }
+                        if fromGuest { for o in s.outgoing.values where o.state == .ready { o.send(content: d, completion: .idempotent) } }
+                        s.lock.lock(); s.guests = guests.count; s.lock.unlock()
+                    }
+                }
             }
-            if error == nil { s.receive(c) } else { c.cancel() }
+            if error == nil { s.receive(c, flow: flow) } else if let key = flow { s.drop(key) } else { c.cancel() }
         }
     }
 
-    /// Send to every pilot found. Datagrams that cannot be delivered are simply lost; the next one replaces them.
+    // MARK: Sending
+
+    /// Send to every pilot this copy can reach. Datagrams that cannot be delivered are simply lost; the next one replaces them.
     func broadcast(_ d: Data) {
         guard running else { return }
         queue.async { [self] in
             for c in outgoing.values where c.state == .ready { c.send(content: d, completion: .idempotent) }
+            for (k, _) in guestFlows() { incoming[k]?.send(content: d, completion: .idempotent) }
+            if let h = hostLink, h.state == .ready { h.send(content: d, completion: .idempotent) }
         }
     }
 
@@ -254,5 +377,56 @@ final class FormationNet {
             case .hello(let h): return h.id == id ? nil : (m, t)
             }
         }
+    }
+}
+
+/// Asks the router to forward a UDP port to this Mac (NAT-PMP, PCP or UPnP, whichever it speaks) and reports
+/// the address the outside world sees. This is what lets a host be reached without setting up the router by hand.
+final class PortMapping {
+    private var ref: DNSServiceRef?
+    private let lock = NSLock()
+    private var result: String?, trouble: String?
+    private(set) var wanted = false
+    private var port: UInt16 = 0
+    private static let queue = DispatchQueue(label: "formationflightx.portmap")
+
+    var address: String? { lock.lock(); defer { lock.unlock() }; return result }
+    var problem: String? { lock.lock(); defer { lock.unlock() }; return trouble }
+
+    func open(port p: UInt16) {
+        guard !wanted || p != port else { return }
+        close()
+        wanted = true; port = p
+        let cb: DNSServiceNATPortMappingReply = { _, _, _, err, ext, _, _, extPort, _, ctx in
+            guard let ctx = ctx else { return }
+            let me = Unmanaged<PortMapping>.fromOpaque(ctx).takeUnretainedValue()
+            let a = UInt32(bigEndian: ext), p = UInt16(bigEndian: extPort)
+            let b = (UInt8(a >> 24), UInt8(a >> 16 & 255), UInt8(a >> 8 & 255), UInt8(a & 255))
+            me.lock.lock(); defer { me.lock.unlock() }
+            if err != kDNSServiceErr_NoError || a == 0 || p == 0 {
+                me.result = nil
+                me.trouble = err == kDNSServiceErr_DoubleNAT ? "This Mac is behind two routers; the port has to be forwarded on both by hand."
+                                                             : "The router did not open the port by itself."
+            } else if b.0 == 10 || (b.0 == 172 && b.1 >= 16 && b.1 < 32) || (b.0 == 192 && b.1 == 168) || (b.0 == 100 && b.1 >= 64 && b.1 < 128) {
+                // the router itself has no public address: the internet provider shares one between customers
+                me.result = nil
+                me.trouble = "Your internet provider does not give this connection an address of its own, so it cannot host."
+            } else {
+                me.result = "\(b.0).\(b.1).\(b.2).\(b.3):\(p)"; me.trouble = nil
+            }
+        }
+        var r: DNSServiceRef?
+        let err = DNSServiceNATPortMappingCreate(&r, 0, 0, DNSServiceProtocol(kDNSServiceProtocol_UDP), p.bigEndian, p.bigEndian, 0, cb, Unmanaged.passUnretained(self).toOpaque())
+        guard err == kDNSServiceErr_NoError, let made = r else {
+            lock.lock(); trouble = "The router could not be asked to open the port."; lock.unlock(); return
+        }
+        ref = made
+        DNSServiceSetDispatchQueue(made, PortMapping.queue)
+    }
+
+    func close() {
+        wanted = false
+        if let r = ref { DNSServiceRefDeallocate(r); ref = nil }
+        lock.lock(); result = nil; trouble = nil; lock.unlock()
     }
 }

@@ -2,7 +2,7 @@
 
 # FormationFlightX
 
-A formation flight trainer for RC flying wings on macOS, written in Swift and rendered with Metal. Up to three pilots fly together, Mac to Mac, with no server. Created by Rock FPV.
+A formation flight trainer for RC flying wings on macOS, written in Swift and rendered with Metal. Up to three pilots fly together, on one network or over the internet, with no server. Created by Rock FPV.
 
 ![FormationFlightX splash screen](Resources/Splash.jpg)
 
@@ -33,7 +33,22 @@ There is no server, no account and no host. Every copy of the app announces itse
 - **Mid-air collisions** end the flight for both wings. You are put back behind your slot a few seconds later.
 - A pilot who opens a menu stops being shown to the others until they fly again.
 
-What it does not do: fly over the internet. Without a server there is nothing to introduce two Macs on different networks to each other. A VPN that puts the Macs on one network with multicast (for example a layer-2 VPN) should work but has not been tried.
+### On the same network
+
+Nothing to set up: Macs on the same Wi-Fi or cable network find each other by themselves, and so do Macs with Wi-Fi on but no shared network, over Apple's peer-to-peer Wi-Fi.
+
+### Over the internet
+
+One pilot hosts and the others connect to the host. There is still no server: the host's copy of the app passes each pilot's positions on to the others.
+
+1. **The host** opens the Formation panel and switches on **Host**. The app asks the router to open UDP port 47800 (NAT-PMP, PCP or UPnP) and then shows the address to give out, for example `203.0.113.5:47800`.
+2. **The others** type that address under **Or join a host** and press **Connect**. The panel says when the host is answering.
+
+If the router does not open the port by itself, the panel says so: forward UDP port 47800 to the host's Mac in the router's settings and give the others your public address followed by `:47800`. A host name works as well as a number. If the internet provider shares one public address between customers (carrier-grade NAT), that connection cannot host; let someone else host, or put the Macs on one virtual network (ZeroTier, Tailscale) and join the host's address there.
+
+Who hosts has nothing to do with who leads: any pilot can take the lead. Pilots on the host's own network join in by themselves and fly with the online ones. Everyone's traffic to an online pilot goes by way of the host, so the host's connection sets the delay.
+
+Anyone who knows the address can connect while hosting is on. Set a group name to keep strangers out of the formation, and switch hosting off afterwards; that also closes the port on the router.
 
 ## Flying alone
 
@@ -80,11 +95,12 @@ Formations: vic, echelon right, echelon left, line astern, line abreast. Spacing
 | `FormationGame.swift` | Roster, lead, slots, collisions, what is sent and shown |
 | everything else | FlightCore OSX, limited to flying wings and 3D sites |
 
-Command-line checks: `--formtest` flies the computer partners with every wing and prints how well they hold formation; `--formtrace <wing> <0|1>` prints one flight in detail; `--net --netlog --name <name>` runs a windowed copy that logs who it sees, which is how two copies on one Mac were tested.
+Command-line checks: `--formtest` flies the computer partners with every wing and prints how well they hold formation; `--formtrace <wing> <0|1>` prints one flight in detail; `--net --netlog --name <name>` runs a windowed copy that logs who it sees; add `--host`, or `--join <address>`, and `--nobonjour` to try the online path on one Mac.
 
 ## Not yet done
 
-- Tested with two copies on one Mac only: discovery, lead, site sync and position updates work there. Three Macs on Wi-Fi and peer-to-peer Wi-Fi have not been tried.
+- Tested with copies on one Mac only: local discovery with two copies, and a host with two joiners (local discovery switched off, so everything went by way of the host). Separate Macs, peer-to-peer Wi-Fi and a real internet path with its delay have not been tried, and the router on the test network did not open the port by itself, so the automatic port opening has only been seen to fail politely.
+- Positions are predicted forward to cover network delay; this suits a local network, and has not been tuned for the 50 to 150 ms of an internet path.
 - The other wings make no sound, cast no shadow on the ground beyond 14 m from yours, and do not break apart when they crash.
 - No wake turbulence behind another wing.
 - `main.swift` still carries FlightCore's test commands, several of which name aircraft that are no longer in the library.
