@@ -254,6 +254,8 @@ final class Renderer: NSObject, MTKViewDelegate {
         bloom = (1...5).compactMap { tex(bloomFormat, w >> $0, h >> $0) }
     }
 
+    private var warmIndex = 0
+    private var phase = V3.zero         // --timing: the last frame's time in the game, waiting for a drawable, and drawing (ms)
     private func syncMeshes() {
         let t0 = CACurrentMediaTime(), sv = siteVersion, av = aircraftVersion
         defer { let d = (CACurrentMediaTime() - t0) * 1000; if Game.timing && (sv != siteVersion || av != aircraftVersion) { print(String(format: "TIMING renderer rebuild %.0f ms (site %@, aircraft %@)", d, sv != siteVersion ? "yes" : "no", av != aircraftVersion ? "yes" : "no")); fflush(stdout) } }
@@ -310,6 +312,12 @@ final class Renderer: NSObject, MTKViewDelegate {
         let now = CACurrentMediaTime()
         frameMs += (Float(now - lastTime) * 1000 - frameMs) * 0.08
         statIntervals.append(Float(now - lastTime) * 1000)
+        if Game.timing && now - lastTime > 0.04 && lastTime > 0 {
+            let gap = Float(now - lastTime) * 1000, rest: Float = gap - phase.x - phase.y - phase.z
+            let what = "\(game.hud.overlay)"
+            print(String(format: "HITCH %.0f ms between frames (overlay %@): previous frame spent %.0f in the game, %.0f waiting for a drawable, %.0f drawing; the rest (%.0f) outside the renderer",
+                         gap, what, phase.x, phase.y, phase.z, rest)); fflush(stdout)
+        }
         defer { statCpu.append(Float(CACurrentMediaTime() - now) * 1000) }
         // Frames reach the screen exactly one refresh apart, but this callback's timing wobbles by up to a
         // millisecond. Step the simulation by whole refresh periods so motion is even, and keep a running
@@ -325,13 +333,26 @@ final class Renderer: NSObject, MTKViewDelegate {
         } else {
             timeDebt = 0
         }
+        // after the splash, one aircraft picture a frame until all are ready, so the aircraft list opens at once
+        if game.hud.menusBuilt && warmIndex < AircraftLibrary.all.count && game.hud.overlay != .aircraft {
+            _ = game.hud.thumbnailSmall(AircraftLibrary.all[warmIndex]); warmIndex += 1
+        }
+        let tg = CACurrentMediaTime()
         game.frame(dt: Float(step))
         lastTime = now
         syncMeshes()
+        let td = CACurrentMediaTime()
         guard let drawable = view.currentDrawable, let cb = queue.makeCommandBuffer() else { return }
+        let te = CACurrentMediaTime()
+        phase = V3(Float(td - tg) * 1000, Float(te - td) * 1000, 0)
+        defer { phase.z = Float(CACurrentMediaTime() - te) * 1000 }
         let quality = game.quality
         // resolution follows the GPU load, up to a ceiling set by the quality level
-        let ceiling: Float = [0.7, 0.85, 1.0][min(max(quality, 0), 2)]
+        var ceiling: Float = [0.7, 0.85, 1.0][min(max(quality, 0), 2)]
+        // a browser or panel covers nearly all of the scene: draw it at half resolution, so the GPU has room to spare
+        // and the menus never wait for it (with the GPU full, the main thread sat waiting for a frame to draw into)
+        let o = game.hud.overlay
+        if o == .aircraft || o == .sites || o == .options || o == .lobby || o == .formation || o == .environment || o == .help { ceiling = min(ceiling, 0.5) }
         // drop resolution when frames are being missed; raise it again only with clear GPU headroom
         if now - lastScaleChange > 0.8 && now - startTime > 3 && (game.hud.overlay == .none || game.showcaseActive) {
             // judged by frames that actually reached the screen late, not by callback timing

@@ -83,15 +83,25 @@ extension Game {
             let ac = showFlight[n].aircraft
             let o = formation.offset(n) * showSpacing
             let drift = (r * sin(t * 0.37 + Float(n) * 1.9) + V3(0, 0.6 * sin(t * 0.29 + Float(n) * 2.7), 0) + f * sin(t * 0.23 + Float(n))) * (0.06 * showSpacing)
-            var want = lead.renderPos + r * o.x + V3(0, o.y, 0) - f * o.z + drift
+            // exactly in the slot, as the slot is laid out along the lead's path (the drift is smooth by itself: easing
+            // toward a moving slot left every wingman half a spacing behind)
+            var want = Formation.slot(n, lead: lead, kind: formation, spacing: showSpacing, from: lead.renderPos) + drift
             want.y = max(want.y, terrain.gnd(want.x, want.z) + 3)
-            if showSlotsFresh || distance(ac.renderPos, want) > 30 { ac.renderPos = want }
-            else { ac.renderPos += (want - ac.renderPos) * min(1, dt * 4) }
+            ac.renderPos = want
             ac.renderQ = showLeadQ
             ac.pos = ac.renderPos; ac.q = showLeadQ; ac.vel = lead.vel; ac.crashed = false
             ac.levels = lead.levels; ac.spin = lead.spin
         }
         showSlotsFresh = false
+        if Game.showLog && Int(t * 2) != Int((t - dt) * 2) {
+            // where each one sits, in spacings: across (right +), up, and behind the lead along its path
+            let v = lead.vel, f3 = length(v) > 1 ? normalize(v) : f, u3 = normalize(cross(r, f3))
+            let rows = (1..<showFlight.count).map { n -> String in
+                let d = showFlight[n].aircraft.renderPos - lead.renderPos, o = formation.offset(n)
+                return String(format: "%d: %+.2f %+.2f %+.2f (want %+.1f %+.1f %+.1f)", n + 1, dot(d, r) / showSpacing, dot(d, u3) / showSpacing, -dot(d, f3) / showSpacing, o.x, o.y, o.z)
+            }
+            print(String(format: "SHOW slots, climb %+.0f°: ", asin(clampf(f3.y, -1, 1)) / deg) + rows.joined(separator: "  ")); fflush(stdout)
+        }
         if Game.showLog {
             // how much each one rocks: mean roll rate and pitch rate in degrees a second
             for (n, w) in showFlight.enumerated() { showRock[n] += V3(abs(w.aircraft.omega.z), abs(w.aircraft.omega.x), 1) / deg * dt * V3(1, 1, deg / dt) }

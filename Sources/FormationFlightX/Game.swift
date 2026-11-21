@@ -51,10 +51,12 @@ enum Overlay {
 final class HUDModel: ObservableObject {
     @Published var s = HUDState()
     @Published var visible = true
-    @Published var overlay = Overlay.none
+    @Published var overlay = Overlay.none { didSet { if overlay != .splash && !menusBuilt { menusBuilt = true } } }
     @Published var fullscreen = false
     /// Set once the window is in place (full screen reached), so the splash animation starts on a still picture.
     @Published var splashGo = false
+    /// The main menu and browsers are built once the splash is over (not behind it, where they would cost its first frames).
+    @Published var menusBuilt = false
     unowned var game: Game!
     var thumbnailer: ((AircraftSpec) -> NSImage?)?      // provided by the renderer
     var addPanorama: (() -> Void)?
@@ -62,6 +64,33 @@ final class HUDModel: ObservableObject {
     var openControllerSetup: (() -> Void)?
     private var thumbs: [String: NSImage] = [:]
     private var sitePreviews: [String: NSImage] = [:]
+
+    /// A small copy of a picture, decoded once: the lists draw these, so SwiftUI never shrinks a big bitmap on the fly.
+    static func small(_ img: NSImage, width w: Int) -> NSImage {
+        guard let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil), cg.width > w else { return img }
+        let h = max(1, cg.height * w / cg.width)
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return img }
+        ctx.interpolationQuality = .high
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        guard let out = ctx.makeImage() else { return img }
+        return NSImage(cgImage: out, size: NSSize(width: w / 2, height: h / 2))
+    }
+    private var smallThumbs: [String: NSImage] = [:], smallPreviews: [String: NSImage] = [:]
+    /// The aircraft's picture at card size.
+    func thumbnailSmall(_ spec: AircraftSpec) -> NSImage? {
+        if let t = smallThumbs[spec.name] { return t }
+        guard let big = thumbnail(spec) else { return nil }
+        let t = HUDModel.small(big, width: 400); smallThumbs[spec.name] = t
+        return t
+    }
+    /// The site's picture at card size.
+    func sitePreviewSmall(_ site: SiteSpec) -> NSImage? {
+        if let t = smallPreviews[site.name] { return t }
+        guard let big = sitePreview(site) else { return nil }
+        let t = HUDModel.small(big, width: 400); smallPreviews[site.name] = t
+        return t
+    }
 
     func thumbnail(_ spec: AircraftSpec) -> NSImage? {
         if let t = thumbs[spec.name] { return t }
@@ -131,7 +160,8 @@ final class HUDModel: ObservableObject {
                 guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
                       let cg = CGImageSourceCreateImageAtIndex(src, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary) else { return }
                 let img = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
-                DispatchQueue.main.async { if self?.sitePreviews[site.name] == nil { self?.sitePreviews[site.name] = img } }
+                let small = HUDModel.small(img, width: 400)
+                DispatchQueue.main.async { if self?.sitePreviews[site.name] == nil { self?.sitePreviews[site.name] = img }; if self?.smallPreviews[site.name] == nil { self?.smallPreviews[site.name] = small } }
             }
         }
     }
@@ -1068,6 +1098,14 @@ final class Game {
         s.config = cfg.joined(separator: " · ")
         s.fps = fps
         fillFormationHUD(&s)
+        // Behind a menu the flight display is not seen, and every screen watching the model is rebuilt each time it
+        // is published: the aircraft and site grids twelve times a second. There, publish only when something a
+        // menu shows has changed (the others in the formation, the network, unread chat).
+        if hud.overlay.pausesSim || hud.overlay == .environment || hud.overlay == .help {
+            let o = hud.s
+            if o.net == s.net && o.unread == s.unread && o.mates.map({ "\($0.id) \($0.number) \($0.name) \($0.detail) \($0.good) \($0.talking)" }) == s.mates.map({ "\($0.id) \($0.number) \($0.name) \($0.detail) \($0.good) \($0.talking)" })
+                && o.aircraft == s.aircraft && o.site == s.site && o.talking == s.talking && o.mic == s.mic { return }
+        }
         hud.s = s
     }
 }

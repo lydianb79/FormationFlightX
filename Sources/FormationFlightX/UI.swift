@@ -264,12 +264,16 @@ struct HUDView: View {
                 }
                 .allowsHitTesting(false)
             }
+            // The main menu and the two browsers are built once and then shown and hidden: building one from nothing
+            // took SwiftUI 60 to 150 ms, every time it was opened or closed.
+            if m.menusBuilt {
+                kept(MainMenu(m: m), m.overlay == .menu)
+                kept(AircraftBrowser(m: m, shownNow: m.overlay == .aircraft), m.overlay == .aircraft)
+                kept(SiteBrowser(m: m, shownNow: m.overlay == .sites), m.overlay == .sites)
+            }
             Group {
                 switch m.overlay {
-                // the main menu rises into place as the splash flies past the viewer and fades
-                case .menu: MainMenu(m: m).transition(.asymmetric(insertion: .scale(scale: 0.9).combined(with: .opacity), removal: .opacity))
-                case .aircraft: AircraftBrowser(m: m)
-                case .sites: SiteBrowser(m: m)
+                case .menu, .aircraft, .sites: EmptyView()
                 case .environment: EnvironmentPanel(m: m)
                 case .help: HelpView(m: m)
                 case .formation: FormationPanel(m: m)
@@ -283,6 +287,11 @@ struct HUDView: View {
         }
         .preferredColorScheme(.dark)
         .tint(Theme.brand)
+    }
+
+    /// A screen that stays built: hidden, it neither shows, nor takes clicks, nor answers its keyboard shortcuts.
+    private func kept<V: View>(_ v: V, _ on: Bool) -> some View {
+        v.opacity(on ? 1 : 0).allowsHitTesting(on).disabled(!on).accessibilityHidden(!on)
     }
 }
 
@@ -328,6 +337,7 @@ private struct Sheet<Content: View>: View {
 
 struct AircraftBrowser: View {
     @ObservedObject var m: HUDModel
+    var shownNow: Bool = true
     @AppStorage("aircraftCategory") private var category = "All"
     @State private var search = ""
     @State private var selected = 0
@@ -382,7 +392,7 @@ struct AircraftBrowser: View {
                                 let spec = all[i]
                                 VStack(alignment: .leading, spacing: 0) {
                                     Backdrop {
-                                        if let img = m.thumbnail(spec) { Image(nsImage: img).resizable().scaledToFit().padding(4) }
+                                        if let img = m.thumbnailSmall(spec) { Image(nsImage: img).resizable().scaledToFit().padding(4) }
                                     }
                                     .frame(height: 98).clipped()
                                     VStack(alignment: .leading, spacing: 2) {
@@ -438,6 +448,7 @@ struct AircraftBrowser: View {
             }
         }
         .onAppear { selected = m.game.aircraftIndex }
+        .onChange(of: shownNow) { on in if on { selected = m.game.aircraftIndex } }
     }
 }
 
@@ -445,6 +456,7 @@ struct AircraftBrowser: View {
 
 struct SiteBrowser: View {
     @ObservedObject var m: HUDModel
+    var shownNow: Bool = true
     @State private var selected = 0
     @AppStorage("siteFilter") private var filter = "All"       // stays as it was left, also after a restart
     @State private var search = ""
@@ -531,7 +543,7 @@ struct SiteBrowser: View {
                                 VStack(alignment: .leading, spacing: 0) {
                                     ZStack(alignment: .topLeading) {
                                         LinearGradient(colors: [Color(red: 0.25, green: 0.4, blue: 0.6), Color(red: 0.2, green: 0.32, blue: 0.2)], startPoint: .top, endPoint: .bottom)
-                                        if let img = m.sitePreview(site) { Image(nsImage: img).resizable().scaledToFill().frame(minWidth: 0, maxWidth: .infinity, minHeight: 104, maxHeight: 104).clipped() }
+                                        if let img = m.sitePreviewSmall(site) { Image(nsImage: img).resizable().scaledToFill().frame(minWidth: 0, maxWidth: .infinity, minHeight: 104, maxHeight: 104).clipped() }
                                         badge(site).padding(7)
                                     }
                                     .frame(height: 104).clipped()
@@ -581,6 +593,7 @@ struct SiteBrowser: View {
             }
         }
         .onAppear { selected = m.game.siteIndex }
+        .onChange(of: shownNow) { on in if on { selected = m.game.siteIndex } }
     }
 }
 
@@ -757,9 +770,9 @@ struct MainMenu: View {
 
                 VStack(spacing: 9) {
                     row("YOUR AIRCRAFT", spec.name, spec.category + String(format: " · %.2f m · %.0f g", spec.span, spec.mass * 1000),
-                        picture: { ZStack { Backdrop { EmptyView() }; if let i = m.thumbnail(spec) { Image(nsImage: i).resizable().scaledToFit().padding(3) } } }) { g.cameFromMenu = true; m.overlay = .aircraft }
+                        picture: { ZStack { Backdrop { EmptyView() }; if let i = m.thumbnailSmall(spec) { Image(nsImage: i).resizable().scaledToFit().padding(3) } } }) { g.cameFromMenu = true; m.overlay = .aircraft }
                     row("FLYING SITE", site.displayName, g.together && !g.isHost ? "Chosen by the host, \(g.name(of: g.hostID))" : site.kindLabel,
-                        picture: { ZStack { Color.black.opacity(0.3); if let i = m.sitePreview(site) { Image(nsImage: i).resizable().scaledToFill() } } }) { g.cameFromMenu = true; m.overlay = .sites }
+                        picture: { ZStack { Color.black.opacity(0.3); if let i = m.sitePreviewSmall(site) { Image(nsImage: i).resizable().scaledToFill() } } }) { g.cameFromMenu = true; m.overlay = .sites }
                     row("FORMATIONS", g.formation.name, "\(Formation.spacingNames[g.spacing]) spacing" + (g.isLead ? "" : " · called by \(g.name(of: g.leadID))"),
                         picture: { ZStack { LinearGradient(colors: [Theme.brandDeep, Theme.brand.opacity(0.7)], startPoint: .bottomLeading, endPoint: .topTrailing); FormationGlyph(kind: g.formation, count: max(g.order.count, 3)).padding(10) } }) { g.cameFromMenu = true; m.overlay = .formation }
                     row("OPTIONS", m.s.mates.isEmpty ? "Flying alone" : "With " + m.s.mates.map { $0.name }.joined(separator: ", "),

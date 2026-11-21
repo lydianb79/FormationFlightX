@@ -46,11 +46,16 @@ enum Formation {
         return (f, cross(f, V3(0, 1, 0)))
     }
 
-    /// Where wingman `n` belongs right now.
-    static func slot(_ n: Int, lead: Aircraft, kind: FormationKind, spacing s: Float) -> V3 {
+    /// Where wingman `n` belongs right now. The slot is laid out along the lead's path: "behind" is back along the
+    /// way it is flying, climbing or diving, and "up" is square to that, so a climbing formation keeps its shape.
+    static func slot(_ n: Int, lead: Aircraft, kind: FormationKind, spacing s: Float, from base: V3? = nil) -> V3 {
         let (f, r) = frame(of: lead)
+        var f3 = lead.vel
+        f3 = length(f3) > 2 ? normalize(f3) : f
+        if abs(f3.y) > 0.9 { f3 = normalize(V3(f3.x, 0.9 * (f3.y < 0 ? -1 : 1), f3.z)) }     // (never straight up: the frame needs a level side)
+        let u = normalize(cross(r, f3))
         let o = kind.offset(n) * s
-        return lead.pos + r * o.x + V3(0, o.y, 0) - f * o.z
+        return (base ?? lead.pos) + r * o.x + u * o.y - f3 * o.z
     }
 }
 

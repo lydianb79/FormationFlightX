@@ -1520,10 +1520,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let what = String(p[1])
                 DispatchQueue.main.asyncAfter(deadline: .now() + t) { [unowned self] in
                     let g = self.game!
+                    if Game.timing { print("SCRIPT \(what)"); fflush(stdout) }
+                    if what == "openwings" { g.hud.overlay = .aircraft } else if what == "opensites" { g.hud.overlay = .sites }
+                    else if what.hasPrefix("pickwing"), let i = Int(what.dropFirst(8)) { g.selectAircraft(i); g.hud.overlay = .menu }
+                    else if what.hasPrefix("picksite"), let i = Int(what.dropFirst(8)) { g.chooseSite(i); g.hud.overlay = .menu }
                     if what == "start" { g.startSession() } else if what == "stop" { g.stopSession() } else if what == "fly" { g.takeOff() }
                     else if what.hasPrefix("wing"), let i = Int(what.dropFirst(4)) { g.selectAircraft(i) }
                     else if what.hasPrefix("site"), let i = Int(what.dropFirst(4)) { g.chooseSite(i) }
                     else if what.hasPrefix("tod"), let i = Int(what.dropFirst(3)) { g.timeOfDay = i }
+                    else if what.hasPrefix("ov") { g.hud.overlay = ["aircraft": .aircraft, "sites": .sites, "menu": .menu, "none": .none][String(what.dropFirst(2))] ?? .menu }
+                    else if what.hasPrefix("pickwing"), let i = Int(what.dropFirst(8)) { g.selectAircraft(i); g.hud.overlay = .menu }
+                    else if what.hasPrefix("picksite"), let i = Int(what.dropFirst(8)) { g.chooseSite(i); g.hud.overlay = .menu }
+                    if Game.timing { print(String(format: "TIMING %.2f script %@", CACurrentMediaTime(), what)); fflush(stdout) }
                 }
             }
         }
@@ -1639,7 +1647,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if interactive || CommandLine.arguments.contains("--fullscreen") { setFullScreen(true) }
         NSApp.activate(ignoringOtherApps: true)
         buildMenus()
-        if CommandLine.arguments.contains("--setup") { showSetup() }
+        if CommandLine.arguments.contains("--setup") { showSetup(); if let w = setupWindow { print("SETUPWIN \(w.windowNumber) \(Int(w.frame.width))x\(Int(w.frame.height))"); fflush(stdout) } }
+        if CommandLine.arguments.contains("--stalls") {
+            // the main thread, checked every 4 ms: report each time it was held up for longer than two frames
+            var last = CACurrentMediaTime()
+            Timer.scheduledTimer(withTimeInterval: 0.004, repeats: true) { _ in
+                let now = CACurrentMediaTime()
+                if now - last > 0.034 { print(String(format: "STALL %.2f main thread held %.0f ms (overlay %@)", now, (now - last) * 1000, "\(self.game.hud.overlay)")); fflush(stdout) }
+                last = now
+            }
+        }
         if CommandLine.arguments.contains("--perf") {
             Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [unowned self] _ in
                 let iv = self.renderer.statIntervals.sorted(), cpu = self.renderer.statCpu.sorted()
@@ -1805,13 +1822,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = main
     }
 
+    /// Open the controller setup, or close it if it is already open (the same button does both).
     private func showSetup() {
+        if let w = setupWindow, w.isVisible { w.orderOut(nil); window.makeKey(); return }
         if setupWindow == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 640), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 640), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
             w.title = "Controller Setup"
             w.isReleasedWhenClosed = false
-            w.contentView = NSHostingView(rootView: SetupView(model: SetupModel(input: game.input)))
-            w.setContentSize(w.contentView!.fittingSize)
+            let host = NSHostingView(rootView: SetupView(model: SetupModel(input: game.input)))
+            w.contentView = host
+            // as tall as its contents, but never taller than the screen: the rest scrolls
+            let screenH = (window.screen ?? NSScreen.main)?.visibleFrame.height ?? 800
+            let fit = host.fittingSize
+            w.setContentSize(NSSize(width: max(fit.width, 640), height: min(fit.height, screenH - 60)))
+            w.minSize = NSSize(width: 640, height: 320)
+            w.level = .floating             // above the flight window, also when that covers the screen
             w.center()
             setupWindow = w
         }
@@ -1886,6 +1911,10 @@ struct SetupView: View {
     }
 
     var body: some View {
+        ScrollView(.vertical) { content }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("USB transmitter").font(.headline)
             Text(model.device).foregroundColor(model.connected ? .primary : .secondary)
