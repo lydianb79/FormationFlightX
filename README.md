@@ -105,7 +105,7 @@ What these are and are not:
 - The Penguin is modelled as the tailless lifting body it is, and with its small listed wing area stalls at about 40 km/h.
 - Each is trimmed in pitch for a gentle cruise (37 to 60 km/h) and in roll against its propeller's torque, as you would on the first flights, so it flies straight with the sticks let go.
 - **Pitch trim follows the speed, and the throttle.** A model trimmed for a gentle cruise noses up hard when it goes fast. Every powered aircraft now has that trimmed out, as a transmitter mix would: calibrated from level runs on half and on full throttle, it holds the aircraft level at any speed with the stick centred, and acts from the moment of the throw, as fast as a servo. On top of that a throttle-to-elevator mix cancels what the motor's own thrust does to the pitch (a motor on a pylon pushes the nose down). The result flies where it is pointed: open the throttle and it goes faster, not up. A climb is kept, not steepened, until you push. `--powertest` measures it, `--pitchtrace <aircraft>` follows one through a throw and throttle changes, hands off. `--spintrace <aircraft>` follows a spin and `--rolltrace <aircraft>` a torque roll, with the moment of each surface.
-- **Launching.** A hand-launched aircraft stays in your hand, motor running, until you press **Launch**: Space, or a key, a gamepad button or a transmitter switch of your choice (Controller Setup). The computer pilots beside you throw theirs at the same moment. On the autopilot the aircraft throws itself.
+- **Launching.** A hand-launched aircraft stays in your hand, motor running, until you press **Launch**: Space, the right shoulder button of a gamepad, or a transmitter switch assigned to Launch in Controller Setup. The computer pilots beside you throw theirs at the same moment. On the autopilot the aircraft throws itself.
 - **Trim gauge.** Under the map: the pitch trim in clicks, laid out as the elevator trim on a transmitter: the arrow above trims nose down, the one below nose up, and the marker moves the same way.
 - None of them has a flight controller: no stabilisation, no return to home.
 
@@ -194,10 +194,10 @@ The **Lobby** (main menu, the speech-bubble button in the top bar, or **Return**
 - **Session:** whether it is running, who hosts, and for the host the buttons to start, restart and stop it.
 - **Voice:** off, push to talk, or open mic.
   - *Push to talk:* hold the button in the lobby, or your talk control. "ON AIR" shows in the formation box while you are sending.
-    - Keyboard: **B** in flight, or any key you choose.
-    - Gamepad: left shoulder button, or any of twelve buttons you choose; works in the lobby too.
+    - Keyboard: **B** in flight.
+    - Gamepad: left shoulder button; works in the lobby too.
     - USB transmitter or joystick: assign "Push to talk" to a switch or button.
-    - All three are set in Controller Setup (⌘, or **Change…** in the lobby).
+    - A transmitter switch is assigned in Controller Setup (⌘,).
   - *Open mic:* sends whenever you speak. Wear headphones, or the others hear themselves through your speakers; there is no echo cancellation.
   - The slider sets how loud the others are.
 
@@ -233,14 +233,14 @@ Formations for up to five: vic, echelon right, echelon left, line astern, line a
 | ← → ↑ ↓ | Roll and pitch (↓ pulls up) |
 | W S, X | Throttle up and down, throttle cut |
 | Return | Lobby: chat and voice |
-| B (hold) | Talk, with voice on push to talk (the key can be changed) |
+| B (hold) | Talk, with voice on push to talk |
 | J | Join up behind your slot |
 | U | Take the lead / hand it back |
 | O, I | Next formation, next spacing (lead only) |
 | E, G | Flaps, landing gear (aircraft that have them) |
 | C | Camera: chase, onboard, pilot on the ground |
 | Y | Smoke (the others see it too) |
-| Space | Launch: throw the aircraft from your hand; in flight, take it back into the hand (the key can be changed) |
+| Space | Launch: throw the aircraft from your hand; in flight, take it back into the hand |
 | − =, 0 | Pitch trim nose down / up, centre (also the two arrows of the trim gauge: upper nose down, lower nose up) |
 | Esc, Tab | Main menu, wing browser |
 

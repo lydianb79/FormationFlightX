@@ -1961,40 +1961,6 @@ struct SetupView: View {
                 .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
 
             Divider()
-            Text("Push to talk").font(.headline)
-            HStack {
-                Text("Keyboard key").frame(width: 165, alignment: .leading)
-                Text(model.listeningKey ? "press a key… (Esc cancels)" : (model.s.talkKeyName ?? "B")).foregroundColor(model.listeningKey ? .orange : .primary).frame(width: 190, alignment: .leading)
-                Button(model.listeningKey ? "Cancel" : "Change…") { model.listeningKey.toggle() }
-                Button("Reset") { model.s.talkKey = nil; model.s.talkKeyName = nil }.disabled(model.s.talkKey == nil)
-            }.font(.system(size: 12))
-            HStack {
-                Text("Gamepad button").frame(width: 165, alignment: .leading)
-                Picker("", selection: Binding(get: { model.s.talkPad ?? 5 }, set: { model.s.talkPad = $0 })) {
-                    ForEach(InputManager.padButtons.indices, id: \.self) { Text(InputManager.padButtons[$0]).tag($0) }
-                }.labelsHidden().frame(width: 190)
-            }.font(.system(size: 12))
-            Text("Held to talk while voice is on Push to talk. The key works in flight; a gamepad button also works in the lobby. On a USB transmitter, assign “Push to talk” to a switch or button in the list below. The chosen key no longer does what it did before.")
-                .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
-
-            Divider()
-            Text("Launch").font(.headline)
-            HStack {
-                Text("Keyboard key").frame(width: 165, alignment: .leading)
-                Text(model.listeningLaunch ? "press a key… (Esc cancels)" : (model.s.launchKeyName ?? "Space")).foregroundColor(model.listeningLaunch ? .orange : .primary).frame(width: 190, alignment: .leading)
-                Button(model.listeningLaunch ? "Cancel" : "Change…") { model.listeningLaunch.toggle(); model.listeningKey = false }
-                Button("Reset") { model.s.launchKey = nil; model.s.launchKeyName = nil }.disabled(model.s.launchKey == nil)
-            }.font(.system(size: 12))
-            HStack {
-                Text("Gamepad button").frame(width: 165, alignment: .leading)
-                Picker("", selection: Binding(get: { model.s.launchPad ?? 6 }, set: { model.s.launchPad = $0 })) {
-                    ForEach(InputManager.padButtons.indices, id: \.self) { Text(InputManager.padButtons[$0]).tag($0) }
-                }.labelsHidden().frame(width: 190)
-            }.font(.system(size: 12))
-            Text("A hand-launched aircraft stays in your hand, motor running, until you press this. The keyboard key also takes a flying aircraft back into the hand; the gamepad button and a transmitter switch only do that after a landing or a crash. On a USB transmitter, assign “Launch” to a switch or button in the list below.")
-                .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
-
-            Divider()
             Text("Switches and buttons").font(.headline)
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {

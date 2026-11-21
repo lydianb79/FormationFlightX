@@ -1448,7 +1448,6 @@ struct LobbyView: View {
                             HStack(spacing: 6) {
                                 Text("Anywhere: hold \(g.input.talkHint).").font(.system(size: 11)).foregroundColor(Theme.faint).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                                 Spacer(minLength: 0)
-                                Button("Change…") { m.openControllerSetup?() }.buttonStyle(.plain).font(.system(size: 11, weight: .semibold)).foregroundColor(Theme.brand)
                             }
                         } else {
                             Text("The microphone sends whenever you speak. Wear headphones, or the others will hear themselves through your speakers.")
