@@ -201,7 +201,7 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
     let stabY = g.tTail ? finY + g.finH : finY
     func chord(_ f: Float) -> Float { lerp(g.rootChord, g.tipChord, f) }
     func camo(_ a: Float, _ b: Float) -> Bool { vnoise(a * 4.2 + 3.1, b * 4.2 + 1.7, 7) + 0.35 * vnoise(a * 11, b * 11, 9) > 0.66 }
-    let film: Float = g.scheme == 7 ? 0.2 : (g.profile ? 0.15 : 0.6)        // camouflage and foam are matte
+    let film: Float = g.foamLook ? 0.1 : (g.scheme == 7 ? 0.2 : (g.profile ? 0.15 : 0.6))        // camouflage and foam are matte
     let cFuse = gl(g.fuse, film), cTop = gl(g.wingTop, film), cBot = gl(g.wingBottom, film), cTail = gl(g.tail, film), cAcc = gl(g.accent, film)
     let dark = V4(0.06, 0.06, 0.07, film), white = V4(0.96, 0.96, 0.95, film)
 
@@ -221,6 +221,12 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
         return fabric && Int(f * 34) % 2 == 0 ? dim(c, 0.93) : c
     }
     func wingBase(_ f: Float, _ x: Float, _ top: Bool) -> V4 {
+        if g.foamLook {
+            // moulded foam: one colour, at most a band along the leading edge and coloured tips
+            if f > 0.9, let t = g.tipColor { return gl(t, film) }
+            if top, x < 0.1, f > 0.12, let l = g.leColor { return gl(l, film) }
+            return top ? cTop : cBot
+        }
         // a non-slip walkway at the root of low wings
         if top && lowWing && !g.profile && !g.flyingWing && [2, 4, 7, 8].contains(g.scheme) && f < 0.13 && x > 0.3 && x < 0.78 { return walk }
         switch g.scheme {
@@ -260,6 +266,7 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
         }
     }
     func tailPaint(_ f: Float, _ x: Float, _ top: Bool) -> V4 {
+        if g.foamLook { return f > 0.86 && g.tipColor != nil && !g.flyingWing ? gl(g.tipColor!, film) : cTail }
         switch g.scheme {
         case 1: return (Int(f * 4) % 2 == 0) == (x < 0.5) ? cTail : cAcc
         case 2: return f > 0.8 ? cTail : (x > 0.62 ? dim(top ? cTop : cBot, 0.82) : (top ? cTop : cBot))
@@ -278,6 +285,13 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
         }
     }
     func fusePaint(_ t: Float, _ sx: Float, _ sy: Float) -> V4 {
+        if g.foamLook {
+            // a dark hatch over the equipment bay; the nose in the accent colour on the pod-and-boom types
+            let hatch: ClosedRange<Float> = g.fuseStyle == 2 ? 0.3...0.62 : (g.fuseStyle == 1 ? 0.08...0.3 : 0.14...0.46)
+            if hatch.contains(t) && sy > 0.5 && abs(sx) < 0.75 { return V4(0.05, 0.05, 0.06, 0.5) }
+            if g.fuseStyle == 1 && t < 0.05 { return cAcc }
+            return cFuse
+        }
         let stain = inlineEngine && t > 0.1 && t < 0.4 && abs(sy) < 0.2        // exhaust staining along the nose
         switch g.scheme {
         case 1:
@@ -357,6 +371,13 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
             ? [(0, 0.06, 0.06, -0.1), (0.03, 0.3, 0.3, -0.08), (0.1, 0.62, 0.62, -0.04), (0.2, 0.86, 0.88, 0), (0.32, 1, 1, 0), (0.45, 1, 1, 0), (0.6, 0.86, 0.88, 0.04), (0.78, 0.58, 0.64, 0.12), (0.92, 0.34, 0.44, 0.22), (1, 0.16, 0.3, 0.3)]
             : [(0, 0.44, 0.46, 0), (0.012, 0.66, 0.68, 0), (0.05, 0.88, 0.88, 0), (0.12, 0.98, 0.98, 0), (0.22, 1, 1, 0), (0.36, 1, 1, 0), (0.5, 0.92, 0.94, 0.02), (0.64, 0.74, 0.8, 0.08), (0.8, 0.5, 0.6, 0.16), (0.93, 0.28, 0.42, 0.25), (1, 0.14, 0.3, 0.3)]
         var stations = prof
+        switch g.fuseStyle {
+        case 1: stations = [(0, 0.34, 0.36, -0.1), (0.035, 0.72, 0.72, -0.05), (0.1, 1, 1, 0), (0.26, 1, 1, 0), (0.38, 0.82, 0.86, 0.05), (0.47, 0.34, 0.42, 0.22), (0.54, 0.16, 0.18, 0.3), (1, 0.12, 0.14, 0.3)]
+        case 2: stations = [(0, 0.04, 0.05, -0.15), (0.07, 0.36, 0.42, -0.1), (0.2, 0.72, 0.8, -0.04), (0.36, 1, 1, 0), (0.62, 1, 1, 0), (0.82, 0.8, 0.86, 0.03), (0.95, 0.5, 0.62, 0.1), (1, 0.3, 0.4, 0.14)]
+        case 3: stations = [(0, 0.78, 0.8, 0), (0.025, 0.94, 0.95, 0), (0.09, 1, 1, 0), (0.42, 1, 1, 0), (0.58, 0.8, 0.86, 0.05), (0.78, 0.44, 0.56, 0.18), (1, 0.2, 0.32, 0.3)]
+        case 4: stations = [(0, 0.12, 0.3, -0.1), (0.06, 0.42, 0.7, -0.05), (0.18, 0.74, 1, 0), (0.36, 0.95, 1, 0), (0.6, 1, 0.9, 0), (0.82, 0.92, 0.6, 0), (1, 0.7, 0.2, 0)]
+        default: break
+        }
         if radialEngine { stations[0] = (0, 0.86, 0.86, 0); stations[1] = (0.012, 0.97, 0.97, 0); stations[2] = (0.05, 1, 1, 0); stations[3] = (0.12, 1, 1, 0) }
         b.fuselage(stations.map { (z: nz + $0.0 * L, w: w * $0.1, h: h * $0.2, y: h * $0.3) }, exp: g.fuseExp, soft: g.scheme == 7, paint: fusePaint)
         if radialEngine {
@@ -404,6 +425,10 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
             // cabin door outline on the left
             let d = at(0.3)
             b.box(center: V3(-d.w * 0.985, d.y - d.h * 0.1, nz + (t0 - 0.025) * L), size: V3(0.002, d.h * 1.1, 0.003), color: V4(0.3, 0.3, 0.32, 0.3))
+        } else if g.foamLook {
+            // no canopy: the hatch is painted on. An FPV camera looks out of the nose.
+            if g.fuseStyle != 2 { b.box(center: V3(0, g.fuseStyle == 3 ? h * 0.25 : 0, nz + 0.002), size: V3(w * 0.5, h * 0.5, 0.012), color: V4(0.03, 0.03, 0.04, 0.8)) }
+            else { b.ellipsoid(center: V3(0, -h * 0.05, nz + L * 0.045), radii: V3(w * 0.2, h * 0.24, 0.012), color: V4(0.03, 0.03, 0.04, 0.8), seg: 8, rings: 4) }
         } else {
             let cl = L * g.canopyLen, cz = nz + L * 0.3
             b.ellipsoid(center: V3(0, h * 0.78, cz), radii: V3(w * 0.7, h * 0.62, cl), color: glass, seg: 16, rings: 8)
@@ -417,7 +442,7 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
         }
         if g.noseIntake {
             b.ellipsoid(center: V3(0, 0, nz + 0.002), radii: V3(w * 0.34, h * 0.36, 0.01), color: black, seg: 12, rings: 3)
-        } else if !g.ducted && g.twin == 0 {
+        } else if !g.ducted && g.twin == 0 && !g.foamLook {
             // cooling inlets and exhaust on the cowl
             for s in [Float(-1), 1] { b.ellipsoid(center: V3(s * w * 0.42, h * 0.12, nz + 0.004), radii: V3(w * 0.2, h * 0.13, 0.008), color: black, seg: 8, rings: 3) }
             b.cylinder(from: V3(w * 0.4, -h * 0.75, nz + L * 0.1), to: V3(w * 0.45, -h * 1.02, nz + L * 0.13), r0: 0.006, r1: 0.006, seg: 6, color: alu)
@@ -440,7 +465,7 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
         }
         wm.wingPanel(le: le, chord: chord, thick: g.thick, camber: g.camber * 0.006, up: up, f0: max(a0, fRoot), f1: 1, c1: k, strips: (a0 > 0.01 ? 7 : 12) * (fabric ? 3 : 1), roundTip: false, soft: g.scheme == 7, paint: wingPaint)
         // wing tip block spanning the full chord, with a navigation-colour marker: green right, red left
-        let tipCol = side > 0 ? V4(0.05, 0.6, 0.15, film) : V4(0.8, 0.05, 0.05, film)
+        let tipCol = g.foamLook ? wingPaint(0.99, 0.5, true) : (side > 0 ? V4(0.05, 0.6, 0.15, film) : V4(0.8, 0.05, 0.05, film))
         wm.wingPanel(le: { le(1) + normalize(le(1) - le(0.5)) * ($0 * g.tipChord * 0.05) }, chord: { _ in g.tipChord }, thick: g.thick, camber: g.camber * 0.006, up: up,
                      f0: 0, f1: 1, strips: 1, roundTip: true, paint: { _, x, t in x < 0.3 ? tipCol : wingPaint(0.99, x, t) })
         func surface(_ f0: Float, _ f1: Float, _ anim: Anim) {
@@ -489,7 +514,17 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
 
     // --- tail
     let tailThick: Float = g.profile ? 0.03 : 0.085
-    if !g.flyingWing {
+    if !g.flyingWing && g.vTail > 0 {
+        // a V-tail: two panels leaning outward, each with its ruddervator
+        let a = g.vTail * deg
+        let len = max(g.stabSpan / 2, g.finH) * 1.15
+        for side in [Float(-1), 1] {
+            let up = V3(-side * sin(a), cos(a), 0)
+            func vle(_ f: Float) -> V3 { V3(side * len * f * cos(a), finY + len * f * sin(a), g.stabZ + 0.3 * g.stabChord * f) }
+            func vch(_ f: Float) -> Float { g.stabChord * (1 - 0.3 * f) }
+            b.wingPanel(le: vle, chord: vch, thick: tailThick, camber: 0, up: up, f0: 0, f1: 1, strips: 4, roundTip: true, paint: tailPaint)
+        }
+    } else if !g.flyingWing {
         let sk = 1 - g.elevFrac
         var em = MeshBuilder()
         let eh = V3(0, stabY, g.stabZ + g.stabChord * sk)
@@ -510,11 +545,18 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
     if g.flyingWing {
         // fixed fins: on the wingtips, on the body, or none at all
         let tipY = g.wingY + hs * tan(dih)
-        let bases: [V3] = g.noFin ? [] : (g.winglets ? [V3(hs, tipY, g.wingLE + g.sweep + 0.2 * g.tipChord), V3(-hs, tipY, g.wingLE + g.sweep + 0.2 * g.tipChord)] : [V3(0, finY, g.finZ)])
+        let bases: [V3] = g.noFin ? [] : (g.winglets ? [V3(hs, tipY, g.wingLE + g.sweep + 0.2 * g.tipChord), V3(-hs, tipY, g.wingLE + g.sweep + 0.2 * g.tipChord)]
+                                          : (g.finCant > 0 ? [V3(g.finX, finY, g.finZ), V3(-g.finX, finY, g.finZ)] : [V3(0, finY, g.finZ)]))
         for base in bases {
-            b.wingPanel(le: { base + V3(0, g.finH * $0, 0.45 * g.finChord * $0) }, chord: { g.finChord * (1 - 0.4 * $0) }, thick: 0.07, camber: 0, up: V3(1, 0, 0),
+            // winglets may point down; fins on the body may lean outward
+            let side: Float = base.x >= 0 ? 1 : -1
+            let c = g.winglets ? 0 : g.finCant * deg
+            let rise = V3(side * sin(c), cos(c), 0) * (g.winglets && g.wingletDown ? -1 : 1)
+            b.wingPanel(le: { base + rise * (g.finH * $0) + V3(0, 0, 0.45 * g.finChord * $0) }, chord: { g.finChord * (1 - 0.4 * $0) }, thick: 0.07, camber: 0, up: V3(cos(c), -side * sin(c), 0),
                         f0: 0, f1: 1, strips: 3, roundTip: true, paint: tailPaint)
         }
+    } else if g.vTail > 0 {
+        // (the V-tail above stands in for fin and rudder)
     } else {
         let rk = 1 - g.rudFrac
         func fle(_ f: Float) -> V3 { V3(0, finY + g.finH * f, g.finZ + 0.32 * g.finChord * f) }
@@ -550,13 +592,22 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
         }
     } else {
         for (i, pp) in engines.enumerated() {
-            let sr = g.profile ? Float(0.011) : (g.twin > 0 ? Float(0.032) : w * g.spinnerScale)
-            if g.twin > 0 {
+            let sr = g.profile ? Float(0.011) : (g.barePods ? g.propDia * 0.07 : (g.twin > 0 ? Float(0.032) : w * g.spinnerScale))
+            if g.twin > 0 && g.barePods {
+                // a bare outrunner on a small mount ahead of the wing
+                let r = g.propDia * 0.11
+                b.cylinder(from: pp + V3(0, 0, r * 0.2), to: pp + V3(0, 0, r * 1.7), r0: r, r1: r, seg: 12, color: V4(0.08, 0.08, 0.09, 0.6))
+                b.box(center: pp + V3(0, -r * 0.5, r * 1.7 + (g.wingLE - pp.z) * 0.5), size: V3(r * 1.3, r * 1.5, (g.wingLE - pp.z) * 1.1), color: cFuse)
+            } else if g.twin > 0 {
                 b.fuselage([(pp.z, sr, sr, pp.y), (pp.z + 0.05, 0.044, 0.044, pp.y), (pp.z + 0.16, 0.046, 0.046, pp.y - 0.004), (pp.z + 0.3, 0.03, 0.03, pp.y - 0.008), (pp.z + 0.4, 0.008, 0.01, pp.y - 0.008)],
                            x: pp.x, exp: 2.2, seg: 12, paint: { t, _, _ in t < 0.18 ? cTail : cFuse })
             }
             var hub = MeshBuilder()
-            if g.pusher { hub.cylinder(from: V3(0, 0, -0.03), to: V3(0, 0, 0.012), r0: 0.013, r1: 0.013, seg: 10, color: V4(0.75, 0.3, 0.1, 0.8)) }
+            if g.pusher {
+                hub.cylinder(from: V3(0, 0, -0.03), to: V3(0, 0, 0.012), r0: 0.013, r1: 0.013, seg: 10, color: g.foamLook ? V4(0.08, 0.08, 0.09, 0.6) : V4(0.75, 0.3, 0.1, 0.8))
+                // a pusher on a pylon: the mount that carries it
+                if let p = g.propPos { b.box(center: V3(0, (p.y + h * 0.3) / 2, p.z - 0.035), size: V3(0.012, max(p.y - h * 0.3, 0.01), 0.05), color: cFuse) }
+            }
             else { spinner(&hub, base: .zero, radius: sr, length: sr * 1.5, color: g.spinnerColor.map { gl($0, film) } ?? cTail) }
             let pr = makePropeller(diameter: g.propDia, blades: g.blades)
             parts.append(Part(mesh: hub, pivot: pp, axis: V3(0, 0, 1), anim: .spin(i)))
@@ -614,7 +665,7 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
         }
         for z in [-0.2 * fl, 0.18 * fl] { b.cylinder(from: V3(-g.track, top - 0.01, z), to: V3(g.track, top - 0.01, z), r0: 0.005, r1: 0.005, seg: 6, color: alu) }
     }
-    if g.gear == .none {
+    if g.gear == .none && !g.foamLook {
         // belly skid
         b.box(center: V3(0, -h * 0.98, nz + L * 0.3), size: V3(0.012, 0.01, L * 0.3), color: black)
     }

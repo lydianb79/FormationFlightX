@@ -1024,7 +1024,7 @@ if CommandLine.arguments.contains("--flighttest") {
     let real: [String: (stall: ClosedRange<Float>, cruise: ClosedRange<Float>, top: ClosedRange<Float>)] = [
         "Alight Flik Wing": (22...32, 40...60, 75...100), "HeeWing F-01": (28...38, 55...75, 100...130), "AtomRC Dolphin": (27...36, 50...68, 90...115),
         "SonicModell AR Wing": (26...35, 48...65, 95...115), "TBS Chupito": (32...40, 55...90, 135...165), "TBS Mojito": (42...62, 85...120, 180...215),
-        "AtomRC Penguin": (27...36, 45...62, 85...105), "HeeWing T1 Ranger": (26...34, 42...58, 78...98), "HeeWing T2 Cruza": (33...42, 50...68, 95...115),
+        "AtomRC Penguin": (32...42, 45...62, 85...105), "HeeWing T1 Ranger": (26...34, 42...58, 78...98), "HeeWing T2 Cruza": (33...42, 50...68, 95...115),
         "ZOHD Altus": (27...35, 45...60, 85...105), "HeeWing H1 Hunter": (20...28, 30...45, 55...75), "AtomRC Swordfish": (33...42, 50...68, 95...115), "ZOHD Drift": (18...26, 28...42, 55...75)]
     let terrain = Terrain(site: SiteSpec.all[0])
     let only = CommandLine.arguments.contains("--new")
@@ -1435,6 +1435,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let a = NSAlert(); a.messageText = "Metal is not available on this Mac."; a.runModal(); NSApp.terminate(nil); return
         }
         renderer = r
+        if let dir = arg("--thumbs") {
+            // pictures of the FPV aircraft from three sides, for comparing the models with the real ones
+            try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            for spec in AircraftLibrary.all where spec.category == "FPV Aircrafts" {
+                for (tag, view) in [("a", V3(-0.8, 0.42, -0.95)), ("top", V3(0, 1, 0.001)), ("side", V3(-1, 0.08, 0.02))] {
+                    guard let img = r.thumbnail(for: spec, width: 640, height: 400, from: view), let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil),
+                          let data = NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:]) else { continue }
+                    try? data.write(to: URL(fileURLWithPath: "\(dir)/\(spec.name.replacingOccurrences(of: " ", with: "_"))-\(tag).png"))
+                }
+            }
+            exit(0)
+        }
         if let shot = arg("--shot") {
             mtk.framebufferOnly = false
             r.shotPath = shot

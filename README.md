@@ -63,16 +63,16 @@ Forty-two fixed-wing aircraft; there are no helicopters or multirotors. The **FP
 
 | Aircraft | Category | Span | Weight | Stall | Half throttle | Flat out |
 |---|---|---|---|---|---|---|
-| Alight Flik Wing | FPV Aircrafts | 0.50 m | 235 g | 32 | 45 | 85 |
+| Alight Flik Wing | FPV Aircrafts | 0.50 m | 235 g | 31 | 44 | 83 |
 | HeeWing F-01 | FPV Aircrafts | 0.69 m | 500 g | 37 | 60 | 110 |
 | AtomRC Dolphin | FPV Aircrafts | 0.85 m | 620 g | 36 | 54 | 101 |
 | SonicModell AR Wing | FPV Aircrafts | 0.90 m | 620 g | 35 | 53 | 98 |
 | TBS Chupito | FPV Aircrafts | 0.80 m | 650 g | 39 | 83 | 151 |
-| TBS Mojito | FPV Aircrafts | 1.27 m | 1800 g | 59 | 91 | 185 |
-| AtomRC Penguin | FPV Aircrafts | 0.75 m | 680 g | 30 | 46 | 88 |
+| TBS Mojito | FPV Aircrafts | 1.27 m | 1800 g | 60 | 91 | 180 |
+| AtomRC Penguin | FPV Aircrafts | 0.75 m | 680 g | 40 | 47 | 91 |
 | HeeWing T1 Ranger | FPV Aircrafts | 0.73 m | 480 g | 29 | 43 | 83 |
 | HeeWing T2 Cruza | FPV Aircrafts | 1.20 m | 1900 g | 38 | 52 | 100 |
-| HeeWing H1 Hunter | FPV Aircrafts | 0.68 m | 245 g | 22 | 33 | 64 |
+| HeeWing H1 Hunter | FPV Aircrafts | 0.68 m | 245 g | 22 | 33 | 63 |
 | ZOHD Altus | FPV Aircrafts | 0.98 m | 920 g | 32 | 46 | 88 |
 | AtomRC Swordfish | FPV Aircrafts | 1.20 m | 1150 g | 39 | 54 | 101 |
 | ZOHD Drift | FPV Aircrafts | 0.88 m | 265 g | 22 | 31 | 59 |
@@ -80,8 +80,8 @@ Forty-two fixed-wing aircraft; there are no helicopters or multirotors. The **FP
 What these are and are not:
 
 - The **figures** are the makers' and retailers': span, flying weight, wing area where given, motor size, and for the Chupito and Mojito the published stall, cruise and top speeds. Where sources disagree (the Dolphin's weight, the Flik's span) a middle value is used. For the others the speeds are what pilots usually report for aircraft of that size and power, not measurements of mine.
-- The **shapes** are the simulator's generic ones in the right proportions and colours, not copies of the mouldings. V-tails (Altus, Swordfish) are drawn and flown as conventional tails of the same size; the forward sweep of the Chupito and Mojito is drawn as a nearly straight wing.
-- The Mojito's top speed comes out at 185 km/h; the maker says "upwards of 200".
+- The **shapes** are built to resemble the real aircraft, from photographs: the Flik's large winglets, the F-01's down-turned tips, the Dolphin's long pointed nose and single fin, the AR Wing's red leading edge, the black forward-swept Chupito and Mojito with their fin on the body, the Penguin's wide lifting body with two motors and two leaning fins, the Ranger's square camera nose, the pod-and-boom Cruza and Altus and the slender Swordfish with their V-tails, the airliner-like Hunter, and the Drift with its motor on a pylon behind the wing. They are still made from simple generated shapes in plain foam colours: no decals, and proportions judged by eye. V-tails are drawn as V-tails but fly as the plain tail of the same size.
+- The Mojito's top speed comes out at 180 km/h; the maker says "upwards of 200". The Penguin is modelled as the tailless lifting body it is, and with its small listed wing area stalls at about 40 km/h.
 - Each is trimmed in pitch for a gentle cruise (37 to 60 km/h) and in roll against its propeller's torque, as you would on the first flights, so it flies straight with the sticks let go. On more than cruise power the overpowered wings climb, as the real ones do; hold a little down or use the pitch trim (− and =).
 - None of them has a flight controller: no stabilisation, no return to home.
 

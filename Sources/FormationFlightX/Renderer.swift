@@ -605,7 +605,7 @@ final class Renderer: NSObject, MTKViewDelegate {
     }
 
     /// Studio-style preview of an aircraft on a transparent background, for the selection screens.
-    func thumbnail(for spec: AircraftSpec, width w: Int = 840, height h: Int = 520) -> NSImage? {
+    func thumbnail(for spec: AircraftSpec, width w: Int = 840, height h: Int = 520, from view: V3 = V3(-0.8, 0.42, -0.95)) -> NSImage? {
         let cd = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm_srgb, width: w, height: h, mipmapped: false)
         cd.textureType = .type2DMultisample; cd.sampleCount = 4; cd.usage = .renderTarget; cd.storageMode = .private
         let rd = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm_srgb, width: w, height: h, mipmapped: false)
@@ -627,10 +627,10 @@ final class Renderer: NSObject, MTKViewDelegate {
         let center = V3(0, (minY + maxY) / 2, (minZ + maxZ) / 2)
         let radius = 0.5 * max(spec.span, maxZ - minZ) * 0.84
         let fov: Float = 26 * deg
-        let dir = normalize(V3(-0.8, 0.42, -0.95))
+        let dir = normalize(view)
         let eye = center + dir * (radius / tan(fov / 2) * 1.02)
         var fu = FrameUniforms()
-        fu.viewProj = M4.perspective(fovY: fov, aspect: Float(w) / Float(h), near: 200, far: 0.02) * M4.lookAt(eye: eye, target: center, up: V3(0, 1, 0))
+        fu.viewProj = M4.perspective(fovY: fov, aspect: Float(w) / Float(h), near: 200, far: 0.02) * M4.lookAt(eye: eye, target: center, up: abs(dir.y) > 0.95 ? V3(0, 0, -1) : V3(0, 1, 0))
         fu.invViewProj = fu.viewProj.inverse
         fu.shadow0 = M4(diagonal: V4(0, 0, 0, 0)); fu.shadow1 = fu.shadow0          // no shadow maps: everything lit
         fu.camPos = V4(eye.x, eye.y, eye.z, 0)
