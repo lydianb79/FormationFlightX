@@ -270,6 +270,7 @@ final class Game {
     var showShot = 0, showKey = -1, showSnap = true
     var showEye = V3.zero, showTarget = V3.zero
     var showLast = V3.zero
+    var showPrevQ = simd_quatf(ix: 0, iy: 0, iz: 0, r: 1), showWob: [V3] = []
     var showLeadQ = simd_quatf(ix: 0, iy: 0, iz: 0, r: 1), showSnapQ = true, showSlotsFresh = true
     var showRock = [V3](repeating: .zero, count: 5), showRockT: Float = 0
     var formation: FormationKind = FormationKind(rawValue: UserDefaults.standard.integer(forKey: "formation")) ?? .vic { didSet { UserDefaults.standard.set(formation.rawValue, forKey: "formation") } }

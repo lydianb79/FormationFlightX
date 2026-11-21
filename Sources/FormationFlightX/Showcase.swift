@@ -75,17 +75,33 @@ extension Game {
         lead.updateRenderPose(ahead: showAcc)
         // the lead's attitude as drawn, with the last flicker of its corrections smoothed away
         showLeadQ = showSnapQ ? lead.renderQ : simd_slerp(showLeadQ, lead.renderQ, min(1, dt * 5))
+        if Game.showLog {
+            // how much the drawn flight moves about: the attitude's turn rate as drawn, and the lead's bank and pitch
+            let dq = showLeadQ * showPrevQ.inverse
+            let rate = abs(2 * acos(clampf(abs(dq.real), -1, 1))) / max(dt, 1e-4) / deg
+            showPrevQ = showLeadQ
+            let fwd = showLeadQ.act(V3(0, 0, -1)), up = showLeadQ.act(V3(0, 1, 0))
+            if CommandLine.arguments.contains("--bank") && Int(env.time * 10) != Int((env.time - dt) * 10) {
+                print(String(format: "BANK t %.1f  drawn %+5.1f°  physics %+5.1f°  aileron %+.2f  elevator %+.2f", env.time, atan2(-showLeadQ.act(V3(1, 0, 0)).y, showLeadQ.act(V3(0, 1, 0)).y) / deg, lead.roll / deg, showFlight[0].controls.aileron, showFlight[0].controls.elevator)); fflush(stdout)
+            }
+            showWob.append(V3(rate, atan2(-showLeadQ.act(V3(1, 0, 0)).y, up.y) / deg, asin(clampf(fwd.y, -1, 1)) / deg))
+            if showWob.count >= 240 {
+                let r = showWob.map { $0.x }, b = showWob.map { $0.y }, p = showWob.map { $0.z }
+                func sd(_ a: [Float]) -> Float { let m = a.reduce(0, +) / Float(a.count); return sqrt(a.map { ($0 - m) * ($0 - m) }.reduce(0, +) / Float(a.count)) }
+                print(String(format: "SHOW wobble over 4 s: drawn turn rate mean %.1f°/s max %.1f°/s; bank %+.0f° ±%.1f°, pitch %+.1f° ±%.2f°", r.reduce(0, +) / Float(r.count), r.max()!, b.reduce(0, +) / Float(b.count), sd(b), p.reduce(0, +) / Float(p.count), sd(p))); fflush(stdout)
+                showWob = []
+            }
+        }
         showSnapQ = false
         lead.renderQ = showLeadQ
-        // the four wingmen sit in their slots as a display team does: steady, each easing about a little on its own
+        // the four wingmen sit locked in their slots, as a display team does
         let (f, r) = Formation.frame(of: lead), t = env.time
         for n in 1..<showFlight.count {
             let ac = showFlight[n].aircraft
             let o = formation.offset(n) * showSpacing
-            let drift = (r * sin(t * 0.37 + Float(n) * 1.9) + V3(0, 0.6 * sin(t * 0.29 + Float(n) * 2.7), 0) + f * sin(t * 0.23 + Float(n))) * (0.06 * showSpacing)
             // exactly in the slot, as the slot is laid out along the lead's path (the drift is smooth by itself: easing
             // toward a moving slot left every wingman half a spacing behind)
-            var want = Formation.slot(n, lead: lead, kind: formation, spacing: showSpacing, from: lead.renderPos) + drift
+            var want = Formation.slot(n, lead: lead, kind: formation, spacing: showSpacing, from: lead.renderPos)
             want.y = max(want.y, terrain.gnd(want.x, want.z) + 3)
             ac.renderPos = want
             ac.renderQ = showLeadQ
