@@ -520,9 +520,6 @@ struct SiteBrowser: View {
                     filterRow("Desert", icon: "sun.max")
                     filterRow("Winter", icon: "snowflake")
                     Spacer()
-                    Button { m.addPanorama?() } label: { Label("Add Photo…", systemImage: "plus").frame(maxWidth: .infinity) }.buttonStyle(QuietButton())
-                    Button { m.choosePanoramaFolder?() } label: { Label("Photo Folder…", systemImage: "folder").frame(maxWidth: .infinity) }.buttonStyle(QuietButton())
-                    Text("Any 360° equirectangular photo becomes a site.").font(.system(size: 10.5)).foregroundColor(Theme.faint).fixedSize(horizontal: false, vertical: true).padding(.top, 4)
                 }
                 .frame(width: 176).padding(12)
                 Rectangle().fill(Theme.stroke).frame(width: 1)
