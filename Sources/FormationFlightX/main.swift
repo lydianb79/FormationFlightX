@@ -1146,6 +1146,37 @@ if CommandLine.arguments.contains("--sitetest") {
         } }
         // gates: open, above the ground, and counted
         for (k, gate) in t.gates.enumerated() {
+            if site.layout == 8 {
+                // a site brought in from elsewhere: its gates stand in doorways, under conveyors and between
+                // buildings. There has to be a way through each one, with room before and behind it.
+                var open = false
+                search: for u in stride(from: Float(-0.4), through: 0.41, by: 0.05) { for v in stride(from: Float(-0.4), through: 0.41, by: 0.05) {
+                    let q = gate.c + gate.right * (u * gate.w) + gate.up * (v * gate.h)
+                    let way = [Float(-4), -2, 0, 2, 4].allSatisfy { s in
+                        let r = q + gate.dir * s
+                        return !t.strikes(r, reach: 0.5) && r.y > t.height(r.x, r.z) + 0.4
+                    }
+                    if way { open = true; break search }
+                } }
+                if !open { problems.append("gate \(k + 1): no way through") }
+                if !open && CommandLine.arguments.contains("--verbose") {
+                    print(String(format: "  gate %d c (%.1f %.1f %.1f) w %.1f h %.1f dir (%.2f %.2f %.2f) ground %.1f", k + 1, gate.c.x, gate.c.y, gate.c.z, gate.w, gate.h, gate.dir.x, gate.dir.y, gate.dir.z, t.height(gate.c.x, gate.c.z)))
+                    for b in t.boxes where b.solid && b.rot != nil {
+                        // the box's corners in the gate's own frame: across, up, along
+                        var lo = V3(repeating: .infinity), hi = V3(repeating: -.infinity)
+                        for i in 0..<8 {
+                            let o = V3(i & 1 == 0 ? -b.half.x : b.half.x, i & 2 == 0 ? -b.half.y : b.half.y, i & 4 == 0 ? -b.half.z : b.half.z)
+                            let d = b.c + b.rot!.act(o) - gate.c
+                            let l = V3(dot(d, gate.right), dot(d, gate.up), dot(d, gate.dir))
+                            lo = simd_min(lo, l); hi = simd_max(hi, l)
+                        }
+                        if lo.x < gate.w / 2 && hi.x > -gate.w / 2 && lo.y < gate.h / 2 && hi.y > -gate.h / 2 && lo.z < 6 && hi.z > -6 {
+                            print(String(format: "     shape %d half (%.1f %.1f %.1f): across %.1f…%.1f  up %.1f…%.1f  along %.1f…%.1f", b.shape, b.half.x, b.half.y, b.half.z, lo.x, hi.x, lo.y, hi.y, lo.z, hi.z))
+                        }
+                    }
+                }
+                continue
+            }
             if t.strikes(gate.c, reach: 1) { problems.append("gate \(k + 1) is blocked") }
             if gate.c.y - gate.h / 2 < t.height(gate.c.x, gate.c.z) - 0.2 { problems.append("gate \(k + 1) is in the ground") }
             for s in [Float(-25), 25] where t.strikes(gate.c + gate.dir * s, reach: 1.5) || (gate.c + gate.dir * s).y < t.height(gate.c.x + gate.dir.x * s, gate.c.z + gate.dir.z * s) + 1 {

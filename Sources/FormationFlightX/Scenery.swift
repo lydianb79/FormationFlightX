@@ -428,6 +428,7 @@ extension Terrain {
 
     func buildScenery() -> MeshBuilder {
         var b = MeshBuilder()
+        if site.bare { return b }
         var rng = LCG(UInt64(site.seed) + 321)
         let white = cg(0.92, 0.92, 0.9, 0.1), wood = cg(0.52, 0.38, 0.24), steel = cg(0.62, 0.63, 0.65, 0.5)
 

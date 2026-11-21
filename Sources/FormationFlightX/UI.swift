@@ -436,7 +436,7 @@ struct SiteBrowser: View {
     @State private var selected = 0
     @AppStorage("siteFilter") private var filter = "All"       // stays as it was left, also after a restart
     @State private var search = ""
-    private static let categories = ["Race Tracks", "Obstacles", "Cities", "Fields", "Airfields", "Mountains", "Water", "Desert", "Winter"]
+    private static let categories = ["Race Tracks", "Obstacles", "Cities", "Industrial", "Fields", "Airfields", "Mountains", "Water", "Desert", "Winter"]
     private var all: [SiteSpec] { SiteSpec.all }
     private func matches(_ s: SiteSpec, _ f: String) -> Bool {
         switch f {
@@ -488,6 +488,7 @@ struct SiteBrowser: View {
                     filterRow("Race Tracks", icon: "flag.checkered")
                     filterRow("Obstacles", icon: "square.grid.3x3.middle.filled")
                     filterRow("Cities", icon: "building.2")
+                    filterRow("Industrial", icon: "gearshape.2")
                     filterRow("Fields", icon: "leaf")
                     filterRow("Airfields", icon: "airplane.departure")
                     filterRow("Mountains", icon: "mountain.2")

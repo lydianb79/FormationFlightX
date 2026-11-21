@@ -5,3 +5,6 @@ FormationFlightX.app/
 .swiftpm/
 DerivedData/
 dist/
+# reference material and the original track file: not ours to publish
+Media/
+*.trk
