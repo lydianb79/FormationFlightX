@@ -471,6 +471,23 @@ extension Game {
             }
             s.mates.append(Mate(id: id, number: k + 1, name: w.name, detail: detail, good: good, talking: voice.speaking(id)))
         }
+        // the map
+        let (f, r) = Formation.frame(of: aircraft)
+        var far: Float = 0
+        for w in wingmen where w.present(now) {
+            let d = w.aircraft.pos - aircraft.pos, (wf, _) = Formation.frame(of: w.aircraft)
+            let p = SIMD2(dot(d, r), dot(d, f))
+            far = max(far, simd_length(p))
+            s.blips.append(Blip(id: w.id, p: p, heading: atan2(dot(wf, r), dot(wf, f)), dAlt: d.y, name: w.ai == nil ? w.name : "", lead: w.id == leadID,
+                                talking: voice.speaking(w.id), crashed: w.aircraft.crashed))
+        }
+        let home = terrain.pilotPos - aircraft.pos
+        s.mapHome = SIMD2(dot(home, r), dot(home, f))
+        s.mapNorth = atan2(dot(V3(0, 0, -1), r), dot(V3(0, 0, -1), f))
+        // the scale steps out to keep the farthest of the others in the picture, and does not flicker between steps
+        let want = [Float(15), 30, 60, 120, 250, 500, 1000, 2000].first { $0 >= far * 1.15 } ?? 2000
+        if want > mapRange || far * 1.6 < mapRange { mapRange = want }
+        s.mapRange = mapRange
         s.talking = remotePilots.filter { voice.speaking($0.id) }.map { $0.name }
         s.unread = unreadChat
         s.chat = chat.suffix(4).filter { !$0.mine && now - $0.time < 10 }

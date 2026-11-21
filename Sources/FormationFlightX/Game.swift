@@ -21,7 +21,16 @@ struct HUDState {
     var slot: V3? = nil             // own slot error in metres: x right, y up, z ahead; nil when leading or without a lead
     var slotTol: Float = 1
     var onStation = false
+    // the map: everyone else relative to this aircraft, which is at the centre and points up
+    var blips: [Blip] = []
+    var mapRange: Float = 100
+    var mapHome: SIMD2<Float> = .zero       // the pilots' position: x to the right, y ahead, metres
+    var mapNorth: Float = 0                 // where north is, clockwise from straight ahead
+    var onboard = false
 }
+
+/// Another aircraft on the map. `name` is set for a real pilot and empty for a computer partner.
+struct Blip: Identifiable { var id: UInt32; var p: SIMD2<Float>; var heading: Float; var dAlt: Float; var name: String; var lead: Bool; var talking: Bool; var crashed: Bool }
 
 /// One line of the formation list in the display.
 struct Mate: Identifiable { var id: UInt32; var number: Int; var name: String; var detail: String; var good: Bool; var talking = false }
@@ -191,6 +200,7 @@ final class Game {
     var wingmen: [Wingman] = []
     // the flight shown behind the menus
     static var noShowcase = false
+    var mapRange: Float = 120
     var showFlight: [Wingman] = []
     var showAcc: Float = 0, showSmoke: Float = 0, showShotTime: Float = 0, showAngle: Float = 0
     var showShot = 0, showKey = -1, showSnap = true
@@ -277,6 +287,7 @@ final class Game {
         timeOfDay = Game.time(forSite: site.defaultTime)
         aircraft = Aircraft(AircraftLibrary.all[aircraftIndex])
         flightMode = min(aircraft.spec.defaultMode, max(aircraft.spec.modes.count - 1, 0))
+        startView()
         newSession()
         resetAircraft()
         hud.game = self
@@ -367,6 +378,21 @@ final class Game {
         resetRace()
     }
 
+    /// FPV aircraft are flown from on board, so that is the view they start in; the others from behind.
+    var isFPV: Bool { aircraft.spec.category == "FPV Aircrafts" }
+    func startView() {
+        guard site.panorama == nil else { cameraMode = 0; return }
+        if isFPV { cameraMode = 2 } else if cameraMode == 2 { cameraMode = 1 }
+        camSnap = true
+    }
+    /// The button in the display: from on board to behind the aircraft and back.
+    func toggleFPV() {
+        if site.panorama != nil { cameraMode = 0; say("Photo sites use the pilot camera only"); return }
+        cameraMode = cameraMode == 2 ? 1 : 2
+        camSnap = true
+        say("Camera: " + Game.cameraNames[cameraMode])
+    }
+
     func selectAircraft(_ i: Int) {
         guard i >= 0 && i < AircraftLibrary.all.count else { return }
         if together && sessionRunning && !isHost && i != aircraftIndex {
@@ -375,6 +401,7 @@ final class Game {
         aircraftIndex = i
         aircraft = Aircraft(AircraftLibrary.all[i])
         flightMode = min(aircraft.spec.defaultMode, max(aircraft.spec.modes.count - 1, 0))
+        startView()
         newSession()
         aircraftVersion += 1
         resetAircraft()
@@ -391,7 +418,7 @@ final class Game {
         env.obstacles = terrain.windObstacles
         panoLight = site.panorama != nil ? Panoramas.analyze(site) : nil
         loadMask()
-        if site.panorama != nil { cameraMode = 0 } else { timeOfDay = Game.time(forSite: site.defaultTime) }
+        if site.panorama != nil { cameraMode = 0 } else { timeOfDay = Game.time(forSite: site.defaultTime); if cameraMode == 0 && isFPV { cameraMode = 2 } }
         siteVersion += 1
         if challenge { spawnBalloons() }
         raceBest = nil
@@ -863,6 +890,7 @@ final class Game {
         s.throttle = controls.throttle
         let dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
         s.wind = env.windSpeed < 0.1 ? "Calm" : String(format: "%@ %.0f m/s", dirs[Int((env.windFrom + 22.5) / 45) % 8], env.windSpeed)
+        s.onboard = cameraMode == 2
         s.camera = Game.cameraNames[cameraMode] + (cameraMode == 0 ? " · " + Game.zoomNames[zoomMode] : "")
         s.mode = spec.modes.count > 1 ? spec.modes[flightMode] : ""
         s.input = autopilotOn ? "Demo pilot" : input.source

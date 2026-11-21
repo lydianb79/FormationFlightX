@@ -1328,7 +1328,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var siteArg = Int(arg("--site") ?? "") ?? 0
         if let p = arg("--pano") { SiteSpec.all.append(Panoramas.site(for: URL(fileURLWithPath: p))); siteArg = SiteSpec.all.count - 1 }
         var acArg = Int(arg("--aircraft") ?? "") ?? 0
-        let interactive = CommandLine.arguments.count == 1          // launched normally, not by a test command line
+        // launched normally, not by a test command line (the system may add arguments of its own, which begin with one dash)
+        let interactive = !CommandLine.arguments.dropFirst().contains { $0.hasPrefix("--") }
         if interactive {
             // restore the last aircraft and site
             if let n = UserDefaults.standard.string(forKey: "lastAircraft"), let i = AircraftLibrary.all.firstIndex(where: { $0.name == n }) { acArg = i }

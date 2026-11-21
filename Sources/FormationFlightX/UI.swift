@@ -183,6 +183,8 @@ struct HUDView: View {
                         }
                         .padding(.trailing, 4).allowsHitTesting(false)
                         HStack(spacing: 5) {
+                            BarButton(icon: s.onboard ? "video.fill" : "airplane", help: s.onboard ? "View from behind the aircraft" : "FPV: view from on board") { m.game.toggleFPV() }
+                                .overlay(alignment: .bottom) { Text(s.onboard ? "FPV" : "3RD").font(.system(size: 6.5, weight: .heavy)).foregroundColor(Theme.amber).offset(y: 1).allowsHitTesting(false) }
                             BarButton(icon: s.unread > 0 ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right", help: "Lobby: chat and voice (Return)") { m.game.cameFromMenu = false; m.overlay = m.overlay == .lobby ? .none : .lobby }
                             BarButton(icon: "person.3.fill", help: "Options: pilots, hosting and joining") { m.game.cameFromMenu = false; m.overlay = m.overlay == .options ? .none : .options }
                             BarButton(icon: "wind", help: "Wind, weather and time of day") { m.game.cameFromMenu = false; m.overlay = m.overlay == .environment ? .none : .environment }
@@ -205,6 +207,7 @@ struct HUDView: View {
                             }
                         }
                         Spacer()
+                        MiniMap(s: s).allowsHitTesting(false)
                     }
                     .padding(.horizontal, 12).padding(.top, 8)
 
@@ -904,6 +907,58 @@ struct HelpView: View {
 // MARK: - Formation
 
 /// Top view of where the slot is relative to this pilot's aircraft, with a bar for the height difference.
+/// The map in the corner of the display: this aircraft at the centre pointing up, everyone else round it to scale.
+/// A real pilot carries a name; a computer partner is a plain grey arrow. The lead has a ring.
+private struct MiniMap: View {
+    var s: HUDState
+    var body: some View {
+        let size: CGFloat = 168, half = size / 2 - 9, range = CGFloat(max(s.mapRange, 1))
+        // where something `p` metres away goes; beyond the edge it is held on the rim
+        func place(_ p: SIMD2<Float>) -> (CGSize, Bool) {
+            let d = CGFloat((p.x * p.x + p.y * p.y).squareRoot()), k = d > range ? range / d : 1
+            return (CGSize(width: CGFloat(p.x) * k / range * half, height: -CGFloat(p.y) * k / range * half), d > range)
+        }
+        let amber = Theme.amber, grey = Theme.paper.opacity(0.6)
+        return VStack(spacing: 4) {
+            ZStack {
+                Circle().fill(Color.black.opacity(0.28))
+                Circle().stroke(Theme.paper.opacity(0.22), lineWidth: 1)
+                Circle().stroke(Theme.paper.opacity(0.12), lineWidth: 1).frame(width: half, height: half)
+                Rectangle().fill(Theme.paper.opacity(0.1)).frame(width: 1, height: half * 2)
+                Rectangle().fill(Theme.paper.opacity(0.1)).frame(width: half * 2, height: 1)
+                Text("N").font(.system(size: 9, weight: .heavy)).foregroundColor(Theme.paper.opacity(0.7))
+                    .offset(x: sin(CGFloat(s.mapNorth)) * (half + 2), y: -cos(CGFloat(s.mapNorth)) * (half + 2))
+                // where the pilots stand
+                let (hp, hFar) = place(s.mapHome)
+                Image(systemName: "house.fill").font(.system(size: 9)).foregroundColor(Theme.paper.opacity(hFar ? 0.45 : 0.8)).offset(hp)
+                ForEach(s.blips) { b in
+                    let (o, off) = place(b.p), real = !b.name.isEmpty, col = b.crashed ? Color.red.opacity(0.8) : (real ? amber : grey)
+                    ZStack {
+                        if b.lead { Circle().stroke(col, lineWidth: 1.2).frame(width: 17, height: 17) }
+                        if b.talking { Circle().fill(amber.opacity(0.3)).frame(width: 22, height: 22) }
+                        Image(systemName: "location.north.fill").font(.system(size: real ? 11 : 9)).foregroundColor(col).rotationEffect(.radians(Double(b.heading)))
+                    }
+                    .opacity(off ? 0.55 : 1).offset(o)
+                    if real {
+                        // the name, and how far above or below
+                        Text(b.name + (abs(b.dAlt) >= 2 ? String(format: " %+.0f", b.dAlt) : ""))
+                            .font(.system(size: 9, weight: .bold)).foregroundColor(.white).lineLimit(1).fixedSize()
+                            .padding(.horizontal, 4).padding(.vertical, 1)
+                            .background(Capsule().fill(Color.black.opacity(0.55)))
+                            .offset(x: o.width, y: o.height + (o.height > half - 22 ? -14 : 14))
+                    } else if abs(b.dAlt) >= 3 && !off {
+                        Text(String(format: "%+.0f", b.dAlt)).font(.system(size: 8, weight: .semibold)).foregroundColor(grey).offset(x: o.width + 13, y: o.height)
+                    }
+                }
+                Image(systemName: "location.north.fill").font(.system(size: 12)).foregroundColor(Theme.brand)
+            }
+            .frame(width: size, height: size)
+            Text(String(format: "%.0f m", s.mapRange)).font(.system(size: 9, weight: .semibold)).monospacedDigit().foregroundColor(Theme.dim)
+        }
+        .padding(7).glass(12)
+    }
+}
+
 private struct SlotScope: View {
     var e: V3, tol: Float, good: Bool
     var body: some View {
