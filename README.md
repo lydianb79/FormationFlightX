@@ -57,7 +57,7 @@ Anyone who knows the address can connect while hosting is on. Set a group name t
 
 ## Aircraft
 
-Forty-two fixed-wing aircraft; there are no helicopters or multirotors. The **FPV Aircrafts** category holds every flying wing and FPV plane, twenty-four in all; they come first, and the app opens on one.
+Forty-one fixed-wing aircraft; there are no helicopters or multirotors. The **FPV Aircrafts** category holds every flying wing and FPV plane, twenty-three in all; they come first, and the app opens on one.
 
 **FPV aircraft you can buy**, modelled from their published span, flying weight and wing area. Power, propeller and drag are set so that the simulated aircraft stalls, cruises and tops out where the real one is reported to (speeds in km/h, as measured by `--flighttest` in still air):
 
@@ -68,7 +68,6 @@ Forty-two fixed-wing aircraft; there are no helicopters or multirotors. The **FP
 | AtomRC Dolphin | FPV Aircrafts | 0.85 m | 620 g | 36 | 54 | 101 |
 | SonicModell AR Wing | FPV Aircrafts | 0.90 m | 620 g | 35 | 53 | 98 |
 | TBS Chupito | FPV Aircrafts | 0.80 m | 650 g | 39 | 83 | 151 |
-| TBS Mojito | FPV Aircrafts | 1.27 m | 1800 g | 60 | 91 | 180 |
 | AtomRC Penguin | FPV Aircrafts | 0.75 m | 680 g | 40 | 47 | 91 |
 | HeeWing T1 Ranger | FPV Aircrafts | 0.73 m | 480 g | 29 | 43 | 83 |
 | HeeWing T2 Cruza | FPV Aircrafts | 1.20 m | 1900 g | 38 | 52 | 100 |
@@ -79,15 +78,15 @@ Forty-two fixed-wing aircraft; there are no helicopters or multirotors. The **FP
 
 What these are and are not:
 
-- The **figures** are the makers' and retailers': span, flying weight, wing area where given, motor size, and for the Chupito and Mojito the published stall, cruise and top speeds. Where sources disagree (the Dolphin's weight, the Flik's span) a middle value is used. For the others the speeds are what pilots usually report for aircraft of that size and power, not measurements of mine.
-- The **shapes** are built to resemble the real aircraft, from photographs: the Flik's large winglets, the F-01's down-turned tips, the Dolphin's long pointed nose and single fin, the AR Wing's red leading edge, the black forward-swept Chupito and Mojito with their fin on the body, the Penguin's wide lifting body with two motors and two leaning fins, the Ranger's square camera nose, the pod-and-boom Cruza and Altus and the slender Swordfish with their V-tails, the airliner-like Hunter, and the Drift with its motor on a pylon behind the wing. They are still made from simple generated shapes in plain foam colours: no decals, and proportions judged by eye. V-tails are drawn as V-tails but fly as the plain tail of the same size.
-- The Mojito's top speed comes out at 180 km/h; the maker says "upwards of 200". The Penguin is modelled as the tailless lifting body it is, and with its small listed wing area stalls at about 40 km/h.
+- The **figures** are the makers' and retailers': span, flying weight, wing area where given, motor size, and for the Chupito the published stall, cruise and top speeds. Where sources disagree (the Dolphin's weight, the Flik's span) a middle value is used. For the others the speeds are what pilots usually report for aircraft of that size and power, not measurements of mine.
+- The **shapes** are built from photographs of the real aircraft: the Flik's large dark winglets, the F-01's down-turned red tips, the Dolphin's long pointed nose and single fin, the AR Wing in black with a red leading edge, white bands and chequered fins, the black forward-swept Chupito with its fin on the body, the Penguin's wide lifting body with two motors and two leaning fins, the grey T1 Ranger and T2 Cruza as a pod on a thin boom with a tall fin, the Altus and Swordfish with their V-tails, the Hunter's tube fuselage and red dashes, and the Drift with its motor on a pylon behind the wing. They are made from simple generated shapes: wings are straight-tapered, bodies are not blended into the wing, and there are no printed graphics. V-tails are drawn as V-tails but fly as the plain tail of the same size.
+- The Penguin is modelled as the tailless lifting body it is, and with its small listed wing area stalls at about 40 km/h.
 - Each is trimmed in pitch for a gentle cruise (37 to 60 km/h) and in roll against its propeller's torque, as you would on the first flights, so it flies straight with the sticks let go. On more than cruise power the overpowered wings climb, as the real ones do; hold a little down or use the pitch trim (− and =).
 - None of them has a flight controller: no stabilisation, no return to home.
 
 **The other categories** each have two or three aircraft from FlightCore OSX: trainers, scale civil, warbirds, aerobatic, foam 3D, jets and gliders. Those that are not hand-launched start on the runway, one behind the other in formation order. The eleven original flying wings are in FPV Aircrafts with the rest.
 
-**Computer partners** fly every aircraft, and hold formation with all forty-two of them to within about 3 m RMS in `--formtest`. For fast aircraft the computer lead flies a larger racetrack.
+**Computer partners** fly every aircraft, and hold formation with all forty-one of them to within about 3 m RMS in `--formtest`. For fast aircraft the computer lead flies a larger racetrack.
 
 ## Flying sites
 
@@ -207,7 +206,7 @@ Formations for up to five: vic, echelon right, echelon left, line astern, line a
 | `FormationGame.swift` | Roster, lead, slots, collisions, chat, what is sent and shown |
 | everything else | FlightCore OSX, limited to flying wings and 3D sites |
 
-Command-line checks: `--flighttest` flies every fixed-wing aircraft and reports stall, half-throttle and top speed, climb, glide, roll rate, the speed it is trimmed for and whether it flies on hands-off, with a verdict against the real figures for the thirteen bought FPV aircraft (`--new` for those only); `--sitetest` checks on every site that the five launch lanes are clear, that each gate is open with a way in and out and is counted in order, and that the computer lead's racetrack clears the ground and everything built; `--voicetest` sends speech and chat through the coder and the message format with no audio hardware; `--formtest` flies the computer partners with every wing and prints how well they hold formation; `--formtrace <wing> <0|1>` prints one flight in detail; `--net --netlog --name <name>` runs a windowed copy that logs who it sees; add `--host`, or `--join <address>`, and `--nobonjour` to try the online path on one Mac.
+Command-line checks: `--flighttest` flies every fixed-wing aircraft and reports stall, half-throttle and top speed, climb, glide, roll rate, the speed it is trimmed for and whether it flies on hands-off, with a verdict against the real figures for the twelve bought FPV aircraft (`--new` for those only); `--sitetest` checks on every site that the five launch lanes are clear, that each gate is open with a way in and out and is counted in order, and that the computer lead's racetrack clears the ground and everything built; `--voicetest` sends speech and chat through the coder and the message format with no audio hardware; `--formtest` flies the computer partners with every wing and prints how well they hold formation; `--formtrace <wing> <0|1>` prints one flight in detail; `--net --netlog --name <name>` runs a windowed copy that logs who it sees; add `--host`, or `--join <address>`, and `--nobonjour` to try the online path on one Mac.
 
 ## Not yet done
 

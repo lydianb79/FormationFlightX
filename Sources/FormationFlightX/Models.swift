@@ -225,6 +225,8 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
             // moulded foam: one colour, at most a band along the leading edge and coloured tips
             if f > 0.9, let t = g.tipColor { return gl(t, film) }
             if top, x < 0.1, f > 0.12, let l = g.leColor { return gl(l, film) }
+            if top, g.wingBands, x > 0.1, (f > 0.42 && f < 0.48) || (f > 0.53 && f < 0.59) { return white }
+            if top, let d = g.dashColor, x > 0.16, x < 0.27, f > 0.2, f < 0.95, Int(f * 44) % 2 == 0 { return gl(d, film) }
             return top ? cTop : cBot
         }
         // a non-slip walkway at the root of low wings
@@ -266,7 +268,11 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
         }
     }
     func tailPaint(_ f: Float, _ x: Float, _ top: Bool) -> V4 {
-        if g.foamLook { return f > 0.86 && g.tipColor != nil && !g.flyingWing ? gl(g.tipColor!, film) : cTail }
+        if g.foamLook {
+            if g.finChecker { return (Int(f * 5) + Int(x * 4)) % 2 == 0 ? white : cTail }
+            if let d = g.dashColor, x > 0.16, x < 0.3, f > 0.15, Int(f * 20) % 2 == 0 { return gl(d, film) }
+            return f > 0.86 && g.tipColor != nil && !g.flyingWing ? gl(g.tipColor!, film) : cTail
+        }
         switch g.scheme {
         case 1: return (Int(f * 4) % 2 == 0) == (x < 0.5) ? cTail : cAcc
         case 2: return f > 0.8 ? cTail : (x > 0.62 ? dim(top ? cTop : cBot, 0.82) : (top ? cTop : cBot))

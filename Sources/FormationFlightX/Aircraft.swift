@@ -130,7 +130,7 @@ extension AircraftSpec {
         case "Gliders": return 2
         case "Wings": return ["Race", "Speed"].contains { name.contains($0) } ? 4 : (name.contains("Delta") || name.contains("Slope") ? 3 : 2)
         case "FPV Aircrafts":
-            if ["Race", "Speed", "Chupito", "Mojito"].contains(where: { name.contains($0) }) { return 4 }
+            if ["Race", "Speed", "Chupito"].contains(where: { name.contains($0) }) { return 4 }
             if ["Delta", "Slope", "F-01", "Combat"].contains(where: { name.contains($0) }) { return 3 }
             return ["Hunter", "Drift", "Penguin", "Ranger", "Altus"].contains { name.contains($0) } ? 1 : 2
         case "Aerobatic", "Foam 3D": return 3

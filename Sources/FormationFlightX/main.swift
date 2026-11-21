@@ -1023,7 +1023,7 @@ if CommandLine.arguments.contains("--flighttest") {
     // by itself with the sticks let go. The figures in brackets are what the real aircraft is reported to do.
     let real: [String: (stall: ClosedRange<Float>, cruise: ClosedRange<Float>, top: ClosedRange<Float>)] = [
         "Alight Flik Wing": (22...32, 40...60, 75...100), "HeeWing F-01": (28...38, 55...75, 100...130), "AtomRC Dolphin": (27...36, 50...68, 90...115),
-        "SonicModell AR Wing": (26...35, 48...65, 95...115), "TBS Chupito": (32...40, 55...90, 135...165), "TBS Mojito": (42...62, 85...120, 180...215),
+        "SonicModell AR Wing": (26...35, 48...65, 95...115), "TBS Chupito": (32...40, 55...90, 135...165),
         "AtomRC Penguin": (32...42, 45...62, 85...105), "HeeWing T1 Ranger": (26...34, 42...58, 78...98), "HeeWing T2 Cruza": (33...42, 50...68, 95...115),
         "ZOHD Altus": (27...35, 45...60, 85...105), "HeeWing H1 Hunter": (20...28, 30...45, 55...75), "AtomRC Swordfish": (33...42, 50...68, 95...115), "ZOHD Drift": (18...26, 28...42, 55...75)]
     let terrain = Terrain(site: SiteSpec.all[0])

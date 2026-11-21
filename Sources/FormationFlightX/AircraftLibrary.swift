@@ -251,6 +251,9 @@ struct PlaneGeom {
     var foamLook = false            // plain matte foam: no painted stripes, no cowl detail, a camera in the nose, a dark hatch
     var leColor: V4? = nil          // band along the wing's leading edge
     var tipColor: V4? = nil         // wing tips
+    var dashColor: V4? = nil        // a row of short dashes along the wing and tailplane, behind the leading edge
+    var wingBands = false           // two pale bands across each wing, half-way out
+    var finChecker = false          // chequered fins
     var vTail: Float = 0            // the tail drawn as a V of this many degrees (it flies as the plain tail it replaces)
     var fuseStyle = 0               // 0 as usual, 1 pod and thin boom, 2 long pointed nose, 3 square camera nose, 4 wide flat lifting body
     var barePods = false            // twin: bare motors on small mounts instead of nacelles
@@ -1583,12 +1586,12 @@ enum AircraftLibrary {
         let fpvWings: [PlaneGeom] = [
             wing("Alight Flik Wing", "Half-metre EPP wing that stays under 250 grams: tosses from the hand, turns on a wingtip and shrugs off every landing") {
                 $0.span = 0.5; $0.rootChord = 0.3; $0.tipChord = 0.16; $0.sweep = 0.17; $0.mass = 0.235; $0.thrust = 3.6; $0.pitchSpeed = 28; $0.propDia = 0.1
-                $0.fuseLen = 0.3; $0.noseZ = -0.13; $0.fuseW = 0.075; $0.fuseH = 0.055; $0.finH = 0.1; $0.finChord = 0.15; $0.thick = 0.09; $0.washout = 1.5
+                $0.fuseLen = 0.27; $0.noseZ = -0.1; $0.fuseW = 0.1; $0.fuseH = 0.065; $0.finH = 0.1; $0.finChord = 0.17; $0.thick = 0.09; $0.washout = 1.5
                 $0.margin = 0.09; $0.trimCL = 0.25; $0.ailThrow = 15; $0.elevThrow = 13; $0.tough = 2.6; $0.cdA = 0.0018; $0.endurance = 420
                 $0.fuse = rgb(0.95, 0.95, 0.94); $0.wingTop = rgb(0.95, 0.95, 0.94); $0.wingBottom = rgb(0.95, 0.95, 0.94); $0.tail = rgb(0.22, 0.23, 0.25); $0.accent = rgb(0.95, 0.95, 0.94); $0.foamLook = true; $0.sound = 360 },
             wing("HeeWing F-01", "690 mm delta wing with nearly a kilogram of thrust: compact, quick and steady enough to carry a digital video system") {
                 $0.span = 0.69; $0.rootChord = 0.39; $0.tipChord = 0.12; $0.sweep = 0.3; $0.mass = 0.5; $0.thrust = 9.0; $0.pitchSpeed = 37; $0.propDia = 0.15
-                $0.winglets = true; $0.finH = 0.045; $0.finChord = 0.1; $0.fuseLen = 0.4; $0.noseZ = -0.2; $0.fuseW = 0.11; $0.fuseH = 0.085; $0.thick = 0.09; $0.washout = 2
+                $0.winglets = true; $0.finH = 0.045; $0.finChord = 0.1; $0.fuseLen = 0.4; $0.noseZ = -0.2; $0.fuseW = 0.13; $0.fuseH = 0.085; $0.thick = 0.09; $0.washout = 2
                 $0.margin = 0.09; $0.trimCL = 0.2; $0.ailThrow = 14; $0.elevThrow = 13; $0.tough = 2; $0.cdA = 0.0026; $0.endurance = 420
                 $0.fuse = rgb(0.95, 0.95, 0.94); $0.wingTop = rgb(0.95, 0.95, 0.94); $0.wingBottom = rgb(0.95, 0.95, 0.94); $0.tail = rgb(0.95, 0.95, 0.94); $0.accent = rgb(0.07, 0.07, 0.08); $0.dihedral = 2; $0.foamLook = true; $0.tipColor = rgb(0.85, 0.12, 0.1); $0.wingletDown = true; $0.sound = 320 },
             wing("AtomRC Dolphin", "845 mm wing with a deep body for a long-range battery: an easy, efficient cruiser that still hand-launches without drama") {
@@ -1598,13 +1601,13 @@ enum AircraftLibrary {
                 $0.fuse = rgb(0.95, 0.95, 0.94); $0.wingTop = rgb(0.95, 0.95, 0.94); $0.wingBottom = rgb(0.95, 0.95, 0.94); $0.tail = rgb(0.95, 0.95, 0.94); $0.accent = rgb(0.07, 0.07, 0.08); $0.foamLook = true; $0.fuseStyle = 2; $0.tipColor = rgb(0.85, 0.12, 0.1); $0.winglets = false; $0.finZ = 0.12; $0.sound = 230 },
             wing("SonicModell AR Wing", "The 900 mm wing that got half the hobby into FPV: light, forgiving, and happy anywhere from walking pace to a hundred kilometres an hour") {
                 $0.span = 0.9; $0.rootChord = 0.36; $0.tipChord = 0.19; $0.sweep = 0.31; $0.mass = 0.62; $0.thrust = 9; $0.pitchSpeed = 33; $0.propDia = 0.15
-                $0.fuseLen = 0.42; $0.noseZ = -0.2; $0.fuseW = 0.1; $0.fuseH = 0.08; $0.thick = 0.1; $0.washout = 2.5
+                $0.fuseLen = 0.42; $0.noseZ = -0.2; $0.fuseW = 0.12; $0.fuseH = 0.07; $0.thick = 0.1; $0.washout = 2.5
                 $0.margin = 0.1; $0.trimCL = 0.27; $0.ailThrow = 14; $0.elevThrow = 13; $0.tough = 2; $0.cdA = 0.003; $0.endurance = 540
-                $0.fuse = rgb(0.07, 0.07, 0.08); $0.wingTop = rgb(0.07, 0.07, 0.08); $0.wingBottom = rgb(0.07, 0.07, 0.08); $0.tail = rgb(0.07, 0.07, 0.08); $0.accent = rgb(0.85, 0.12, 0.1); $0.foamLook = true; $0.leColor = rgb(0.85, 0.12, 0.1); $0.tipColor = rgb(0.95, 0.95, 0.94); $0.finH = 0.1; $0.finChord = 0.14; $0.sound = 280 },
+                $0.fuse = rgb(0.07, 0.07, 0.08); $0.wingTop = rgb(0.07, 0.07, 0.08); $0.wingBottom = rgb(0.07, 0.07, 0.08); $0.tail = rgb(0.07, 0.07, 0.08); $0.accent = rgb(0.85, 0.12, 0.1); $0.foamLook = true; $0.leColor = rgb(0.85, 0.12, 0.1); $0.tipColor = rgb(0.95, 0.95, 0.94); $0.finH = 0.075; $0.finChord = 0.12; $0.wingBands = true; $0.finChecker = true; $0.sound = 280 },
             wing("TBS Chupito", "800 mm of black EPP on six cells: stalls at thirty-five, cruises at sixty and runs to a hundred and fifty kilometres an hour") {
                 $0.span = 0.8; $0.rootChord = 0.32; $0.tipChord = 0.18; $0.sweep = -0.06; $0.mass = 0.65; $0.thrust = 16; $0.pitchSpeed = 52; $0.propDia = 0.13
-                $0.fuseLen = 0.4; $0.noseZ = -0.22; $0.fuseW = 0.08; $0.fuseH = 0.07; $0.finH = 0.07; $0.finChord = 0.12; $0.thick = 0.085; $0.washout = 1
-                $0.winglets = false; $0.finZ = 0.14; $0.margin = 0.08; $0.trimCL = 0.14; $0.ailThrow = 12; $0.elevThrow = 10; $0.tough = 1.8; $0.cdA = 0.0022; $0.endurance = 300
+                $0.fuseLen = 0.5; $0.noseZ = -0.24; $0.fuseW = 0.08; $0.fuseH = 0.07; $0.finH = 0.12; $0.finChord = 0.16; $0.thick = 0.085; $0.washout = 1
+                $0.winglets = false; $0.finZ = 0.1; $0.margin = 0.08; $0.trimCL = 0.14; $0.ailThrow = 12; $0.elevThrow = 10; $0.tough = 1.8; $0.cdA = 0.0022; $0.endurance = 300
                 $0.fuse = rgb(0.07, 0.07, 0.08); $0.wingTop = rgb(0.07, 0.07, 0.08); $0.wingBottom = rgb(0.07, 0.07, 0.08); $0.tail = rgb(0.07, 0.07, 0.08); $0.accent = rgb(0.07, 0.07, 0.08); $0.dihedral = 3; $0.foamLook = true; $0.sound = 420 },
             wing("AtomRC Penguin", "750 mm lifting body with stub wings and two motors: slow enough to learn FPV on, with the pull of a twin when you want it") {
                 $0.span = 0.75; $0.rootChord = 0.34; $0.tipChord = 0.17; $0.sweep = 0.1; $0.mass = 0.68; $0.thrust = 9.5; $0.pitchSpeed = 30; $0.propDia = 0.127
@@ -1612,11 +1615,6 @@ enum AircraftLibrary {
                 $0.fuseStyle = 4; $0.fuseLen = 0.6; $0.noseZ = -0.3; $0.fuseW = 0.24; $0.fuseH = 0.085; $0.thick = 0.1; $0.washout = 2
                 $0.margin = 0.1; $0.trimCL = 0.3; $0.ailThrow = 15; $0.elevThrow = 13; $0.tough = 1.8; $0.cdA = 0.0048; $0.endurance = 600; $0.foamLook = true
                 $0.fuse = rgb(0.95, 0.95, 0.94); $0.wingTop = rgb(0.95, 0.95, 0.94); $0.wingBottom = rgb(0.95, 0.95, 0.94); $0.tail = rgb(0.07, 0.07, 0.08); $0.accent = rgb(0.2, 0.75, 0.72); $0.tipColor = rgb(0.07, 0.07, 0.08); $0.sound = 300 },
-            wing("TBS Mojito", "1.27 m long-range wing at 1.8 kg: cruises at a hundred kilometres an hour for an hour, and needs a firm throw and room to land") {
-                $0.span = 1.27; $0.rootChord = 0.225; $0.tipChord = 0.135; $0.sweep = 0.0; $0.mass = 1.8; $0.thrust = 44; $0.pitchSpeed = 78; $0.propDia = 0.19
-                $0.fuseLen = 0.8; $0.noseZ = -0.46; $0.fuseW = 0.1; $0.fuseH = 0.1; $0.finH = 0.19; $0.finChord = 0.2; $0.thick = 0.085; $0.washout = 1
-                $0.winglets = false; $0.finZ = 0.3; $0.margin = 0.09; $0.trimCL = 0.11; $0.ailThrow = 11; $0.elevThrow = 9; $0.tough = 1.2; $0.cdA = 0.0022; $0.endurance = 900
-                $0.fuse = rgb(0.07, 0.07, 0.08); $0.wingTop = rgb(0.07, 0.07, 0.08); $0.wingBottom = rgb(0.07, 0.07, 0.08); $0.tail = rgb(0.07, 0.07, 0.08); $0.accent = rgb(0.07, 0.07, 0.08); $0.cd0 = 0.009; $0.dihedral = 5; $0.foamLook = true; $0.sound = 300 },
         ]
         /// A twin-motor FPV cruiser on the small twin's layout: no wheels, thrown from the hand.
         func fpvTwin(_ name: String, _ blurb: String, span: Float, _ edit: (inout PlaneGeom) -> Void) -> PlaneGeom {
@@ -1630,24 +1628,23 @@ enum AircraftLibrary {
         let fpvPlanes: [PlaneGeom] = [
             fpvTwin("HeeWing T1 Ranger", "730 mm twin that weighs half a kilogram ready to fly: nimble, efficient, and small enough for the rucksack", span: 0.73) {
                 $0.rootChord = 0.18; $0.tipChord = 0.13; $0.mass = 0.48; $0.thrust = 6.4; $0.pitchSpeed = 28; $0.propDia = 0.127; $0.twin = 0.15
-                $0.fuseLen = 0.56; $0.noseZ = -0.22; $0.fuseW = 0.08; $0.fuseH = 0.08; $0.cdA = 0.0038; $0.endurance = 660; $0.ailThrow = 18; $0.elevThrow = 16
-                $0.fuse = rgb(0.95, 0.95, 0.94); $0.wingTop = rgb(0.95, 0.95, 0.94); $0.wingBottom = rgb(0.95, 0.95, 0.94); $0.tail = rgb(0.95, 0.95, 0.94); $0.accent = rgb(0.95, 0.95, 0.94); $0.foamLook = true; $0.fuseStyle = 3; $0.barePods = true; $0.finH = 0.13; $0.wingY = 0.03; $0.sound = 320 },
+                $0.fuseLen = 0.58; $0.noseZ = -0.2; $0.fuseW = 0.11; $0.fuseH = 0.09; $0.cdA = 0.0038; $0.endurance = 660; $0.ailThrow = 18; $0.elevThrow = 16
+                $0.fuse = rgb(0.5, 0.51, 0.53); $0.wingTop = rgb(0.5, 0.51, 0.53); $0.wingBottom = rgb(0.5, 0.51, 0.53); $0.tail = rgb(0.5, 0.51, 0.53); $0.accent = rgb(0.5, 0.51, 0.53); $0.foamLook = true; $0.fuseStyle = 1; $0.barePods = true; $0.finH = 0.12; $0.wingY = 0.035; $0.sound = 320 },
             fpvTwin("HeeWing T2 Cruza", "1.2 m twin for two kilograms of batteries and cameras: an unhurried, load-carrying cruiser", span: 1.2) {
                 $0.rootChord = 0.27; $0.tipChord = 0.2; $0.mass = 1.9; $0.thrust = 27; $0.pitchSpeed = 32; $0.propDia = 0.2; $0.twin = 0.24
                 $0.fuseLen = 1.09; $0.noseZ = -0.42; $0.fuseW = 0.2; $0.fuseH = 0.16; $0.cdA = 0.0095; $0.endurance = 900; $0.ailThrow = 17; $0.elevThrow = 15; $0.tough = 1.3
-                $0.fuse = rgb(0.3, 0.31, 0.33); $0.wingTop = rgb(0.3, 0.31, 0.33); $0.wingBottom = rgb(0.3, 0.31, 0.33); $0.tail = rgb(0.3, 0.31, 0.33); $0.accent = rgb(0.3, 0.31, 0.33); $0.foamLook = true; $0.fuseStyle = 1; $0.barePods = true; $0.vTail = 38; $0.tipColor = rgb(0.9, 0.75, 0.1); $0.wingY = 0.05; $0.sound = 210 },
+                $0.fuse = rgb(0.27, 0.28, 0.3); $0.wingTop = rgb(0.27, 0.28, 0.3); $0.wingBottom = rgb(0.27, 0.28, 0.3); $0.tail = rgb(0.27, 0.28, 0.3); $0.accent = rgb(0.27, 0.28, 0.3); $0.foamLook = true; $0.fuseStyle = 1; $0.barePods = true; $0.vTail = 0; $0.tipColor = nil; $0.wingY = 0.05; $0.finH = 0.2; $0.sound = 210 },
             fpvTwin("ZOHD Altus", "980 mm twin on a pod and boom with a V-tail: built to carry a camera smoothly at fifty kilometres an hour for a long time", span: 0.98) {
                 $0.rootChord = 0.21; $0.tipChord = 0.16; $0.mass = 0.92; $0.thrust = 11.5; $0.pitchSpeed = 30.5; $0.propDia = 0.152; $0.twin = 0.2
                 $0.fuseLen = 0.82; $0.noseZ = -0.32; $0.fuseW = 0.11; $0.fuseH = 0.11; $0.cdA = 0.0065; $0.endurance = 840; $0.ailThrow = 17; $0.elevThrow = 15
                 $0.fuse = rgb(0.95, 0.95, 0.94); $0.wingTop = rgb(0.95, 0.95, 0.94); $0.wingBottom = rgb(0.07, 0.07, 0.08); $0.tail = rgb(0.95, 0.95, 0.94); $0.accent = rgb(0.07, 0.07, 0.08); $0.foamLook = true; $0.fuseStyle = 1; $0.barePods = true; $0.vTail = 40; $0.leColor = rgb(0.07, 0.07, 0.08); $0.wingY = 0.04; $0.sound = 270 },
             fpvTwin("AtomRC Swordfish", "1.2 m twin on a slender wing with a V-tail: a powered glider in all but name, efficient and long-legged", span: 1.2) {
-                $0.rootChord = 0.155; $0.tipChord = 0.1; $0.mass = 1.15; $0.thrust = 14; $0.pitchSpeed = 32; $0.propDia = 0.178; $0.twin = 0.2
-                $0.fuseLen = 0.81; $0.noseZ = -0.3; $0.fuseW = 0.09; $0.fuseH = 0.09; $0.cdA = 0.0048; $0.cd0 = 0.011; $0.endurance = 960; $0.ailThrow = 16; $0.elevThrow = 14
+                $0.rootChord = 0.155; $0.tipChord = 0.1; $0.mass = 1.15; $0.thrust = 14; $0.pitchSpeed = 32; $0.propDia = 0.178; $0.twin = 0.16; $0.noseZ = -0.3; $0.fuseW = 0.09; $0.fuseH = 0.09; $0.cdA = 0.0048; $0.cd0 = 0.011; $0.endurance = 960; $0.ailThrow = 16; $0.elevThrow = 14
                 $0.fuse = rgb(0.95, 0.95, 0.94); $0.wingTop = rgb(0.95, 0.95, 0.94); $0.wingBottom = rgb(0.95, 0.95, 0.94); $0.tail = rgb(0.95, 0.95, 0.94); $0.accent = rgb(0.07, 0.07, 0.08); $0.foamLook = true; $0.fuseStyle = 2; $0.barePods = true; $0.vTail = 36; $0.tipColor = rgb(0.85, 0.12, 0.1); $0.sound = 250 },
             fpvTwin("HeeWing H1 Hunter", "680 mm twin that takes off under 250 grams on two cells: slow, gentle and tough, made for a first FPV flight", span: 0.68) {
                 $0.rootChord = 0.17; $0.tipChord = 0.125; $0.mass = 0.245; $0.thrust = 3.3; $0.pitchSpeed = 21; $0.propDia = 0.097; $0.twin = 0.13
                 $0.fuseLen = 0.55; $0.noseZ = -0.21; $0.fuseW = 0.065; $0.fuseH = 0.07; $0.cdA = 0.003; $0.endurance = 540; $0.ailThrow = 18; $0.elevThrow = 16; $0.tough = 2.6; $0.dihedral = 5
-                $0.fuse = rgb(0.95, 0.95, 0.94); $0.wingTop = rgb(0.95, 0.95, 0.94); $0.wingBottom = rgb(0.95, 0.95, 0.94); $0.tail = rgb(0.95, 0.95, 0.94); $0.accent = rgb(0.85, 0.12, 0.1); $0.foamLook = true; $0.barePods = true; $0.tipColor = rgb(0.85, 0.12, 0.1); $0.fuseExp = 2.0; $0.wingY = -0.01; $0.finH = 0.13; $0.sound = 380 },
+                $0.fuse = rgb(0.95, 0.95, 0.94); $0.wingTop = rgb(0.95, 0.95, 0.94); $0.wingBottom = rgb(0.95, 0.95, 0.94); $0.tail = rgb(0.95, 0.95, 0.94); $0.accent = rgb(0.85, 0.12, 0.1); $0.foamLook = true; $0.barePods = true; $0.tipColor = nil; $0.fuseExp = 2.0; $0.wingY = -0.01; $0.finH = 0.13; $0.dashColor = rgb(0.85, 0.12, 0.1); $0.sound = 380 },
             sized(glider, span: 0.877) {
                 $0.name = "ZOHD Drift"; $0.blurb = "877 mm pusher glider at a quarter of a kilogram: floats on a breath of throttle and lands at a walk"
                 $0.category = "Gliders"; $0.rootChord = 0.135; $0.tipChord = 0.09; $0.mass = 0.265; $0.thrust = 3.3; $0.pitchSpeed = 17; $0.propDia = 0.127
