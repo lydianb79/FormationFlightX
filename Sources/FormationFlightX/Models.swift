@@ -565,7 +565,9 @@ func buildAirplaneModel(_ g: PlaneGeom, wheels: [V3], engines: [V3], wings: [(y:
         // (the V-tail above stands in for fin and rudder)
     } else {
         let rk = 1 - g.rudFrac
-        func fle(_ f: Float) -> V3 { V3(0, finY + g.finH * f, g.finZ + 0.32 * g.finChord * f) }
+        // (a profile foamy's fin runs half below the fuselage line, as the aerodynamics has it)
+        let fin0 = g.profile ? finY - g.finH / 2 : finY
+        func fle(_ f: Float) -> V3 { V3(0, fin0 + g.finH * f, g.finZ + 0.32 * g.finChord * f) }
         func fch(_ f: Float) -> Float { g.finChord * (1 - 0.32 * f) }
         b.wingPanel(le: fle, chord: fch, thick: tailThick, camber: 0, up: V3(1, 0, 0), f0: 0, f1: 1, c1: rk, strips: 4, roundTip: true, soft: g.scheme == 7, paint: tailPaint)
         // dorsal fillet blending the fin into the fuselage

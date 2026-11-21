@@ -251,6 +251,8 @@ final class Aircraft {
     var ease: Float = 0             // how much of the speed trim is fed in at the moment
     var sinceReset: Float = 0
     // pose used for drawing and the camera: the physics state carried forward by the part of a step not yet simulated
+    static var debugTorques = false
+    var surfTorque: [V3] = []       // each surface's moment last step, body axes (only with debugTorques)
     var renderPos = V3.zero
     var renderQ = simd_quatf(ix: 0, iy: 0, iz: 0, r: 1)
     func updateRenderPose(ahead t: Float) {
@@ -487,6 +489,7 @@ final class Aircraft {
                 // in separated flow the centre of pressure moves back toward mid-chord, which steadies a stalled wing
                 let cp = s.pos - s.chordDir * (0.25 * s.chord * stallT[i])
                 fb += f; tb += cross(cp, f)
+                if Aircraft.debugTorques { if surfTorque.count != spec.surfaces.count { surfTorque = [V3](repeating: .zero, count: spec.surfaces.count) }; surfTorque[i] = cross(cp, f) }
             }
             if stallArea > 0 { wingStallNow = stallSum / stallArea }
             // downwash behind the wing reduces the tail's angle of attack; when the wing stalls it collapses

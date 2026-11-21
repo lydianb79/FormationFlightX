@@ -391,9 +391,12 @@ func buildAirplane(_ g0: PlaneGeom, cgShift: Float = 0) -> AircraftSpec {
     let tipY0 = g.wingY + hs * tan(dih)
     let finSpots: [V3] = g.noFin ? [] : (g.winglets
         ? [V3(hs, tipY0 + g.finH / 2, g.wingLE + g.sweep + 0.5 * g.tipChord), V3(-hs, tipY0 + g.finH / 2, g.wingLE + g.sweep + 0.5 * g.tipChord)]
-        : [V3(0, finY + g.finH / 2, g.finZ + 0.25 * g.finChord)])
+        // a profile foamy's fin and rudder run as far below the fuselage line as above it, as the real ones are
+        // cut: so a roll in the hover swings no air sideways across it on balance, and the rudder does not roll it
+        : (g.profile ? [V3(0, finY + g.finH / 4, g.finZ + 0.25 * g.finChord), V3(0, finY - g.finH / 4, g.finZ + 0.25 * g.finChord)]
+                     : [V3(0, finY + g.finH / 2, g.finZ + 0.25 * g.finChord)]))
     for fp in finSpots {
-        surfaces.append(AeroSurface(pos: fp, normal: V3(1, 0, 0), area: g.finH * g.finChord, ar: far, liftSlope: 2 * .pi * far / (far + 2),
+        surfaces.append(AeroSurface(pos: fp, normal: V3(1, 0, 0), area: g.finH * g.finChord / (g.profile && !g.winglets ? 2 : 1), ar: far, liftSlope: 2 * .pi * far / (far + 2),
                                     stall: 0.27, cd0: 0.012, flapCh: g.flyingWing ? -1 : 2, flapGain: g.flyingWing ? 0 : -flapTau(g.rudFrac) * g.rudThrow * deg,
                                     wash: g.flyingWing ? 0 : g.washTail, chord: g.finChord, swirl: g.ducted || g.twin > 0 || g.flyingWing || g.profile ? 0 : 1))
     }

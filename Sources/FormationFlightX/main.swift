@@ -1017,6 +1017,80 @@ if let di = CommandLine.arguments.firstIndex(of: "--handsoff"), di + 1 < Command
     exit(0)
 }
 
+if let name = CommandLine.arguments.firstIndex(of: "--rolltrace").map({ CommandLine.arguments[$0 + 1] }) {
+    // A torque roll: hang the aircraft on its propeller, hold the hover with elevator and rudder as a pilot would,
+    // then hold aileron so it rotates about its own axis. Prints how far the nose leans off vertical, which way, and
+    // the fin's and tailplane's moments.
+    guard let spec = AircraftLibrary.all.first(where: { $0.name.lowercased().contains(name.lowercased()) }) else { print("no aircraft called \(name)"); exit(1) }
+    Aircraft.debugTorques = true
+    let ail = Float(CommandLine.arguments.firstIndex(of: "--ail").map { CommandLine.arguments[$0 + 1] } ?? "") ?? 0.6
+    let ac = Aircraft(spec); ac.unlimitedBattery = true
+    ac.reset(pos: V3(0, 100, 0), heading: 0); ac.q = simd_quatf(angle: .pi / 2, axis: V3(1, 0, 0))
+    let n = sqrt(spec.mass * gravity / spec.props[0].staticThrust)
+    ac.levels[0] = n
+    print(spec.name + String(format: "  hanging, aileron %.0f%% from 2 s", ail * 100))
+    for k in 0..<10000 {
+        let local = ac.q.inverse.act(V3(0, 1, 0))
+        var c = Controls()
+        c.throttle = clampf(0.82 * n + 0.18 * n * n - 0.25 * ac.vel.y, 0, 1)
+        c.elevator = clampf(0.9 * atan2(local.y, -local.z) - 0.08 * ac.omega.x, -1, 1)
+        c.rudder = k >= 2000 && CommandLine.arguments.contains("--norudder") ? 0 : clampf(0.9 * atan2(local.x, -local.z) + 0.08 * ac.omega.y, -1, 1)
+        if k >= 2000 && CommandLine.arguments.contains("--noelevator") { c.elevator = 0 }
+        c.aileron = k >= 2000 ? ail : clampf(0.3 * ac.omega.z, -1, 1)
+        ac.step(dt: 0.001, c: c, terrain: Terrain.flat, wind: .zero, rollMu: 0)
+        if CommandLine.arguments.contains("--surfaces") && (k == 2100 || k == 2200) {
+            print(String(format: "   t %.2f  moments by surface (pitch, yaw) N m; propeller gyro and torque are not in these:", Float(k) / 1000))
+            for (i, s) in spec.surfaces.enumerated() where i < ac.surfTorque.count {
+                let m = ac.surfTorque[i]
+                if abs(m.x) > 0.005 || abs(m.y) > 0.005 { print(String(format: "      #%d at (%+.2f %+.2f %+.2f) normal (%+.0f %+.0f %+.0f) %@: pitch %+.3f yaw %+.3f roll %+.3f", i, s.pos.x, s.pos.y, s.pos.z, s.normal.x, s.normal.y, s.normal.z, s.isWing ? "wing" : (s.flapCh == 2 ? "fin " : (s.flapCh == 1 ? "tail" : "body")), m.x, m.y, m.z)) }
+            }
+            let I = spec.inertia, w = ac.omega
+            let gyro = cross(w, I * w)
+            print(String(format: "      body rotation coupling (omega x I omega): pitch %+.3f yaw %+.3f; prop momentum %.4f", gyro.x, gyro.y, spec.props[0].momentum))
+        }
+        if CommandLine.arguments.contains("--fine") && k >= 1990 && k <= 2400 && k % 20 == 0, let fi = spec.surfaces.firstIndex(where: { $0.flapCh == 2 }) {
+            let f = spec.surfaces[fi], va = ac.q.inverse.act(ac.vel), vr = va + cross(ac.omega, f.pos)
+            print(String(format: "   t %.3f  body vel x %+5.2f y %+5.2f z %+5.2f  omega p %+6.1f y %+6.1f r %+6.1f rad/s  fin at y %+.2f z %+.2f: side flow %+5.2f, roll part %+5.2f, yaw part %+5.2f  fin yaw moment %+.3f",
+                         Float(k) / 1000, va.x, va.y, va.z, ac.omega.x, ac.omega.y, ac.omega.z, f.pos.y, f.pos.z, vr.x, (cross(V3(0, 0, ac.omega.z), f.pos)).x, (cross(V3(0, ac.omega.y, 0), f.pos)).x, ac.surfTorque.count > fi ? ac.surfTorque[fi].y : 0))
+        }
+        if k % 250 == 0 {
+            var fin = V3.zero, tail = V3.zero
+            for (i, s) in spec.surfaces.enumerated() where i < ac.surfTorque.count && !s.isWing { if abs(s.normal.x) > 0.7 { fin += ac.surfTorque[i] } else { tail += ac.surfTorque[i] } }
+            print(String(format: "t %4.2f  nose %4.1f° off vertical (toward belly %+5.1f°, toward side %+5.1f°)  roll rate %+5.0f°/s  elevator %+.2f rudder %+.2f | fin moment pitch %+.3f yaw %+.3f  tail pitch %+.3f yaw %+.3f",
+                         Float(k) / 1000, acos(clampf(-local.z, -1, 1)) / deg, atan2(local.y, -local.z) / deg, atan2(local.x, -local.z) / deg, ac.omega.z / deg, c.elevator, c.rudder, fin.x, fin.y, tail.x, tail.y))
+        }
+    }
+    exit(0)
+}
+
+if let name = CommandLine.arguments.firstIndex(of: "--spintrace").map({ CommandLine.arguments[$0 + 1] }) {
+    // Stall it, then full rudder and full up elevator, throttle closed, and follow the spin: attitude, rates, and
+    // the pitching moment of each kind of surface (wing, tailplane, fin), nose-up positive.
+    guard let spec = AircraftLibrary.all.first(where: { $0.name.lowercased().contains(name.lowercased()) }) else { print("no aircraft called \(name)"); exit(1) }
+    Aircraft.debugTorques = true
+    let thr = Float(CommandLine.arguments.firstIndex(of: "--thr").map { CommandLine.arguments[$0 + 1] } ?? "") ?? 0
+    let ac = Aircraft(spec); ac.unlimitedBattery = true
+    ac.reset(pos: V3(0, 300, 0), heading: 0, speed: spec.stallSpeed * 1.15)
+    print(spec.name + String(format: "  (throttle %.0f%%)", thr * 100))
+    for k in 0..<9000 {
+        let t = Float(k) / 1000
+        var c = Controls(); c.elevator = 1; c.rudder = t > 1 ? 1 : 0; c.throttle = thr
+        ac.step(dt: 0.001, c: c, terrain: Terrain.flat, wind: .zero, rollMu: 0.05)
+        if k % 250 == 0 {
+            var wing: Float = 0, tail: Float = 0, fin: Float = 0
+            for (i, s) in spec.surfaces.enumerated() where i < ac.surfTorque.count {
+                let m = ac.surfTorque[i].x
+                if abs(s.normal.x) > 0.7 { fin += m } else if s.isWing { wing += m } else { tail += m }
+            }
+            let vb = ac.q.inverse.act(ac.vel)
+            let aoa = atan2(-vb.y, -vb.z) / deg
+            print(String(format: "t %4.2f  pitch %+5.0f°  roll %+5.0f°  yaw rate %+5.0f°/s  pitch rate %+5.0f°/s  AoA %+4.0f°  sink %4.1f m/s | pitch moments: wing %+6.3f  tail %+6.3f  fin %+6.3f N m",
+                         t, ac.pitch / deg, ac.roll / deg, ac.q.act(ac.omega).y / deg, ac.omega.x / deg, aoa, -ac.vel.y, wing, tail, fin))
+        }
+    }
+    exit(0)
+}
+
 if let name = CommandLine.arguments.firstIndex(of: "--pitchtrace").map({ CommandLine.arguments[$0 + 1] }) {
     // One aircraft, hands off throughout, the throttle moved as a pilot would: thrown from the hand at full throttle,
     // throttle back to half at 12 s, full again at 24 s. Prints attitude, climb and speed twice a second.
