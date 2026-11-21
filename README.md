@@ -90,7 +90,7 @@ What these are and are not:
 
 ## Flying sites
 
-Nineteen sites, none of them from FlightCore OSX. The site browser filters by kind.
+Eighteen sites, none of them from FlightCore OSX. The site browser filters by kind.
 
 | Site | Kind | |
 |---|---|---|
@@ -101,7 +101,6 @@ Nineteen sites, none of them from FlightCore OSX. The site browser filters by ki
 | Container Yard | Obstacles | Lanes between stacked containers, gaps to dart through, gantry cranes to fly under |
 | Downtown | Cities | Towers up to 120 m on a grid of 24 m streets, walkways across the avenues |
 | Harbour Town | Cities | Low streets, quay cranes, two ships, and a bridge with 26 m of air under the deck |
-| Rafz Gravel Works | Industrial | A real gravel works rebuilt from a track made in another simulator: silo tower, conveyors, halls, and nine gates through doorways and under the belts |
 | Heather Downs | Fields | Open downland; the easy one |
 | Rice Terraces | Fields | A level step on a terraced hillside |
 | Outback Aerodrome | Airfields | 460 m of red dirt, hangars and a tower |
@@ -113,14 +112,6 @@ Nineteen sites, none of them from FlightCore OSX. The site browser filters by ki
 | Oasis | Desert | Gravel plain, a green-ringed pool, palm groves |
 | Frozen Lake | Winter | A strip on a kilometre of ice |
 | Tundra | Winter | Snow-patched grass and black meltwater pools |
-
-**Rafz Gravel Works** is a real place. Its thousand objects were placed by hand in the Wings RC flight simulator's track editor, and `Tools/trk_to_site.py` reads that track file and writes `Resources/Sites/rafz.json`, which the app builds the site from:
-
-```
-python3 Tools/trk_to_site.py Rafz.trk Resources/Sites/rafz.json
-```
-
-What comes across: every cube, wall, panel, beam, cylinder and rock with its place, size, turn and colour, the trees, and the race gates. What does not: the track file holds no terrain, so the ground is worked out from where the trees, rocks, paving and gates stand, and is gravel and sand rather than the editor's painted surface; there is no water; textures are plain colours; props such as the excavator are left out. A gate that stands in a wall or inside a hall gets a doorway cut for it, and the hall is hollow. The track file itself and the reference pictures are not part of this repository.
 
 **Racing.** On a race track the next gate glows. Fly through the first gate to start the clock, then through the gates in order; a gate out of order does not count. Every lap's time is shown, your best is kept until the site changes, and when you fly with others each lap is announced in the chat. The host's **Start Session** puts everyone on the launch line at once, which makes it a race. Gate posts are solid.
 

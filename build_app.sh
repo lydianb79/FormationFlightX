@@ -23,7 +23,6 @@ cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp Resources/AppIcon.png Resources/Splash.jpg Resources/RockFPV.png "$APP/Contents/Resources/"
 cp LICENSE "$APP/Contents/Resources/LICENSE"
 cp -R Resources/Previews "$APP/Contents/Resources/Previews"
-cp -R Resources/Sites "$APP/Contents/Resources/Sites"
 cp "$BIN" "$APP/Contents/MacOS/FormationFlightX"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

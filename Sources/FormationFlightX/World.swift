@@ -53,10 +53,6 @@ struct SiteSpec {
     var flatBlend: Float? = nil         // distance over which the levelled field merges into the landscape
     var flatHalfX: Float? = nil         // half-width of the levelled ground along the runway, if wider than the runway
     var layout = 0                      // what is built here: 0 nothing, 1-3 race tracks, 4-5 obstacle courses, 6-7 cities
-    var dataName = ""                   // layout 8: the imported site's file in Resources/Sites
-    var dataOrigin = V3.zero            // ... the point in its world where the pilots stand, at ground level
-    var dataYaw: Float = 0              // ... and how far it is turned (degrees) so that the launch faces open air
-    var bare = false                    // no club field furniture: fence, clubhouse, pits
     var cruiseAlt: Float = 38           // height at which the computer lead flies its racetrack: clear of everything built
 
     /// 3D sites only: every pilot in a formation has to be in the same place, which a photo cannot give.
@@ -167,13 +163,6 @@ struct SiteSpec {
              category: "Cities", difficulty: 4,
              info: "A port: low streets behind the quay, cranes with their booms out over the water, two ships alongside, and a long bridge across the harbour mouth with twenty-six metres of air under its deck.") {
             $0.terrain = 34; $0.palette = 28; $0.flatHalfX = 400; $0.flatBlend = 60; $0.layout = 7; $0.extras = 3; $0.cruiseAlt = 95; $0.waterLevel = -1.2; $0.waterColor = V3(0.03, 0.13, 0.19); $0.treeClear = SIMD2(60, 60)
-        },
-        // ---- industrial
-        make("Rafz Gravel Works", key: "rafz", style: 1, seed: 617, runway: (70, 9, 0), flat: (0, 10), trees: 0, wind: (240, 2, 0.3), mu: 0.035, cloud: 0.25, fog: 0.00012,
-             category: "Industrial", difficulty: 5,
-             info: "The gravel works at Rafz, rebuilt object by object from a track made in the Wings simulator: the silo tower fifty metres high, the long conveyor bridges, the halls, tanks and yards, the wooded bank beside the road, and nine gates to fly through among them.") {
-            $0.terrain = 35; $0.palette = 31; $0.layout = 8; $0.dataName = "rafz"; $0.dataOrigin = V3(-76, 54, 115); $0.dataYaw = -90
-            $0.bare = true; $0.extras = 3; $0.treeKind = 7; $0.cruiseAlt = 75; $0.flatBlend = 1
         },
     ]
 }
@@ -290,9 +279,6 @@ struct Palette {
         // 30 pale sandstone
         Palette(a: rgb(0.72, 0.58, 0.40), b: rgb(0.64, 0.46, 0.30), rock: rgb(0.7, 0.46, 0.28), high: rgb(0.68, 0.5, 0.34), highFrom: 30, highTo: 120,
                 grassBase: rgb(0.5, 0.42, 0.24), grassTip: rgb(0.72, 0.62, 0.4), grassCount: 3000, bush: rgb(0.4, 0.44, 0.26), bushCount: 90, flowers: false, dust: rgb(0.84, 0.7, 0.5), ground: 4),
-        // 31 gravel works: grass banks and bare gravel
-        Palette(a: rgb(0.50, 0.47, 0.39), b: rgb(0.60, 0.55, 0.43), rock: rgb(0.5, 0.48, 0.44), high: rgb(0.27, 0.38, 0.16), highFrom: 7, highTo: 30,
-                grassBase: rgb(0.24, 0.3, 0.12), grassTip: rgb(0.5, 0.52, 0.28), grassCount: 3500, bush: rgb(0.24, 0.34, 0.14), bushCount: 60, flowers: false, dust: rgb(0.66, 0.62, 0.55), ground: 4),
     ]
 }
 
@@ -331,13 +317,10 @@ final class Terrain {
     var boxes: [SolidBox] = []          // everything built here that a wing can hit
     var gates: [Gate] = []              // race gates, in the order they are flown
 
-    private var ground: [V3] = []       // imported sites: known heights of the ground
-
     init(site: SiteSpec) {
         self.site = site
         half = Float(n - 1) * cell / 2
         h = [Float](repeating: 0, count: n * n)
-        if site.layout == 8 { ground = importedGround() }
         for j in 0..<n { for i in 0..<n {
             h[j * n + i] = raw(Float(i) * cell - half, Float(j) * cell - half)
         } }
@@ -349,19 +332,6 @@ final class Terrain {
         if site.panorama != nil { let g = site.groundGradient; return g.x * x + g.y * z }
         let r = sqrt(x * x + z * z), s = site.seed
         var y: Float
-        if site.terrain == 35 {
-            // an imported site: the ground runs through the heights known from its trees, rocks and paving, each
-            // counting for more the nearer it is; farther out it becomes gently rolling country
-            var sum: Float = 0, wsum: Float = 0
-            for g in ground {
-                let dx = x - g.x, dz = z - g.z
-                let w = 1 / (pow(dx * dx + dz * dz, 1.5) + 40)
-                sum += w * g.y; wsum += w
-            }
-            let near = wsum > 0 ? sum / wsum : 0
-            let far = 30 * (fbm(x / 800, z / 800, s) - 0.45) + smoothstep(1300, 2900, r) * 300 * fbm(x / 1400, z / 1400, s + 3)
-            return lerp(near, far, smoothstep(260, 700, r))
-        }
         switch site.terrain >= 0 ? site.terrain : site.style {
         case 0:
             y = 45 * (fbm(x / 800, z / 800, s) - 0.45) + 6 * (fbm(x / 150, z / 150, s + 7) - 0.5)

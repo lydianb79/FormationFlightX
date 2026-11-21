@@ -11,52 +11,16 @@ struct SolidBox {
     var yaw: Float = 0
     var color: V4
     var kind = 0            // 0 plain, 1 building with rows of windows
-    var rot: simd_quatf? = nil      // any orientation, for imported sites; nil = upright, turned by `yaw`
-    var shape = 0                   // 0 box, 1 cylinder along its own up axis, 2 rock
-    var solid = true                // false for paving: drawn, but it is the ground and not something to hit
-    var orientation: simd_quatf { rot ?? simd_quatf(angle: yaw, axis: V3(0, 1, 0)) }
 }
 
 /// A gate to fly through. `c` is the middle of the opening; the heading is the way through it
 /// (0 = away from the pilots, 90 = to their right).
 struct Gate {
     var c: V3
+    var heading: Float
     var w: Float, h: Float
-    var dir: V3, right: V3, up = V3(0, 1, 0)
-    var bothWays = false            // counts whichever way it is flown through
-    init(c: V3, heading: Float, w: Float, h: Float) {
-        self.c = c; self.w = w; self.h = h
-        dir = V3(sin(heading * deg), 0, -cos(heading * deg)); right = V3(cos(heading * deg), 0, sin(heading * deg))
-    }
-    init(c: V3, q: simd_quatf, w: Float, h: Float) {
-        self.c = c; self.w = w; self.h = h
-        dir = q.act(V3(0, 0, -1)); right = q.act(V3(1, 0, 0)); up = q.act(V3(0, 1, 0)); bothWays = true
-    }
-}
-
-/// A flying site rebuilt from someone's work in another simulator's editor: every solid, tree, rock and gate,
-/// as written by Tools/trk_to_site.py.
-struct SiteObject: Decodable {
-    var k: String               // box, cyl, rock, tree, gate
-    var p: [Float]              // position, metres; y is height in the other simulator's world
-    var q: [Float]              // orientation
-    var s: [Float]              // size
-    var c: [Float]?             // colour
-    var h: Float?               // trees: height relative to an ordinary tree
-}
-
-enum SiteData {
-    private struct File: Decodable { var objects: [SiteObject] }
-    private static var cache: [String: [SiteObject]] = [:]
-    private static let lock = NSLock()
-    static func load(_ name: String) -> [SiteObject] {
-        lock.lock(); defer { lock.unlock() }
-        if let c = cache[name] { return c }
-        var objs: [SiteObject] = []
-        if let url = resourceURL("Sites/\(name).json"), let data = try? Data(contentsOf: url), let f = try? JSONDecoder().decode(File.self, from: data) { objs = f.objects }
-        cache[name] = objs
-        return objs
-    }
+    var dir: V3 { V3(sin(heading * deg), 0, -cos(heading * deg)) }
+    var right: V3 { V3(cos(heading * deg), 0, sin(heading * deg)) }
 }
 
 private func sc(_ r: Float, _ g: Float, _ b: Float, _ gloss: Float = 0.06) -> V4 { V4(r, g, b, gloss) }
@@ -225,11 +189,10 @@ extension Terrain {
             add(0, -420, V3(760, 3, 16), lift: 26, sc(0.4, 0.42, 0.45, 0.2), base: wl)
             for x: Float in [-300, -150, 0, 150, 300] { for s: Float in [-1, 1] { add(x, -420 + s * 6, V3(4, 26, 3), concrete, base: wl) } }
             for x: Float in [-150, 150] { for s: Float in [-1, 1] { add(x, -420 + s * 9, V3(4, 78, 3), red, base: wl) }; add(x, -420, V3(4, 4, 18), lift: 74, red, base: wl) }
-        case 8: layoutImported()
         default: break
         }
         // trees give way to what was built, and to the way through the gates
-        if site.layout != 8, !boxes.isEmpty || !gates.isEmpty {
+        if !boxes.isEmpty || !gates.isEmpty {
             let path = gates.map { $0.c }
             trees.removeAll { t in
                 for b in boxes where abs(t.p.x - b.c.x) < max(b.half.x, b.half.z) + 5 && abs(t.p.z - b.c.z) < max(b.half.x, b.half.z) + 5 { return true }
@@ -244,137 +207,9 @@ extension Terrain {
         }
     }
 
-    /// Where an imported object is in this world: the site's origin and ground level taken off, turned by its yaw.
-    func place(_ o: SiteObject) -> (pos: V3, q: simd_quatf) {
-        let yaw = simd_quatf(angle: site.dataYaw * deg, axis: V3(0, 1, 0))
-        let p = yaw.act(V3(o.p[0], o.p[1], o.p[2]) - site.dataOrigin)
-        return (p, simd_normalize(yaw * simd_quatf(ix: o.q[0], iy: o.q[1], iz: o.q[2], r: o.q[3])))
-    }
-
-    /// Paving: a thin, level, large slab near ground level. It is the ground itself.
-    private func isPaving(_ half: V3, _ q: simd_quatf, _ c: V3) -> Bool {
-        let R = simd_float3x3(q)
-        let hy = abs(R.columns.0.y) * half.x + abs(R.columns.1.y) * half.y + abs(R.columns.2.y) * half.z
-        let dims = [half.x, half.y, half.z].sorted()
-        return hy < 0.6 && dims[1] * dims[2] * 4 > 60 && abs(c.y) < 3
-    }
-
-    /// Heights of the ground known from the imported site: under every tree and rock, and across the paving.
-    func importedGround() -> [V3] {
-        var g: [V3] = []
-        for o in SiteData.load(site.dataName) {
-            let (p, q) = place(o)
-            switch o.k {
-            case "tree": g.append(p)
-            case "rock": g.append(p - V3(0, 0.3 * o.s[1], 0))
-            case "gate": if abs(p.y) < 1.2 { for _ in 0..<4 { g.append(p) } }         // a gate standing on the ground marks it well
-            case "box":
-                let half = V3(o.s[0], o.s[1], o.s[2]) / 2
-                guard isPaving(half, q, p) else { continue }
-                // a grid of points over the slab, at its top
-                let R = simd_float3x3(q)
-                let axes = [(R.columns.0, half.x), (R.columns.1, half.y), (R.columns.2, half.z)].sorted { abs($0.0.y) < abs($1.0.y) }
-                let (a, ha) = axes[0], (b, hb) = axes[1]
-                let na = max(Int(ha / 5), 1), nb = max(Int(hb / 5), 1)
-                for i in -na...na { for j in -nb...nb {
-                    let w = p + a * (ha * Float(i) / Float(na)) + b * (hb * Float(j) / Float(nb))
-                    g.append(V3(w.x, p.y + 0.2, w.z))
-                } }
-            default: break
-            }
-        }
-        return g
-    }
-
-    /// Everything from the imported site: solids, cylinders, rocks, trees and gates.
-    private func layoutImported() {
-        for o in SiteData.load(site.dataName) {
-            let (p, q) = place(o)
-            let col = o.c.map { V4($0[0], $0[1], $0[2], 0.08) } ?? V4(0.6, 0.6, 0.6, 0.08)
-            switch o.k {
-            case "box":
-                let half = V3(o.s[0], o.s[1], o.s[2]) / 2
-                boxes.append(SolidBox(c: p, half: half, color: col, rot: q, solid: !isPaving(half, q, p)))
-            case "cyl":
-                boxes.append(SolidBox(c: p, half: V3(o.s[0], o.s[1], o.s[2]) / 2, color: col, rot: q, shape: 1))
-            case "rock":
-                boxes.append(SolidBox(c: p, half: V3(o.s[0], o.s[1], o.s[2]) * 0.45, color: V4(0.46, 0.45, 0.42, 0.03), rot: q, shape: 2))
-            case "tree":
-                trees.append(Tree(p: V3(p.x, height(p.x, p.z), p.z), h: 13 * (o.h ?? 1)))
-            case "gate":
-                // a gate's position in the editor is the middle of its foot
-                let w = max(o.s[0], 3), h = max(o.s[1], 3)
-                let p = p + q.act(V3(0, 1, 0)) * (h / 2)
-                var g = Gate(c: p, q: q, w: w, h: h)
-                if abs(g.up.y) < 0.5 { g.up = V3(0, 1, 0) }             // a gate lying on its side still has a top and a bottom
-                let frame = gates.count % 2 == 0 ? sc(0.98, 0.45, 0.08, 0.3) : sc(0.1, 0.6, 0.92, 0.3)
-                for s: Float in [-1, 1] {
-                    boxes.append(SolidBox(c: p + g.right * (s * (w / 2 + 0.2)), half: V3(0.2, h / 2 + 0.4, 0.2), color: frame, rot: q))
-                    boxes.append(SolidBox(c: p + q.act(V3(0, 1, 0)) * (s * (h / 2 + 0.2)), half: V3(w / 2 + 0.4, 0.2, 0.2), color: frame, rot: q))
-                }
-                gates.append(g)
-            default: break
-            }
-        }
-        // The gates of such a site stand in doorways and inside halls. Whatever solid the line through a gate runs
-        // into is something to fly through: it becomes a shell of six walls, and every wall that faces the gate
-        // gets the gate's opening cut out of it.
-        for g in gates {
-            for i in boxes.indices where boxes[i].shape == 0 && boxes[i].solid && boxes[i].rot != nil {
-                let b = boxes[i], h = b.half
-                guard min(h.x, h.y, h.z) >= 1 else { continue }
-                let inv = b.rot!.inverse
-                let hit = stride(from: Float(-4), through: 4, by: 0.5).contains { s in
-                    let l = inv.act(g.c + g.dir * s - b.c)
-                    return abs(l.x) < h.x + 0.3 && abs(l.y) < h.y + 0.3 && abs(l.z) < h.z + 0.3
-                }
-                guard hit else { continue }
-                boxes[i].solid = false; boxes[i].shape = 3              // no longer drawn or hit as a block
-                for k in 0..<3 { for s: Float in [-1, 1] {
-                    var half = h, off = V3.zero
-                    half[k] = 0.15; off[k] = s * (h[k] - 0.15)
-                    boxes.append(SolidBox(c: b.c + b.rot!.act(off), half: half, color: b.color, rot: b.rot))
-                } }
-            }
-            for i in boxes.indices where boxes[i].shape == 0 && boxes[i].solid && boxes[i].rot != nil {
-                let b = boxes[i], h = [b.half.x, b.half.y, b.half.z]
-                let R = simd_float3x3(b.rot!)
-                guard abs(dot(b.c - g.c, g.dir)) < 20,
-                      let t = [0, 1, 2].first(where: { h[$0] < 0.8 && abs(dot(R[$0], g.dir)) > 0.8 }) else { continue }
-                let ab = [0, 1, 2].filter { $0 != t }
-                var lo = [Float.infinity, .infinity], hi = [-Float.infinity, -.infinity], along: Float = 0
-                for sx: Float in [-1, 1] { for sy: Float in [-1, 1] {
-                    let k = b.rot!.inverse.act(g.c + g.right * (sx * g.w / 2) + g.up * (sy * g.h / 2) - b.c)
-                    for j in 0..<2 { lo[j] = min(lo[j], k[ab[j]]); hi[j] = max(hi[j], k[ab[j]]) }
-                    along = max(along, abs(k[t]))
-                } }
-                for j in 0..<2 { lo[j] = max(lo[j], -h[ab[j]]); hi[j] = min(hi[j], h[ab[j]]) }
-                guard along < 4.5, hi[0] - lo[0] > 0.5, hi[1] - lo[1] > 0.5 else { continue }
-                boxes[i].solid = false; boxes[i].shape = 3
-                func piece(_ a0: Float, _ a1: Float, _ b0: Float, _ b1: Float) {
-                    guard a1 - a0 > 0.1, b1 - b0 > 0.1 else { return }
-                    var half = b.half, off = V3.zero
-                    half[ab[0]] = (a1 - a0) / 2; off[ab[0]] = (a0 + a1) / 2
-                    half[ab[1]] = (b1 - b0) / 2; off[ab[1]] = (b0 + b1) / 2
-                    boxes.append(SolidBox(c: b.c + b.rot!.act(off), half: half, color: b.color, rot: b.rot))
-                }
-                piece(-h[ab[0]], lo[0], -h[ab[1]], h[ab[1]]); piece(hi[0], h[ab[0]], -h[ab[1]], h[ab[1]])
-                piece(lo[0], hi[0], -h[ab[1]], lo[1]); piece(lo[0], hi[0], hi[1], h[ab[1]])
-            }
-        }
-    }
-
     /// Whether something `reach` metres across at `p` touches anything built here.
     func strikes(_ p: V3, reach: Float) -> Bool {
-        for b in boxes where b.rot != nil {
-            guard b.solid else { continue }
-            let d = p - b.c
-            let m = length(b.half) + reach
-            if abs(d.x) > m || abs(d.y) > m || abs(d.z) > m { continue }
-            let l = b.rot!.inverse.act(d)
-            if abs(l.x) < b.half.x + reach && abs(l.y) < b.half.y + reach && abs(l.z) < b.half.z + reach { return true }
-        }
-        for b in boxes where b.rot == nil {
+        for b in boxes {
             let dy = p.y - b.c.y
             if abs(dy) > b.half.y + reach { continue }
             let dx = p.x - b.c.x, dz = p.z - b.c.z
@@ -391,17 +226,7 @@ extension Terrain {
     func buildStructureMesh(into m: inout MeshBuilder) {
         let dark = V4(0.05, 0.08, 0.12, 0.3)
         for b in boxes {
-            let q = b.orientation
-            if b.shape == 1 {
-                let up = q.act(V3(0, 1, 0)) * b.half.y
-                m.cylinder(from: b.c - up, to: b.c + up, r0: b.half.x, r1: b.half.x, seg: 14, color: b.color)
-                continue
-            }
-            if b.shape == 3 { continue }            // opened up into a passage: its walls are drawn instead
-            if b.shape == 2 {
-                m.blob(center: b.c, radii: b.half * 1.2, color: b.color, seg: 8, rings: 5, seed: Int32(truncatingIfNeeded: Int(b.c.x * 7 + b.c.z * 13)), lump: 0.25)
-                continue
-            }
+            let q = simd_quatf(angle: b.yaw, axis: V3(0, 1, 0))
             m.box(center: b.c, size: b.half * 2, color: b.color, rot: q)
             guard b.kind == 1, b.half.y > 3 else { continue }
             // rows of windows: one dark band per floor on each face, and something on the roof
@@ -442,9 +267,9 @@ extension Game {
         let p0 = racePrev, p1 = aircraft.pos
         racePrev = p1
         let s0 = dot(p0 - g.c, g.dir), s1 = dot(p1 - g.c, g.dir)
-        guard !aircraft.crashed, (s0 < 0 && s1 >= 0) || (g.bothWays && s0 > 0 && s1 <= 0), abs(s1 - s0) < 30, s1 != s0 else { return }
+        guard !aircraft.crashed, s0 < 0, s1 >= 0, s1 - s0 < 30 else { return }
         let hit = p0 + (p1 - p0) * (-s0 / (s1 - s0)) - g.c
-        guard abs(dot(hit, g.right)) < g.w / 2, abs(dot(hit, g.up)) < g.h / 2 else { return }
+        guard abs(dot(hit, g.right)) < g.w / 2, abs(hit.y) < g.h / 2 else { return }
         if raceNext == 0 {
             if raceRunning {
                 raceLaps += 1
