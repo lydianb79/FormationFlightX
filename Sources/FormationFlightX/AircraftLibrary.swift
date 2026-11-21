@@ -739,6 +739,9 @@ func measuredMargin(_ spec: AircraftSpec, throttle: Float) -> Float {
 func trimForCruise(_ spec0: AircraftSpec) -> AircraftSpec {
     var spec = spec0
     guard spec.kind == .airplane else { return spec }
+    // 3D foamies are built 0-0, wing and tailplane both at zero incidence, as their builders set them up: neutral, so
+    // they fly the same upright and inverted, and hang and harrier without wanting to go anywhere
+    if spec.category == "Foam 3D" { spec.trimSetting = 0; spec.trimSpeed = 0; return spec }
     let glider = spec.category == "Gliders"
     // near-neutral aerobats and 3D models barely change speed with trim, and fast jets need a margin above the stall
     let quick = spec.category == "Aerobatic" || spec.category == "Foam 3D"

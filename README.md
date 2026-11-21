@@ -109,6 +109,8 @@ What these are and are not:
 - **Trim gauge.** Under the map: the pitch trim in clicks, with an arrow above for nose up and one below for nose down.
 - None of them has a flight controller: no stabilisation, no return to home.
 
+**The 3D foamies** (Foam Extra XL, Shock Flyer 800) are built 0–0, wing and tailplane at zero incidence, as their builders set them up: neutral, so they fly the same upright and inverted and hang without wanting to go anywhere. They get no cruise trim and no speed trim; with the stick centred they settle at about 30 and 18 km/h.
+
 **The other categories** each have two or three aircraft from FlightCore OSX: trainers, scale civil, warbirds, aerobatic, foam 3D, jets and gliders. Those that are not hand-launched start on the runway, one behind the other in formation order. The eleven original flying wings are in FPV Aircrafts with the rest.
 
 **Computer partners** fly every aircraft. In `--formtest`, with four of them in a five-ship, they hold their slots to 1.7 m RMS on average over all forty-one aircraft and without a crash; the worst are the big gliders in the outer places (up to 7 m for the Thermal 2M). For fast aircraft the computer lead flies a larger racetrack.
