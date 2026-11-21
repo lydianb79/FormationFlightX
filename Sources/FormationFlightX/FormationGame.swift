@@ -5,7 +5,7 @@ import QuartzCore
 // The formation side of the game: who is flying, who leads, where each slot is, and what goes over the network.
 
 extension Game {
-    static let aiNames = ["Computer 1", "Computer 2"]
+    static let aiNames = ["Computer 1", "Computer 2", "Computer 3", "Computer 4"]
 
     var leadID: UInt32 { order.first ?? net.id }
     var isLead: Bool { leadID == net.id }
@@ -113,7 +113,7 @@ extension Game {
         helloAcc = 1
         cameFromMenu = false; lobbyReturn = false; hud.overlay = .none
         resetAircraft()
-        for w in wingmen where w.ai != nil { place(w) }
+        launchPartners()
         if together { note(again ? "\(pilotName) restarted the session" : "\(pilotName) started the session") }
     }
 
@@ -126,10 +126,28 @@ extension Game {
         if together { note("\(pilotName) stopped the session") }
     }
 
+    /// The computer pilots start again from beside the pilots, with you.
+    func launchPartners() {
+        computeOrder()
+        for w in wingmen where w.ai != nil { place(w, launch: true) }
+        launchGrace = 6
+    }
+
+    /// Your place among the computer pilots: 0 leads, 1 is number 2, and so on.
+    func setPlace(_ n: Int) {
+        if n == 0 { if leadEpoch == 0 { leadEpoch = 1 } } else { leadEpoch = 0; myPlace = n }
+        computeOrder()
+    }
+
     /// Leave the menus and fly, if the session allows it.
     func takeOff() {
         lobbyReturn = false
-        if !together { cameFromMenu = false; hud.overlay = .none }
+        if !together {
+            cameFromMenu = false; hud.overlay = .none
+            // unless you are coming back to a flight already under way, everyone launches together from the pilots' position
+            let flying = !aircraft.crashed && !aircraft.onGround && length(aircraft.vel) > 3 && aircraft.pos.y - terrain.gnd(aircraft.pos.x, aircraft.pos.z) > 3 && flownOnce
+            if !flying { resetAircraft(); launchPartners(); flownOnce = true }
+        }
         else if sessionRunning { cameFromMenu = false; hud.overlay = .none }
         else if isHost { startSession() }
         else { cameFromMenu = false; hud.overlay = .lobby; say("Waiting for \(name(of: hostID)) to start the session", 3) }
@@ -217,6 +235,13 @@ extension Game {
     // MARK: Roster
 
     func computeOrder() {
+        if remotePilots.isEmpty {
+            // alone with the computer: its pilots in their order, you in the place you chose (or in front, if you took the lead)
+            var o = wingmen.filter { $0.ai != nil }.map { $0.id }.sorted()
+            o.insert(net.id, at: o.isEmpty || leadEpoch > 0 ? 0 : min(max(myPlace, 1), o.count))
+            order = o
+            return
+        }
         var all: [(id: UInt32, epoch: UInt32)] = [(net.id, leadEpoch)]
         for w in wingmen { all.append((w.id, w.ai == nil ? w.leadEpoch : 0)) }
         // the highest claim leads; with no claim at all the computer does, or the lowest number on the network
@@ -260,8 +285,9 @@ extension Game {
         // (the computer flies fixed-wing aircraft only: no partners for a helicopter or a multirotor)
         let wantAI = aiPartners && remotePilots.isEmpty && aircraft.spec.kind == .airplane
         if !wantAI { wingmen.removeAll { $0.ai != nil } }
-        else if !wingmen.contains(where: { $0.ai != nil }) {
-            for k in 0..<2 {
+        else if wingmen.filter({ $0.ai != nil }).count != aiCount {
+            wingmen.removeAll { $0.ai != nil }
+            for k in 0..<aiCount {
                 let w = Wingman(id: UInt32(k + 1), name: Game.aiNames[k], specIndex: aircraftIndex)
                 w.ai = FormationPilot()
                 wingmen.append(w)
@@ -300,16 +326,16 @@ extension Game {
 
     /// Put a computer partner where it can start flying: the lead onto the racetrack, a wingman into its slot,
     /// or beside the pilots for a hand launch when the lead is still low.
-    func place(_ w: Wingman) {
+    func place(_ w: Wingman, launch: Bool = false) {
         let ac = w.aircraft, spec = ac.spec
         let n = order.firstIndex(of: w.id) ?? 1
         w.ai = FormationPilot()
         w.crashTimer = 0
         let home = terrain.pilotPos
-        if n == 0 {
+        if n == 0 && !launch {
             let p = V3(home.x - 110, home.y + FormationPilot.altitude(site), home.z - 70)
             ac.reset(pos: V3(p.x, max(p.y, terrain.height(p.x, p.z) + 22), p.z), heading: -.pi / 2, speed: FormationPilot.cruise(spec))
-        } else if let lead = flying(leadID), !lead.crashed, let s = slot(n), lead.pos.y - terrain.height(lead.pos.x, lead.pos.z) > 10 {
+        } else if !launch, let lead = flying(leadID), !lead.crashed, let s = slot(n), lead.pos.y - terrain.height(lead.pos.x, lead.pos.z) > 10 {
             let (f, _) = Formation.frame(of: lead)
             var p = s - f * 6
             p.y = max(p.y, terrain.height(p.x, p.z) + 6)
@@ -344,7 +370,11 @@ extension Game {
             } else if terrain.strikes(ac.pos, reach: 0.3 * ac.spec.span) {
                 ac.crashed = true; ac.crashImpact = length(ac.vel); ac.vel *= 0.1
             } else if n == 0 {
-                w.controls = w.ai!.lead(ac, terrain: terrain, reach: formationReach, dt: sdt)
+                // the computer lead flies slower while you are still on your way to your slot
+                // (it starts waiting when you are 40 m out and stops when you are within 15 m, so it does not keep changing its mind)
+                let off = slotError.map { length($0) } ?? 0
+                if isLead { leadWaits = false } else if aircraft.crashed || aircraft.onGround || off > 40 { leadWaits = true } else if off < 15 { leadWaits = false }
+                w.controls = w.ai!.lead(ac, terrain: terrain, reach: formationReach, dt: sdt, pace: leadWaits ? 0.85 : 1)
             } else if let lead = flying(leadID), !lead.crashed, let s = slot(n) {
                 w.controls = w.ai!.follow(ac, lead: lead, slot: s, terrain: terrain, dt: sdt)
             } else {
@@ -480,6 +510,12 @@ extension Game {
         let want = [Float(15), 30, 60, 120, 250, 500, 1000, 2000].first { $0 >= far * 1.15 } ?? 2000
         if want > mapRange || far * 1.6 < mapRange { mapRange = want }
         s.mapRange = mapRange
+        // under the map: how far the lead is (or, leading, the nearest of the others)
+        if !isLead, let l = wingmen.first(where: { $0.id == leadID && $0.present(now) }) {
+            s.mapNote = String(format: "Lead %.0f m", distance(l.aircraft.pos, aircraft.pos))
+        } else if let d = wingmen.filter({ $0.present(now) }).map({ distance($0.aircraft.pos, aircraft.pos) }).min() {
+            s.mapNote = String(format: "Nearest %.0f m", d)
+        }
         s.talking = remotePilots.filter { voice.speaking($0.id) }.map { $0.name }
         s.unread = unreadChat
         s.chat = chat.suffix(4).filter { !$0.mine && now - $0.time < 10 }

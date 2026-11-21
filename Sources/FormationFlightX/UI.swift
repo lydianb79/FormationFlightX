@@ -992,7 +992,10 @@ private struct MiniMap: View {
                 Image(systemName: "location.north.fill").font(.system(size: 12)).foregroundColor(Theme.brand)
             }
             .frame(width: size, height: size)
-            Text(String(format: "%.0f m", s.mapRange)).font(.system(size: 9, weight: .semibold)).monospacedDigit().foregroundColor(Theme.dim)
+            HStack(spacing: 6) {
+                if !s.mapNote.isEmpty { Text(s.mapNote).font(.system(size: 10, weight: .bold)).monospacedDigit().foregroundColor(Theme.paper) }
+                Text(String(format: "edge %.0f m", s.mapRange)).font(.system(size: 9, weight: .semibold)).monospacedDigit().foregroundColor(Theme.dim)
+            }
         }
         .padding(7).glass(12)
     }
@@ -1191,10 +1194,26 @@ struct OptionsPanel: View {
                             person(k + 1, w.name, w.aircraft.spec.name + (w.ai != nil ? " · flown by the computer" : ""), me: false)
                         }
                     }
-                    Button { g.takeLead(); m.objectWillChange.send() } label: {
-                        Text(leading && g.leadEpoch > 0 ? "Hand Back the Lead" : "Take the Lead").frame(maxWidth: .infinity)
+                    if g.remotePilots.isEmpty && g.aiPartners {
+                        // alone: how many the computer flies, and where you fly among them
+                        Text("Computer pilots").font(.system(size: 11.5, weight: .medium)).foregroundColor(Theme.dim).padding(.top, 4)
+                        Picker("", selection: Binding(get: { g.aiCount }, set: { g.aiCount = $0; g.updateRoster(); m.objectWillChange.send() })) {
+                            ForEach(1...4, id: \.self) { Text("\($0)").tag($0) }
+                        }
+                        .pickerStyle(.segmented).labelsHidden()
+                        Text("Your place").font(.system(size: 11.5, weight: .medium)).foregroundColor(Theme.dim).padding(.top, 2)
+                        Picker("", selection: Binding(get: { g.order.firstIndex(of: g.net.id) ?? 0 }, set: { g.setPlace($0); m.objectWillChange.send() })) {
+                            ForEach(0...g.aiCount, id: \.self) { Text($0 == 0 ? "Lead" : "No. \($0 + 1)").tag($0) }
+                        }
+                        .pickerStyle(.segmented).labelsHidden()
+                        Text("Number 1 leads. Put yourself in front to lead the computer pilots, or behind to follow one of them.")
+                            .font(.system(size: 11)).foregroundColor(Theme.faint).fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Button { g.takeLead(); m.objectWillChange.send() } label: {
+                            Text(leading && g.leadEpoch > 0 ? "Hand Back the Lead" : "Take the Lead").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(QuietButton()).disabled(leading && g.leadEpoch == 0)
                     }
-                    .buttonStyle(QuietButton()).disabled(leading && g.leadEpoch == 0)
                     heading("YOU").padding(.top, 6)
                     HStack(spacing: 10) {
                         field("Pilot name", Binding(get: { g.pilotName }, set: { g.pilotName = String($0.prefix(24)); m.objectWillChange.send() }), "Your name")

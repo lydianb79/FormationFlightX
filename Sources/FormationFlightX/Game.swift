@@ -28,6 +28,7 @@ struct HUDState {
     var mapNorth: Float = 0                 // where north is, clockwise from straight ahead
     var onboard = false
     var smoke = false
+    var mapNote = ""                // who the nearest aircraft of interest is, and how far
 }
 
 /// Another aircraft on the map. `name` is set for a real pilot and empty for a computer partner.
@@ -206,6 +207,8 @@ final class Game {
     static var noShowcase = false
     static var showLog = CommandLine.arguments.contains("--showlog")
     var mapRange: Float = 120
+    var leadWaits = false               // the computer lead is flying slower for you to catch up
+    var flownOnce = false               // a flight has been started since the site or aircraft was chosen
     // smoke trails, by whose they are; the last point of a trail that is being laid rides on the aircraft
     var trails: [UInt32: [TrailPoint]] = [:]
     var trailLaid: [UInt32: (frame: Int, since: Float)] = [:]
@@ -220,6 +223,10 @@ final class Game {
     var spacing: Int = (UserDefaults.standard.object(forKey: "spacing") as? Int) ?? 1 { didSet { UserDefaults.standard.set(spacing, forKey: "spacing") } }
     /// Computer-flown partners fill the formation while no other pilot is connected.
     var aiPartners: Bool = !UserDefaults.standard.bool(forKey: "aiOff") { didSet { UserDefaults.standard.set(!aiPartners, forKey: "aiOff") } }
+    /// How many computer pilots fly with you when you are alone (1 to 4), and your own place among them
+    /// (0 = you lead, 1 = you are number 2, and so on).
+    var aiCount: Int = (UserDefaults.standard.object(forKey: "aiCount") as? Int).map { min(max($0, 1), 4) } ?? 4 { didSet { UserDefaults.standard.set(aiCount, forKey: "aiCount") } }
+    var myPlace: Int = (UserDefaults.standard.object(forKey: "myPlace") as? Int).map { min(max($0, 0), 4) } ?? 1 { didSet { UserDefaults.standard.set(myPlace, forKey: "myPlace") } }
     var multiplayer: Bool = !UserDefaults.standard.bool(forKey: "netOff") { didSet { UserDefaults.standard.set(!multiplayer, forKey: "netOff"); if netAllowed { multiplayer ? net.start() : net.stop() } } }
     /// Off for command-line test runs, so they neither advertise nor search.
     var netAllowed = false { didSet { if netAllowed && multiplayer { net.start() } else { net.stop() } } }
@@ -472,7 +479,7 @@ final class Game {
 
     func keyDown(_ k: UInt16) {
         switch k {
-        case 49, 15: resetAircraft()
+        case 49, 15: resetAircraft(); launchPartners()
         case 35: paused.toggle()
         case 8:
             if site.panorama != nil { cameraMode = 0; say("Photo sites use the pilot camera only") }

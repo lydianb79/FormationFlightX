@@ -171,7 +171,7 @@ struct FormationPilot {
     /// `reach` is how far the outermost wingman sits to the side. The lead turns wide enough for the wingman on
     /// the inside to keep flying and the one on the outside to keep up: their speeds differ from the lead's by
     /// the ratio of that distance to the turn radius.
-    mutating func lead(_ ac: Aircraft, terrain: Terrain, reach: Float = 3, dt: Float) -> Controls {
+    mutating func lead(_ ac: Aircraft, terrain: Terrain, reach: Float = 3, dt: Float, pace: Float = 1) -> Controls {
         let home = terrain.pilotPos
         let vc = FormationPilot.cruise(ac.spec)
         // a fast aircraft flies a bigger racetrack: the same shape, stretched so the turns stay gentle
@@ -188,7 +188,7 @@ struct FormationPilot {
         let low = ac.pos.y - ground < 12
         let rollT = low ? 0 : clampf(herr * 1.1, -maxBank, maxBank)
         let pitchT = clampf(0.02 * (altT - ac.pos.y) - 0.04 * ac.vel.y, -0.14, 0.24)
-        let v = FormationPilot.cruise(ac.spec)
+        let v = max(FormationPilot.cruise(ac.spec) * pace, min(FormationPilot.cruise(ac.spec), ac.spec.stallSpeed * 1.6))
         thrI = clampf(thrI + 0.04 * (v - ac.airspeed) * dt, 0.15, 0.85)
         return inner(ac, rollT: rollT, pitchT: pitchT, throttle: clampf(thrI + 0.1 * (v - ac.airspeed) + 0.01 * (altT - ac.pos.y), 0.1, 1))
     }

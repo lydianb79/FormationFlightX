@@ -431,6 +431,23 @@ final class Renderer: NSObject, MTKViewDelegate {
             let sc = M4(diagonal: V4(sm.radius, sm.radius, sm.radius, 1))
             acBlend.append(DrawItem(mesh: mesh, model: M4.translation(sm.pos) * rot * sc, tint: sm.good ? V4(0.25, 1, 0.4, 0.75) : V4(1, 0.72, 0.15, 0.6), material: 4))
         }
+        if let mesh = slotMesh, game.showFlight.isEmpty {
+            // the other aircraft are small and soon far away: each carries a ring that keeps its size on the screen.
+            // Pale for a computer pilot, amber for a real one, doubled for the lead.
+            let fwd = normalize(game.target - game.eye), right = normalize(cross(fwd, game.upVec)), up2 = cross(right, fwd)
+            let rot = M4(columns: (V4(right.x, right.y, right.z, 0), V4(up2.x, up2.y, up2.z, 0), V4(-fwd.x, -fwd.y, -fwd.z, 0), V4(0, 0, 0, 1)))
+            for w in game.wingmen where w.present(wallNow) && !w.aircraft.crashed {
+                let p = w.aircraft.renderPos, d = distance(p, game.eye)
+                let a = smoothstep(18, 45, d) * 0.8
+                guard a > 0.02 else { continue }
+                let r = max(d * 0.012 * tan(game.fov / 2) / 0.577, w.aircraft.spec.span * 0.7)
+                let tint = w.ai == nil ? V4(1, 0.72, 0.2, a) : V4(0.8, 0.92, 1, a * 0.85)
+                for k in 0..<(w.id == game.leadID ? 2 : 1) {
+                    let rr = r * (k == 0 ? 1 : 1.4)
+                    acBlend.append(DrawItem(mesh: mesh, model: M4.translation(p) * rot * M4(diagonal: V4(rr, rr, rr, 1)), tint: tint, material: 4))
+                }
+            }
+        }
         for d in game.debris {
             guard d.part < partMeshes.count, let mesh = partMeshes[d.part] else { continue }
             acItems.append(DrawItem(mesh: mesh, model: M4.translation(d.pos) * M4(d.q) * M4.translation(d.offset), spec: 1))

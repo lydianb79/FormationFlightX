@@ -108,7 +108,7 @@ What these are and are not:
 
 **The other categories** each have two or three aircraft from FlightCore OSX: trainers, scale civil, warbirds, aerobatic, foam 3D, jets and gliders. Those that are not hand-launched start on the runway, one behind the other in formation order. The eleven original flying wings are in FPV Aircrafts with the rest.
 
-**Computer partners** fly every aircraft, and hold formation with all forty-one of them to within about 3 m RMS in `--formtest`. For fast aircraft the computer lead flies a larger racetrack.
+**Computer partners** fly every aircraft. In `--formtest`, with four of them in a five-ship, they hold their slots to 1.7 m RMS on average over all forty-one aircraft and without a crash; the worst are the big gliders in the outer places (up to 7 m for the Thermal 2M). For fast aircraft the computer lead flies a larger racetrack.
 
 **Views.** The app opens covering the whole screen. FPV aircraft start in the view from on board, everything else in the view from behind; the first button of the bar at the top right switches between the two at any time (the C key still steps through all three cameras).
 
@@ -200,13 +200,14 @@ Opening the lobby holds your own wing, as every menu does; the others see you as
 
 ## Flying alone
 
-While no other pilot is connected, computer-flown partners fill the formation (switch them off in Options). They fly the same aircraft as you, so everyone has the same speed range.
+While no other pilot is connected, computer pilots fill the formation: four of them unless you choose fewer, so five aircraft fly. They fly the same aircraft as you, so everyone has the same speed range. In **Options** you set how many there are (one to four, or switch them off) and **your place** among them: Lead, or number 2 to 5. Number 1 leads.
 
-- By default the computer leads round a wide racetrack about 38 m above the field, and you fly number 2 with another computer wing as number 3.
-- Press **U** to take the lead: both computer wings then hold their slots on you.
-- **K** hands your own wing to the autopilot, which flies whatever part you have: the racetrack if you lead, your slot if you do not.
+- **Take off** launches everyone together from beside the pilots; so does **Space**. The computer lead climbs straight ahead, then flies a wide racetrack about 38 m above the field.
+- While you are still on your way to your slot (more than 40 m from it, or on the ground), the computer lead flies a little slower (85% of its usual speed, never close to the stall) so that you can catch up.
+- Every other aircraft carries a **ring** that keeps its size on the screen however far away it is: pale for a computer pilot, amber for a real one, doubled for the lead. Under the map is the distance to the lead in metres.
+- **U** takes the lead in flight and hands it back; **K** hands your own aircraft to the autopilot, which flies whatever part you have.
 
-Measured over 150 seconds of racetrack with each of the eleven wings (`--formtest`), the computer wingmen hold their slots to between 0.6 m and 2.8 m RMS, turns included, both behind a computer lead and behind your own wing on its autopilot after a hand launch. None of them crashes. The computer lead turns wider the wider the formation is, so the wingman on the inside of a turn keeps flying speed.
+The computer lead turns wider the wider the formation is, so the pilot on the inside of a turn keeps flying speed.
 
 ## Holding your slot
 
