@@ -88,6 +88,8 @@ What these are and are not:
 
 **Computer partners** fly every aircraft, and hold formation with all forty-one of them to within about 3 m RMS in `--formtest`. For fast aircraft the computer lead flies a larger racetrack.
 
+**Behind the menus** the site is alive: five of the aircraft you have chosen fly it in the formation you have chosen, trailing smoke, and a camera follows them, cutting between a chase view, a view from alongside, a fly-past seen from the ground, a slow circle round the flight and a view from ahead. Change the aircraft, the site or the formation and the flight changes with it. Your own aircraft waits where you left it.
+
 ## Flying sites
 
 Twenty-nine sites, none of them from FlightCore OSX. The site browser filters by kind, and every kind has at least two.

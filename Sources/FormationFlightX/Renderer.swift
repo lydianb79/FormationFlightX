@@ -407,6 +407,11 @@ final class Renderer: NSObject, MTKViewDelegate {
             if fleetMeshes[name] == nil { fleetMeshes[name] = w.aircraft.spec.parts.map { GPUMesh(device, $0.mesh) } }
             add(w.aircraft, fleetMeshes[name]!)
         }
+        for w in game.showFlight {                   // the flight shown behind the menus
+            let name = w.aircraft.spec.name
+            if fleetMeshes[name] == nil { fleetMeshes[name] = w.aircraft.spec.parts.map { GPUMesh(device, $0.mesh) } }
+            add(w.aircraft, fleetMeshes[name]!)
+        }
         if let gm = game.gateMarker, let mesh = panelMesh {
             // the gate to fly through next glows, brighter as the clock runs
             let f = gm.dir, r = cross(f, V3(0, 1, 0))

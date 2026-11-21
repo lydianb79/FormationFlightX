@@ -189,6 +189,12 @@ final class Game {
     let net = FormationNet()
     /// Everyone else in the formation: pilots on the network, or computer-flown partners when flying alone.
     var wingmen: [Wingman] = []
+    // the flight shown behind the menus
+    static var noShowcase = false
+    var showFlight: [Wingman] = []
+    var showAcc: Float = 0, showSmoke: Float = 0, showShotTime: Float = 0, showAngle: Float = 0
+    var showShot = 0, showKey = -1, showSnap = true
+    var showEye = V3.zero, showTarget = V3.zero
     var formation: FormationKind = FormationKind(rawValue: UserDefaults.standard.integer(forKey: "formation")) ?? .vic { didSet { UserDefaults.standard.set(formation.rawValue, forKey: "formation") } }
     var spacing: Int = (UserDefaults.standard.object(forKey: "spacing") as? Int) ?? 1 { didSet { UserDefaults.standard.set(spacing, forKey: "spacing") } }
     /// Computer-flown partners fill the formation while no other pilot is connected.
@@ -563,6 +569,7 @@ final class Game {
         let sp = length(aircraft.vel)
         if sp > 3 { advanceMs.append(length(aircraft.renderPos - before) / sp * 1000) }
         updateFormation(dt: dt, realDt: realDt)
+        updateShowcase(dt: dt)
         updateCamera(dt)
         updateSound()
         messageTimer -= dt
@@ -744,6 +751,7 @@ final class Game {
     func lastYReset() { lastY = aircraft.pos.y; climb = 0 }
 
     private func updateCamera(_ dt: Float) {
+        if showcaseCamera(dt) { return }
         let p = aircraft.renderPos, spec = aircraft.spec
         let rq = aircraft.renderQ
         switch cameraMode {
