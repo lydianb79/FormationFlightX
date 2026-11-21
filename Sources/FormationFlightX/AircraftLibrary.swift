@@ -767,6 +767,7 @@ func trimForCruise(_ spec0: AircraftSpec) -> AircraftSpec {
     let d = clampf(-m0 / slope, tailless ? -0.04 : -0.12, tailless ? 0.08 : 0.12)
     apply(d, to: &spec)
     spec.trimSetting = d
+    spec.trimSpeed = v
     return spec
 }
 
@@ -847,6 +848,44 @@ func trimRoll(_ spec0: AircraftSpec) -> AircraftSpec {
         if k >= 900 { sum += c.aileron; n += 1 }
     }
     if !ac.crashed, n > 0 { spec.rollTrim = clampf(sum / n, -0.3, 0.3) }
+    return spec
+}
+
+/// The elevator it takes to fly level at a given throttle, as a fraction of full throw (negative = stick forward),
+/// and the speed the aircraft settles at.
+func levelElevator(_ spec: AircraftSpec, throttle: Float, seconds: Float = 30) -> (elev: Float, speed: Float) {
+    let terrain = Terrain.flat
+    let ac = Aircraft(spec)
+    ac.unlimitedBattery = true
+    ac.reset(pos: V3(0, 400, 0), heading: 0, speed: spec.stallSpeed * 1.8)
+    for i in ac.levels.indices { ac.levels[i] = throttle }
+    var sum: Float = 0, n: Float = 0, integ: Float = 0
+    let steps = Int(seconds * 100)
+    for k in 0..<steps {
+        var c = Controls()
+        let pitchT = clampf(0.03 * (400 - ac.pos.y) - 0.06 * ac.vel.y, -0.35, 0.35)
+        integ = clampf(integ + 0.01 * 1.5 * (pitchT - ac.pitch), -1, 1)
+        c.elevator = clampf(3 * (pitchT - ac.pitch) - 0.3 * ac.omega.x + integ, -1, 1)
+        c.aileron = clampf(2.5 * (0 - ac.roll) + 0.25 * ac.omega.z + spec.rollTrim, -1, 1)
+        c.throttle = throttle
+        for _ in 0..<10 { ac.step(dt: 0.001, c: c, terrain: terrain, wind: .zero, rollMu: 0.05) }
+        ac.pos.x = 0; ac.pos.z = 0
+        if k >= steps * 4 / 5 { sum += c.elevator; n += 1 }
+    }
+    return (ac.crashed ? .nan : sum / n, ac.airspeed)
+}
+
+/// Set the pitch trim's easing with speed: fly the aircraft level flat out, see how much forward stick that takes,
+/// and take four fifths of it out. The fifth that is left keeps the natural tendency to climb when going faster.
+func easeTrim(_ spec0: AircraftSpec) -> AircraftSpec {
+    var spec = spec0
+    guard spec.kind == .airplane, !spec.props.isEmpty, spec.trimSpeed > 0 else { return spec }       // (a glider with a motor counts)
+    spec.speedTrim = 0
+    var f = levelElevator(spec, throttle: 1, seconds: 16)
+    // a slow starter has not settled in that time: give it longer
+    if !f.elev.isFinite || f.elev > -0.02 { f = levelElevator(spec, throttle: 1, seconds: 40) }
+    guard f.elev.isFinite, f.elev < -0.02, f.speed > spec.trimSpeed * 1.15 else { return spec }
+    spec.speedTrim = clampf(0.8 * -f.elev / (1 - spec.trimSpeed * spec.trimSpeed / (f.speed * f.speed)), 0, 0.6)
     return spec
 }
 
@@ -1669,6 +1708,7 @@ enum AircraftLibrary {
             // before it stalls, and would only seem to stall faster)
             var done = trimRoll(defaultRates(calibrateRates(trimForCruise(s))))
             if fpv.contains(done.name) { done = measureStall(done) }
+            done = easeTrim(done)
             // Shown together as one category. (Set last: until here the kind of aircraft, wing or plane or
             // glider, decides its aerofoil, balance and control rates.)
             if done.category == "Wings" || fpv.contains(done.name) { done.category = "FPV Aircrafts" }

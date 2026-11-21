@@ -1017,6 +1017,43 @@ if let di = CommandLine.arguments.firstIndex(of: "--handsoff"), di + 1 < Command
     exit(0)
 }
 
+if CommandLine.arguments.contains("--powertest") {
+    // How much stick it takes to hold each aircraft level on half and on full throttle: the elevator as a share
+    // of full throw and of the low-rate throw the aircraft starts on (negative = forward).
+    print("aircraft                       half throttle            full throttle")
+    var worst: Float = 0, sum: Float = 0, n: Float = 0
+    for spec in AircraftLibrary.all where spec.kind == .airplane && spec.category != "Gliders" {
+        let h = levelElevator(spec, throttle: 0.5), f = levelElevator(spec, throttle: 1)
+        print(String(format: "%-28@ %5.0f km/h  %+4.0f%% (%+4.0f%% of low)   %5.0f km/h  %+4.0f%% (%+4.0f%% of low)", spec.name as NSString,
+                     h.speed * 3.6, h.elev * 100, h.elev / spec.lowRate * 100, f.speed * 3.6, f.elev * 100, f.elev / spec.lowRate * 100))
+        if f.elev.isFinite { worst = max(worst, -f.elev / spec.lowRate); sum += -f.elev / spec.lowRate; n += 1 }
+        if CommandLine.arguments.contains("--verbose") { print(String(format: "      eased by %.2f above %.0f km/h (stall %.0f km/h)", spec.speedTrim, spec.trimSpeed * 3.6, spec.stallSpeed * 3.6)) }
+    }
+    print(String(format: "full throttle: mean %.0f%% of the low-rate throw forward, worst %.0f%%", sum / n * 100, worst * 100))
+    // and the hand launch, full throttle, sticks let go: how low it gets, and where it is after four seconds
+    var lowest: Float = 99, lowName = "", sunk = 0
+    for spec in AircraftLibrary.all where spec.kind == .airplane && spec.handLaunch && !spec.props.isEmpty {
+        let ac = Aircraft(spec); ac.unlimitedBattery = true
+        ac.reset(pos: V3(2, 1.9, -3), heading: 0, speed: clampf(spec.stallSpeed * 1.7, 4, 9))
+        var c = Controls(); c.throttle = 1; c.aileron = spec.rollTrim
+        var low: Float = 99
+        for _ in 0..<4000 { ac.step(dt: 0.001, c: c, terrain: Terrain.flat, wind: .zero, rollMu: 0.05); low = min(low, ac.pos.y) }
+        if low < lowest { lowest = low; lowName = spec.name }
+        if ac.crashed || ac.pos.y < 1.9 {
+            // the same launch with the easing off, to tell what it is responsible for
+            var plain = spec; plain.speedTrim = 0
+            let b = Aircraft(plain); b.unlimitedBattery = true
+            b.reset(pos: V3(2, 1.9, -3), heading: 0, speed: clampf(spec.stallSpeed * 1.7, 4, 9))
+            for _ in 0..<4000 { b.step(dt: 0.001, c: c, terrain: Terrain.flat, wind: .zero, rollMu: 0.05) }
+            sunk += 1
+            print(String(format: "   %@: lowest %.1f m, after 4 s at %.1f m%@   (without the easing: %.1f m%@; launched at %.0f km/h, stalls at %.0f)", spec.name as NSString, low, ac.pos.y, ac.crashed ? ", CRASHED" : "",
+                         b.pos.y, b.crashed ? ", CRASHED" : "", clampf(spec.stallSpeed * 1.7, 4, 9) * 3.6, spec.stallSpeed * 3.6))
+        }
+    }
+    print(String(format: "hand launch, full throttle, hands off: %d aircraft end below the launch height; the lowest point of any is %.1f m (%@)", sunk, lowest, lowName as NSString))
+    exit(0)
+}
+
 if CommandLine.arguments.contains("--flighttest") {
     // Every fixed-wing aircraft, flown in still air by a simple pilot that holds height or speed: what it stalls
     // at, cruises at on half throttle, reaches flat out, how it climbs, glides and rolls, and whether it flies on
@@ -1059,7 +1096,11 @@ if CommandLine.arguments.contains("--flighttest") {
         // stall: power off, hold height until the wing lets go or the height cannot be held
         var stall: Float = -1
         do {
-            let ac = fresh(vs * 1.7)
+            // (flown with the pitch trim's easing off: the stall is below the speed where it starts, and the dip it
+            // gives this simple pilot at the outset would be taken for the height being lost)
+            var plain = spec; plain.speedTrim = 0
+            let ac = Aircraft(plain); ac.unlimitedBattery = true; ac.reset(pos: V3(0, 400, 0), heading: 0, speed: vs * 1.7)
+            for i in ac.levels.indices { ac.levels[i] = 0.6 }
             fly(ac, 60, { a, _ in level(a, alt: 400, throttle: 0) }) { a, t in
                 if stall < 0 && t > 2 && (a.wingStall > 0.5 || a.pos.y < 398.5) { stall = a.airspeed }
             }

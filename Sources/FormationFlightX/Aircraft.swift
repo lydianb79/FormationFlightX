@@ -210,6 +210,11 @@ struct AircraftSpec {
     var mac: Float = 0.25           // mean aerodynamic chord
     var cgShift: Float = 0          // how far the wing was moved back to reach that margin when test-flown
     var trimSetting: Float = 0      // tailplane incidence (rad) or reflex chosen for level cruise
+    /// Pitch trim that eases off with speed, as a throttle-to-elevator mix on the transmitter does: above the speed
+    /// the aircraft is trimmed for, this much down elevator (as a share of full throw) is fed in, in step with how
+    /// much less lift the wing has to make. Without it a model trimmed for cruise noses up hard when it goes fast.
+    var speedTrim: Float = 0
+    var trimSpeed: Float = 0
     var rollTrim: Float = 0         // aileron trim that holds the wings level against the propeller's torque in the cruise
     var designMargin: Float = 0.1   // static margin the balance was set for, as a fraction of the mean chord
     var wingArea: Float = 0.4
@@ -241,6 +246,8 @@ final class Aircraft {
     var crashed = false
     var onGround = false
     var airspeed: Float = 0
+    var ease: Float = 0             // how much of the speed trim is fed in at the moment
+    var sinceReset: Float = 0
     // pose used for drawing and the camera: the physics state carried forward by the part of a step not yet simulated
     var renderPos = V3.zero
     var renderQ = simd_quatf(ix: 0, iy: 0, iz: 0, r: 1)
@@ -305,6 +312,7 @@ final class Aircraft {
     var roll: Float { atan2(-right.y, up.y) }
 
     func reset(pos p: V3, heading: Float, speed: Float = 0) {
+        ease = 0; sinceReset = 0
         q = simd_quatf(angle: heading, axis: V3(0, 1, 0))
         pos = p; vel = q.act(V3(0, 0, -speed)); omega = .zero; servo = .zero
         for i in levels.indices { levels[i] = 0 }
@@ -357,7 +365,14 @@ final class Aircraft {
     func step(dt: Float, c: Controls, terrain: Terrain, wind: V3, rollMu: Float) {
         let R = simd_float3x3(q)
         let Rt = R.transpose
-        servo += (V3(c.aileron, c.elevator, c.rudder) - servo) * min(1, dt / 0.04)
+        // (it follows the speed with a lag of a few seconds, as a trim does that the pilot feeds in: a launch or a burst
+        // of power still lifts the nose at first, and only sustained speed is trimmed out)
+        var wanted: Float = 0
+        if spec.speedTrim > 0 && airspeed > spec.trimSpeed { wanted = spec.speedTrim * (1 - spec.trimSpeed * spec.trimSpeed / (airspeed * airspeed)) }
+        sinceReset += dt
+        wanted *= smoothstep(3, 6, sinceReset)                  // not in the first seconds after a launch: the climb-out comes first
+        ease += (wanted - ease) * min(1, dt / 2)
+        servo += (V3(c.aileron, clampf(c.elevator - ease, -1, 1), c.rudder) - servo) * min(1, dt / 0.04)
         if spec.hasFlaps { flap += clampf(c.flaps - flap, -dt / 1.5, dt / 1.5) }
         if spec.hasRetracts { gear += clampf((c.gearUp && !crashed ? 1 : 0) - gear, -dt / 1.2, dt / 1.2) }
         let va = Rt * (vel - wind)            // velocity through the air, body frame
