@@ -206,6 +206,7 @@ struct AircraftSpec {
     var mac: Float = 0.25           // mean aerodynamic chord
     var cgShift: Float = 0          // how far the wing was moved back to reach that margin when test-flown
     var trimSetting: Float = 0      // tailplane incidence (rad) or reflex chosen for level cruise
+    var rollTrim: Float = 0         // aileron trim that holds the wings level against the propeller's torque in the cruise
     var designMargin: Float = 0.1   // static margin the balance was set for, as a fraction of the mean chord
     var wingArea: Float = 0.4
     var downwashK: Float = 0        // downwash angle at the tail per unit wing lift coefficient

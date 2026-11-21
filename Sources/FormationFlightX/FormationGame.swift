@@ -257,7 +257,8 @@ extension Game {
         }
         if hud.overlay == .lobby { unreadChat = 0 }
 
-        let wantAI = aiPartners && remotePilots.isEmpty
+        // (the computer flies fixed-wing aircraft only: no partners for a helicopter or a multirotor)
+        let wantAI = aiPartners && remotePilots.isEmpty && aircraft.spec.kind == .airplane
         if !wantAI { wingmen.removeAll { $0.ai != nil } }
         else if !wingmen.contains(where: { $0.ai != nil }) {
             for k in 0..<2 {
@@ -314,7 +315,9 @@ extension Game {
             p.y = max(p.y, terrain.height(p.x, p.z) + 6)
             ac.reset(pos: p, heading: atan2(-f.x, -f.z), speed: max(length(lead.vel), spec.stallSpeed * 1.4))
         } else {
-            ac.reset(pos: home + V3(2 + 3 * Float(n), 1.9, -3), heading: 0, speed: clampf(spec.stallSpeed * 1.7, 4, 9))
+            // thrown from beside the pilots; an aircraft that needs a runway is given flying speed a little higher up
+            if spec.handLaunch { ac.reset(pos: home + V3(2 + 3 * Float(n), 1.9, -3), heading: 0, speed: clampf(spec.stallSpeed * 1.7, 4, 9)) }
+            else { ac.reset(pos: home + V3(2 + 5 * Float(n), 5, -3), heading: 0, speed: spec.stallSpeed * 1.6) }
         }
         for i in ac.levels.indices { ac.levels[i] = 0.7 }
         ac.updateRenderPose(ahead: 0)

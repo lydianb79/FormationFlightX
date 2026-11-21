@@ -994,6 +994,132 @@ if CommandLine.arguments.contains("--selftest") {
     exit(0)
 }
 
+if let di = CommandLine.arguments.firstIndex(of: "--handsoff"), di + 1 < CommandLine.arguments.count, let spec = AircraftLibrary.all.first(where: { $0.name.contains(CommandLine.arguments[di + 1]) }) {
+    // one aircraft, trimmed level on half throttle and then let go: what it does, five times a second
+    let terrain = Terrain.flat
+    let ac = Aircraft(spec); ac.unlimitedBattery = true
+    ac.reset(pos: V3(0, 400, 0), heading: 0, speed: spec.stallSpeed * 1.8)
+    print("\(spec.name): roll trim \(spec.rollTrim), stall \(spec.stallSpeed * 3.6) km/h, inertia \(spec.inertia)")
+    for k in 0..<1800 {
+        var c = Controls(); c.throttle = 0.5
+        if k < 1200 {
+            let pitchT = clampf(0.03 * (400 - ac.pos.y) - 0.06 * ac.vel.y, -0.35, 0.35)
+            c.elevator = clampf(3 * (pitchT - ac.pitch) - 0.3 * ac.omega.x, -1, 1)
+            c.aileron = clampf(2.5 * (0 - ac.roll) + 0.25 * ac.omega.z, -1, 1)
+        } else { c.aileron = spec.rollTrim }
+        for _ in 0..<10 { ac.step(dt: 0.001, c: c, terrain: terrain, wind: .zero, rollMu: 0.05) }
+        ac.pos.x = 0; ac.pos.z = 0
+        if k >= 1100 && k % 20 == 0 {
+            print(String(format: "%5.1f s %@ roll %+6.1f° rate %+6.1f°/s pitch %+5.1f° yaw rate %+5.1f°/s slip %+5.1f° speed %5.1f ail %+.3f ele %+.3f", Float(k) / 100, k < 1200 ? "held" : "free",
+                         ac.roll / deg, -ac.omega.z / deg, ac.pitch / deg, ac.omega.y / deg, asin(clampf(dot(normalize(ac.vel), ac.right), -1, 1)) / deg, ac.airspeed, c.aileron, c.elevator))
+        }
+    }
+    exit(0)
+}
+
+if CommandLine.arguments.contains("--flighttest") {
+    // Every fixed-wing aircraft, flown in still air by a simple pilot that holds height or speed: what it stalls
+    // at, cruises at on half throttle, reaches flat out, how it climbs, glides and rolls, and whether it flies on
+    // by itself with the sticks let go. The figures in brackets are what the real aircraft is reported to do.
+    let real: [String: (stall: ClosedRange<Float>, cruise: ClosedRange<Float>, top: ClosedRange<Float>)] = [
+        "Alight Flik Wing": (22...32, 40...60, 75...100), "HeeWing F-01": (28...38, 55...75, 100...130), "AtomRC Dolphin": (27...36, 50...68, 90...115),
+        "SonicModell AR Wing": (26...35, 48...65, 95...115), "TBS Chupito": (32...40, 55...90, 135...165), "TBS Mojito": (42...62, 85...120, 180...215),
+        "AtomRC Penguin": (27...36, 45...62, 85...105), "HeeWing T1 Ranger": (26...34, 42...58, 78...98), "HeeWing T2 Cruza": (33...42, 50...68, 95...115),
+        "ZOHD Altus": (27...35, 45...60, 85...105), "AtomRC Swordfish": (33...42, 50...68, 95...115), "ZOHD Drift": (18...26, 28...42, 55...75)]
+    let terrain = Terrain(site: SiteSpec.all[0])
+    let only = CommandLine.arguments.contains("--new")
+    var bad = 0
+    for spec in AircraftLibrary.all where spec.kind == .airplane && (!only || real[spec.name] != nil) {
+        let vs = spec.stallSpeed
+        func fresh(_ speed: Float) -> Aircraft { let a = Aircraft(spec); a.unlimitedBattery = true; a.reset(pos: V3(0, 400, 0), heading: 0, speed: speed); for i in a.levels.indices { a.levels[i] = 0.6 }; return a }
+        func fly(_ ac: Aircraft, _ seconds: Float, _ c: (Aircraft, Float) -> Controls, each: (Aircraft, Float) -> Void = { _, _ in }) {
+            var t: Float = 0
+            let h: Float = 0.001
+            while t < seconds && !ac.crashed {
+                let ctl = c(ac, t)
+                for _ in 0..<10 { ac.step(dt: h, c: ctl, terrain: terrain, wind: .zero, rollMu: 0.05) }
+                ac.pos.x = 0; ac.pos.z = 0
+                t += 10 * h; each(ac, t)
+            }
+        }
+        func level(_ ac: Aircraft, alt: Float, throttle: Float) -> Controls {
+            var c = Controls()
+            let pitchT = clampf(0.03 * (alt - ac.pos.y) - 0.06 * ac.vel.y, -0.35, 0.35)
+            c.elevator = clampf(3 * (pitchT - ac.pitch) - 0.3 * ac.omega.x, -1, 1)
+            c.aileron = clampf(2.5 * (0 - ac.roll) + 0.25 * ac.omega.z, -1, 1)
+            c.throttle = throttle
+            return c
+        }
+        func speedAt(_ thr: Float) -> Float {
+            let ac = fresh(vs * 1.8); var sum: Float = 0, n: Float = 0
+            fly(ac, 60, { a, _ in level(a, alt: 400, throttle: thr) }) { a, t in if t > 50 { sum += a.airspeed; n += 1 } }
+            return ac.crashed || n == 0 ? -1 : sum / n
+        }
+        let cruise = speedAt(0.5), top = speedAt(1)
+        // stall: power off, hold height until the wing lets go or the height cannot be held
+        var stall: Float = -1
+        do {
+            let ac = fresh(vs * 1.7)
+            fly(ac, 60, { a, _ in level(a, alt: 400, throttle: 0) }) { a, t in
+                if stall < 0 && t > 2 && (a.wingStall > 0.5 || a.pos.y < 398.5) { stall = a.airspeed }
+            }
+        }
+        // climb at full power and one and a half times the stall speed; glide with the power off at the same speed
+        func path(_ thr: Float) -> (vy: Float, v: Float) {
+            let ac = fresh(vs * 1.6); var vy: Float = 0, v: Float = 0, n: Float = 0
+            fly(ac, 30, { a, _ in
+                var c = Controls()
+                let pitchT = clampf(0.09 * (a.airspeed - 1.5 * vs) + (thr > 0 ? 0.1 : -0.08), -0.5, 0.9)
+                c.elevator = clampf(3 * (pitchT - a.pitch) - 0.3 * a.omega.x, -1, 1)
+                c.aileron = clampf(2.5 * (0 - a.roll) + 0.25 * a.omega.z, -1, 1); c.throttle = thr
+                return c
+            }) { a, t in if t > 18 { vy += a.vel.y; v += a.airspeed; n += 1 } }
+            return n > 0 ? (vy / n, v / n) : (0, 0)
+        }
+        let climb = path(1), glide = path(0)
+        // roll: full stick from level cruise
+        var roll: Float = 0
+        do {
+            let ac = fresh(max(cruise, vs * 1.5))
+            fly(ac, 6, { a, _ in level(a, alt: 400, throttle: 0.5) })
+            fly(ac, 1.2, { _, _ in var c = Controls(); c.aileron = 1; c.throttle = 0.5; return c }) { a, _ in roll = max(roll, abs(a.omega.z)) }
+        }
+        // hands off: flown level at the speed the aircraft is trimmed for (the throttle is eased until no elevator
+        // is needed), then let go for five seconds with that throttle
+        var worstBank: Float = 0, handsOff = "ok", trimSpeed: Float = 0
+        do {
+            let ac = fresh(vs * 1.6)
+            var thr: Float = 0.4
+            fly(ac, 30, { a, _ in
+                var c = level(a, alt: 400, throttle: thr)
+                thr = clampf(thr + 0.004 * c.elevator, 0.03, 1)          // nose-down stick needed means too fast: come back on the power
+                c.throttle = thr
+                return c
+            })
+            let y0 = ac.pos.y
+            trimSpeed = ac.airspeed
+            fly(ac, 5, { _, _ in var c = Controls(); c.throttle = thr; c.aileron = spec.rollTrim; return c }) { a, _ in worstBank = max(worstBank, abs(a.roll)) }
+            if ac.crashed || worstBank > 0.6 { handsOff = "ROLLS OFF" } else if abs(ac.pos.y - y0) > 12 { handsOff = String(format: "PITCHES %+.0f m", ac.pos.y - y0) }
+            if trimSpeed < stall * 0.97 { handsOff = "TRIMMED BELOW THE STALL" }
+        }
+        var verdict = ""
+        if let r = real[spec.name] {
+            func check(_ v: Float, _ range: ClosedRange<Float>, _ what: String) { if !range.contains(v * 3.6) { verdict += " \(what) outside \(Int(range.lowerBound))-\(Int(range.upperBound))" } }
+            check(stall, r.stall, "STALL"); check(cruise, r.cruise, "CRUISE"); check(top, r.top, "TOP")
+        }
+        if cruise < 0 || top < 0 || stall < 0 { verdict += " COULD NOT BE FLOWN LEVEL" }
+        if climb.vy < 1.5 && spec.thrustToWeight > 0.5 { verdict += " WEAK CLIMB" }
+        if handsOff != "ok" { verdict += " " + handsOff }
+        if !verdict.isEmpty { bad += 1 }
+        print(String(format: "FLY %-22@ %-16@ %5.2f m %5.0f g  T/W %.2f | stall %3.0f  cruise %3.0f  top %3.0f km/h | climb %4.1f m/s  glide %4.1f:1  roll %3.0f°/s  trimmed for %3.0f km/h, bank after 5 s hands-off %2.0f° |%@",
+                     spec.name as NSString, spec.category as NSString, spec.span, spec.mass * 1000, spec.thrustToWeight, stall * 3.6, cruise * 3.6, top * 3.6, climb.vy,
+                     glide.vy < -0.05 ? glide.v / -glide.vy : 99, roll / deg, trimSpeed * 3.6, worstBank / deg, verdict.isEmpty ? " ok" : verdict))
+        fflush(stdout)
+    }
+    print(bad == 0 ? "FLIGHT TEST: all within range" : "FLIGHT TEST: \(bad) aircraft need attention")
+    exit(0)
+}
+
 if CommandLine.arguments.contains("--sitetest") {
     // Every site: is the launch path clear, are the gates open and flyable in order, is the computer lead's
     // racetrack clear of the ground and of everything built, and does the lap count work?
@@ -1094,7 +1220,7 @@ if CommandLine.arguments.contains("--voicetest") {
 }
 
 if let ti = CommandLine.arguments.firstIndex(of: "--formtrace"), ti + 2 < CommandLine.arguments.count {
-    let g = Game(site: 0, aircraft: Int(CommandLine.arguments[ti + 1]) ?? 0)
+    let g = Game(site: 0, aircraft: Int(CommandLine.arguments[ti + 1]) ?? AircraftLibrary.all.firstIndex { $0.name.contains(CommandLine.arguments[ti + 1]) } ?? 0)
     g.aiPartners = true; g.unlimitedBattery = true
     if CommandLine.arguments[ti + 2] == "1" { g.leadEpoch = 1; g.autopilotOn = true }
     for f in 0..<(60 * 120) {
@@ -1126,7 +1252,7 @@ if let ti = CommandLine.arguments.firstIndex(of: "--formtrace"), ti + 2 < Comman
 if CommandLine.arguments.contains("--formtest") {
     // Computer partners, flown headless: how closely they hold their slots behind a computer lead, and behind
     // this pilot's own wing on its autopilot.
-    for (i, spec) in AircraftLibrary.all.enumerated() {
+    for (i, spec) in AircraftLibrary.all.enumerated() where spec.kind == .airplane {
         for mode in 0..<2 {
             let g = Game(site: 0, aircraft: i)
             g.aiPartners = true; g.unlimitedBattery = true
@@ -1425,12 +1551,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ClosureMenuItem("Quit FormationFlightX", key: "q") { NSApp.terminate(nil) },
         ])
         var acItems: [NSMenuItem] = AircraftLibrary.all.enumerated().map { i, sp in ClosureMenuItem(sp.name, key: i < 9 ? "\(i + 1)" : "") { g.selectAircraft(i) } }
-        acItems.insert(ClosureMenuItem("Choose Wing…", key: "a", mods: [.command, .shift]) { g.cameFromMenu = false; g.hud.overlay = .aircraft }, at: 0)
+        acItems.insert(ClosureMenuItem("Choose Aircraft…", key: "a", mods: [.command, .shift]) { g.cameFromMenu = false; g.hud.overlay = .aircraft }, at: 0)
         acItems.insert(.separator(), at: 1)
         acItems.append(.separator())
-        acItems.append(ClosureMenuItem("Next Wing", key: "]") { g.keyDown(30) })
-        acItems.append(ClosureMenuItem("Previous Wing", key: "[") { g.keyDown(33) })
-        menu("Wing", acItems)
+        acItems.append(ClosureMenuItem("Next Aircraft", key: "]") { g.keyDown(30) })
+        acItems.append(ClosureMenuItem("Previous Aircraft", key: "[") { g.keyDown(33) })
+        menu("Aircraft", acItems)
         var siteItems: [NSMenuItem] = SiteSpec.all.enumerated().map { i, sp in ClosureMenuItem(sp.displayName) { g.chooseSite(i) } }
         siteItems.insert(ClosureMenuItem("Choose Flying Site…", key: "s", mods: [.command, .shift]) { g.cameFromMenu = false; g.hud.overlay = .sites }, at: 0)
         siteItems.insert(.separator(), at: 1)
@@ -1442,7 +1568,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .separator(),
             ClosureMenuItem("Join Up on the Lead", key: "j") { g.keyDown(38) },
             ClosureMenuItem("Take the Lead / Hand It Back", key: "u") { g.takeLead() },
-            ClosureMenuItem("Computer Partners On / Off") { g.keyDown(5) },
+            ClosureMenuItem("Computer Partners On / Off") { g.aiPartners.toggle(); g.say(g.aiPartners ? "Computer partners fly with you when you are alone" : "Computer partners off") },
             .separator(),
         ]
         formItems += FormationKind.allCases.map { k in ClosureMenuItem(k.name) { if g.isLead { g.formation = k; g.say("Formation: " + k.name) } else { g.nextFormation() } } }

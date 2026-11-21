@@ -302,6 +302,12 @@ extension SiteSpec {
 struct Tree { var p: V3; var h: Float }
 
 final class Terrain {
+    /// Level ground with nothing on it, for test flights that need no scenery.
+    static let flat: Terrain = {
+        var s = SiteSpec.builtIn[0]
+        s.terrain = 31; s.treeCount = 0; s.layout = 0; s.waterLevel = nil
+        return Terrain(site: s)
+    }()
     let n = 257
     let cell: Float = 24
     let half: Float

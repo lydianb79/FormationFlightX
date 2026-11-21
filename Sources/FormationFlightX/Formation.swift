@@ -166,17 +166,19 @@ struct FormationPilot {
     }
 
     /// Speed the lead holds: comfortably above the stall, with power in hand for the wingmen to catch up.
-    static func cruise(_ spec: AircraftSpec) -> Float { clampf(spec.stallSpeed * 1.9, 9, 24) }
+    static func cruise(_ spec: AircraftSpec) -> Float { clampf(spec.stallSpeed * 1.9, 9, 34) }
 
     /// `reach` is how far the outermost wingman sits to the side. The lead turns wide enough for the wingman on
     /// the inside to keep flying and the one on the outside to keep up: their speeds differ from the lead's by
     /// the ratio of that distance to the turn radius.
     mutating func lead(_ ac: Aircraft, terrain: Terrain, reach: Float = 3, dt: Float) -> Controls {
         let home = terrain.pilotPos
-        let target = FormationPilot.circuit[wp]
-        let to = V3(home.x + target.x - ac.pos.x, 0, home.z + target.y - ac.pos.z)
         let vc = FormationPilot.cruise(ac.spec)
-        let radius = clampf(9 * reach, vc * vc / (gravity * tan(0.5)), 95)
+        // a fast aircraft flies a bigger racetrack: the same shape, stretched so the turns stay gentle
+        let big = clampf(vc / 18, 1, 2.4)
+        let target = FormationPilot.circuit[wp] * big
+        let to = V3(home.x + target.x - ac.pos.x, 0, home.z + target.y - ac.pos.z)
+        let radius = clampf(9 * reach, vc * vc / (gravity * tan(0.5)), 95 * big)
         let maxBank = atan(vc * vc / (gravity * radius))
         if length(to) < max(55, radius + 12) { wp = (wp + 1) % FormationPilot.circuit.count }
         let herr = headingError(ac, to: to)

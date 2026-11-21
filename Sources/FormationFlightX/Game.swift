@@ -343,7 +343,8 @@ final class Game {
             // pilots stand side by side, in formation order
             aircraft.reset(pos: terrain.pilotPos + V3(2 + 3 * Float(max(order.firstIndex(of: net.id) ?? 0, 0)), 1.9, -3), heading: 0, speed: clampf(spec.stallSpeed * 1.7, 4, 9))
         } else {
-            let x: Float = spec.kind == .airplane ? -min(site.runwayLen / 2 - 20, 45) : -5
+            // on the runway, one behind the other in formation order
+            let x: Float = (spec.kind == .airplane ? -min(site.runwayLen / 2 - 20, 45) : -5) - 7 * Float(max(order.firstIndex(of: net.id) ?? 0, 0))
             let z: Float = site.startZ + (spec.kind == .airplane ? 0 : -1)
             aircraft.reset(pos: V3(x, terrain.height(x, z) + aircraft.restHeight + 0.02, z), heading: -.pi / 2)
         }
@@ -437,7 +438,12 @@ final class Game {
         case 14:
             if aircraft.spec.hasFlaps { flapSetting = flapSetting >= 1 ? 0 : flapSetting + 0.5; say(["Flaps up", "Flaps half", "Flaps full"][Int(flapSetting * 2)]) }
             else { say("This aircraft has no flaps") }
-        case 5: aiPartners.toggle(); say(aiPartners ? "Computer partners fly with you when you are alone" : "Computer partners off")
+        case 5:
+            if aircraft.spec.hasRetracts { gearUp.toggle(); say(gearUp ? "Gear up" : "Gear down") } else { say("This aircraft has fixed gear or none") }
+        case 41:
+            if aircraft.spec.kind == .helicopter { hold.toggle(); say(hold ? "Throttle hold — autorotate!" : "Engine engaged") }
+        case 39:
+            if aircraft.spec.kind == .helicopter { rotorSpeed = (rotorSpeed + 1) % 3; say("Rotor speed: " + Game.rotorNames[rotorSpeed]) }
         case 38: _ = joinUp(quiet: false)
         case 31: nextFormation()
         case 32: takeLead()
@@ -518,7 +524,10 @@ final class Game {
             controls.mode = flightMode
             controls.rotorSpeed = rotorSpeed
         }
-        if !autopilotOn { controls.elevator = clampf(controls.elevator + Float(pitchTrim) * Game.trimStep, -1, 1) }
+        if !autopilotOn {
+            controls.elevator = clampf(controls.elevator + Float(pitchTrim) * Game.trimStep, -1, 1)
+            controls.aileron = clampf(controls.aileron + aircraft.spec.rollTrim, -1, 1)        // set once, as on the real model's first flights
+        }
         // on a hillside the model is held until the throttle is opened, so it does not roll away
         if site.slope != 0, site.panorama != nil, aircraft.onGround, controls.throttle < 0.06, length(aircraft.vel) < 2 { controls.brake = 1 }
         controls.flaps = flapSetting; controls.gearUp = gearUp; controls.hold = hold

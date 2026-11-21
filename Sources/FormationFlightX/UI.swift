@@ -174,7 +174,7 @@ struct HUDView: View {
                 VStack(spacing: 0) {
                     // top bar
                     HStack(spacing: 8) {
-                        Chip(icon: "airplane", title: s.aircraft, subtitle: s.mode.isEmpty ? "Wing" : s.mode) { m.overlay = .aircraft }
+                        Chip(icon: "airplane", title: s.aircraft, subtitle: s.mode.isEmpty ? "Aircraft" : s.mode) { m.overlay = .aircraft }
                         Chip(icon: "map", title: s.site, subtitle: s.time) { m.overlay = .sites }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 1) {
@@ -320,7 +320,7 @@ struct AircraftBrowser: View {
     @State private var search = ""
     @State private var selected = 0
 
-    private static let order = ["Trainers & Sport", "Scale Civil", "Warbirds", "Aerobatic", "Foam 3D", "Wings", "Jets", "Gliders", "Helicopters", "Multirotors"]
+    private static let order = ["Wings", "Trainers & Sport", "Gliders", "Scale Civil", "Warbirds", "Aerobatic", "Foam 3D", "Jets", "Helicopters", "Multirotors"]
     private var all: [AircraftSpec] { AircraftLibrary.all }
     private var shown: [Int] {
         all.indices.filter { i in
@@ -706,7 +706,7 @@ struct MainMenu: View {
                 .padding(.bottom, 22)
 
                 VStack(spacing: 9) {
-                    row("YOUR WING", spec.name, String(format: "%.2f m span · %.0f g", spec.span, spec.mass * 1000),
+                    row("YOUR AIRCRAFT", spec.name, spec.category + String(format: " · %.2f m · %.0f g", spec.span, spec.mass * 1000),
                         picture: { ZStack { Backdrop { EmptyView() }; if let i = m.thumbnail(spec) { Image(nsImage: i).resizable().scaledToFit().padding(3) } } }) { g.cameFromMenu = true; m.overlay = .aircraft }
                     row("FLYING SITE", site.displayName, g.together && !g.isHost ? "Chosen by the host, \(g.name(of: g.hostID))" : site.kindLabel,
                         picture: { ZStack { Color.black.opacity(0.3); if let i = m.sitePreview(site) { Image(nsImage: i).resizable().scaledToFill() } } }) { g.cameFromMenu = true; m.overlay = .sites }
@@ -867,7 +867,7 @@ struct HelpView: View {
         ("Flying", [("← →", "Aileron (roll)"), ("↑ ↓", "Elevator — ↓ pulls up"), ("A  D", "Rudder (yaw)"), ("W  S", "Throttle / collective"),
                     ("X", "Throttle cut"), ("Q", "Wheel brakes"), ("Shift", "Full stick deflection"), ("L", "High / low rates"), ("−  =", "Pitch trim: nose down / up"), ("0", "Centre the pitch trim"), ("Space", "Start again with a hand launch")]),
         ("Formation", [("J", "Join up: start in the air behind your slot"), ("U", "Take the lead / hand it back"), ("O", "Next formation (lead only)"), ("I", "Spacing: tight, normal, loose (lead only)"),
-                       ("G", "Computer partners on / off"), ("Y", "Smoke"), ("[  ]", "Previous / next wing"), ("Tab", "Wing browser")]),
+                       ("Y", "Smoke"), ("E", "Flaps"), ("G", "Landing gear"), ("F", "Flight mode (rotorcraft)"), (";  '", "Helicopter: throttle hold, rotor speed"), ("[  ]", "Previous / next wing"), ("Tab", "Wing browser")]),
         ("View and simulation", [("C", "Camera: chase, onboard, pilot"), ("Z", "Zoom mode"), ("V", "Hide / show display"), ("P", "Pause"),
                                  ("T", "Slow motion"), (",  .", "Less / more wind"), ("N", "Next flying site"),
                                  ("K", "Autopilot for your own wing"), ("Return", "Lobby: chat and voice"), ("B", "Hold to talk (can be changed in Controller Setup)"), ("M", "Mute sound"), ("Esc", "Main menu")]),
