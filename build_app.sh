@@ -4,8 +4,8 @@
 #   ./build_app.sh x86_64 dist/x86  for another architecture (arm64 or x86_64), into a folder
 set -euo pipefail
 cd "$(dirname "$0")"
-VERSION="1.0.2"     # shown in Finder and used in the release file names
-BUILD="3"
+VERSION="1.0.3"     # shown in Finder and used in the release file names
+BUILD="4"
 ARCH="${1:-}"
 OUT="${2:-.}"
 if [ -n "$ARCH" ]; then
