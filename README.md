@@ -2,13 +2,33 @@
 
 # FormationFlightX
 
-A formation flight trainer for RC flying wings on macOS, written in Swift and rendered with Metal. Up to five pilots fly together, on one network or over the internet, with no server. Created by Rock FPV.
+**Fly together.** A formation flight trainer for RC aircraft on macOS, written in Swift and rendered with Metal. Up to five pilots fly together, on one network or over the internet, with no server; alone, computer partners fill the formation. Created by Rock FPV.
 
-![FormationFlightX splash screen](Resources/Splash.jpg)
+![The main menu: a formation flies the chosen site behind it](Resources/Screenshots/menu.jpg)
 
-The look is its own: an evening-sky theme, a menu down the left edge with the flying site in view, and its own icon and splash.
+| | |
+|---|---|
+| ![In flight as number 2: formation box, slot ring, map, smoke](Resources/Screenshots/flight.jpg) | ![Choosing a flying site](Resources/Screenshots/sites.jpg) |
+| ![Choosing an aircraft](Resources/Screenshots/aircraft.jpg) | ![Choosing the formation](Resources/Screenshots/formation.jpg) |
 
-FormationFlightX is built on [FlightCore OSX](https://github.com/lydianb79/FlightCoreOSX): the flight physics, the eleven flying wings, the weather, the sound and the renderer come from there. The flying sites, the menu music, the look and everything about flying together are its own.
+- **41 aircraft**, 23 of them FPV wings and planes, 12 of those modelled on ones you can buy.
+- **29 flying sites** in ten kinds: race tracks, obstacle courses, cities, industrial, fields, airfields, mountains, water, desert, winter.
+- **Five formations**, three spacings, a ring in the air that marks your slot and a score for how well you hold it.
+- **Up to five pilots**, found automatically on a local network or joined over the internet through one pilot who hosts; a lobby with chat and voice.
+- **Computer partners** that lead or follow with every aircraft.
+
+A few of the sites:
+
+| | | |
+|---|---|---|
+| ![Old Town](Resources/Previews/site_oldtown.jpg) | ![Glacier Valley](Resources/Previews/site_glacier.jpg) | ![Monument Mesa](Resources/Previews/site_monument.jpg) |
+| ![Lighthouse Point](Resources/Previews/site_lighthouse.jpg) | ![Downtown](Resources/Previews/site_downtown.jpg) | ![Power Station](Resources/Previews/site_powerstation.jpg) |
+
+FormationFlightX is built on [FlightCore OSX](https://github.com/lydianb79/FlightCoreOSX): the flight physics, most of the aircraft, the weather, the sound and the renderer come from there. The flying sites, the FPV aircraft, the menu music, the look and everything about flying together are its own.
+
+## Download
+
+Ready-built apps are on the [Releases](https://github.com/lydianb79/FormationFlightX/releases) page: one zip for Apple silicon Macs, one for Intel Macs. Unzip and open `FormationFlightX.app`. The app is not signed with an Apple developer certificate, so the first time macOS will refuse to open it: right-click the app and choose **Open**, or allow it under **System Settings ▸ Privacy & Security**.
 
 ## Build and run
 
@@ -22,11 +42,13 @@ Requirements: macOS 13 or later, a Mac with Metal support, and Xcode 15 or later
 open FormationFlightX.app
 ```
 
+`./build_release.sh` builds the two release zips into `dist/`.
+
 Run the app bundle rather than the bare binary when you want multiplayer: macOS only lets an app with the right entries in its `Info.plist` search the local network, and `build_app.sh` writes them. The first launch asks for permission to find devices on the local network; say yes, or allow it later under **System Settings ▸ Privacy & Security ▸ Local Network**.
 
 ## Flying together
 
-There is no server, no account and no host. Every copy of the app announces itself on the local network with Bonjour and looks for the others; each pilot then sends their wing's position straight to the others over UDP, sixty times a second. Macs on the same Wi-Fi or cable network find each other by themselves, and so do Macs with Wi-Fi on but no shared network, over Apple's peer-to-peer Wi-Fi.
+There is no server and no account. Every copy of the app announces itself on the local network with Bonjour and looks for the others; each pilot then sends their aircraft's position straight to the others over UDP, sixty times a second. Macs on the same Wi-Fi or cable network find each other by themselves, and so do Macs with Wi-Fi on but no shared network, over Apple's peer-to-peer Wi-Fi.
 
 - **Five pilots at most.** Each copy flies with the first four others it meets and ignores any more.
 - **Groups.** Pilots with the same group name (Options) fly together, so two formations can share one network. An empty group flies with anyone.
@@ -178,7 +200,7 @@ Opening the lobby holds your own wing, as every menu does; the others see you as
 
 ## Flying alone
 
-While no other pilot is connected, two computer-flown wings fill the formation (turn them off with **G**). They fly the same wing as you, so everyone has the same speed range.
+While no other pilot is connected, computer-flown partners fill the formation (switch them off in Options). They fly the same aircraft as you, so everyone has the same speed range.
 
 - By default the computer leads round a wide racetrack about 38 m above the field, and you fly number 2 with another computer wing as number 3.
 - Press **U** to take the lead: both computer wings then hold their slots on you.
@@ -225,7 +247,10 @@ Formations for up to five: vic, echelon right, echelon left, line astern, line a
 | `Structures.swift` | Gates, walls, containers, city blocks: where they stand, what they look like, hitting them, lap timing |
 | `World.swift` | The sites: their landscapes and ground colours (the `FormationFlightX` cases), on FlightCore's terrain code |
 | `FormationGame.swift` | Roster, lead, slots, collisions, chat, what is sent and shown |
-| everything else | FlightCore OSX, limited to flying wings and 3D sites |
+| `SiteParts.swift`, `SiteLayouts.swift` | What the sites are furnished with (houses, turbines, pylons, boats, rock needles, conveyors) and where it all stands |
+| `Showcase.swift` | The formation that flies behind the menus, and its camera |
+| `Shaders.swift` | The renderer's shaders, including every surface pattern |
+| everything else | FlightCore OSX, limited to fixed-wing aircraft and 3D sites |
 
 Command-line checks: `--flighttest` flies every fixed-wing aircraft and reports stall, half-throttle and top speed, climb, glide, roll rate, the speed it is trimmed for and whether it flies on hands-off, with a verdict against the real figures for the twelve bought FPV aircraft (`--new` for those only); `--sitetest` checks on every site that the five launch lanes are clear, that each gate is open with a way in and out and is counted in order, and that the computer lead's racetrack clears the ground and everything built; `--voicetest` sends speech and chat through the coder and the message format with no audio hardware; `--formtest` flies the computer partners with every wing and prints how well they hold formation; `--formtrace <wing> <0|1>` prints one flight in detail; `--net --netlog --name <name>` runs a windowed copy that logs who it sees; add `--host`, or `--join <address>`, and `--nobonjour` to try the online path on one Mac.
 
