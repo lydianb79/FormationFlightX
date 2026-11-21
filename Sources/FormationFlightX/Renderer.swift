@@ -12,7 +12,27 @@ struct DrawUniforms { var model = M4.identity; var tint = V4(1, 1, 1, 1); var pa
 
 struct DrawItem { var mesh: GPUMesh; var model: M4; var tint = V4(1, 1, 1, 1); var material: Float = 0; var spec: Float = 0; var wind = SIMD2<Float>(0, 0) }
 
-private struct GPUChunk { var mesh: GPUMesh; var center: V3; var radius: Float }
+struct GPUChunk { var mesh: GPUMesh; var center: V3; var radius: Float }
+
+/// Everything the GPU needs to draw a 3D site. Built off the main thread when the site changes: buffers can be made
+/// on any thread, and the landscape and its meshes are plain data.
+final class SiteGPU {
+    var terrain: GPUMesh?, scenery: GPUMesh?, treeShadows: GPUMesh?, water: GPUMesh?
+    var vegetation: [GPUChunk] = [], grass: [GPUChunk] = []
+    init(_ device: MTLDevice, _ t: Terrain) {
+        terrain = GPUMesh(device, t.buildMesh())
+        var scenery = t.buildScenery()
+        t.buildStructureMesh(into: &scenery)
+        self.scenery = GPUMesh(device, scenery)
+        func upload(_ b: MeshBuilder, _ cell: Float) -> [GPUChunk] {
+            chunked(b, cell: cell).compactMap { c in GPUMesh(device, c.mesh).map { GPUChunk(mesh: $0, center: c.center, radius: c.radius) } }
+        }
+        vegetation = upload(t.buildVegetation(), 150)
+        grass = upload(t.buildGrass(), 30)
+        treeShadows = GPUMesh(device, t.buildTreeShadows())
+        water = GPUMesh(device, t.buildWater())
+    }
+}
 
 /// Forward renderer with an HDR post-processing chain (see Shaders.swift for the frame layout).
 final class Renderer: NSObject, MTKViewDelegate {
@@ -120,6 +140,8 @@ final class Renderer: NSObject, MTKViewDelegate {
             return GPUMesh(dev, b)
         }()
         game.hud.thumbnailer = { [unowned self] spec in self.thumbnail(for: spec) }
+        let siteDevice = device
+        game.siteBuilder = { t in SiteGPU(siteDevice, t) }
     }
 
     private func build(_ view: MTKView) throws {
@@ -233,6 +255,8 @@ final class Renderer: NSObject, MTKViewDelegate {
     }
 
     private func syncMeshes() {
+        let t0 = CACurrentMediaTime(), sv = siteVersion, av = aircraftVersion
+        defer { let d = (CACurrentMediaTime() - t0) * 1000; if Game.timing && (sv != siteVersion || av != aircraftVersion) { print(String(format: "TIMING renderer rebuild %.0f ms (site %@, aircraft %@)", d, sv != siteVersion ? "yes" : "no", av != aircraftVersion ? "yes" : "no")); fflush(stdout) } }
         if siteVersion != game.siteVersion {
             siteVersion = game.siteVersion
             shadow1Key = -1
@@ -242,17 +266,11 @@ final class Renderer: NSObject, MTKViewDelegate {
                 if let img = Panoramas.image(url, maxSize: 8192) { panoTex = makeTexture(img); panoDetail = clampf((lastDetail - 0.4) / 0.35, 0, 1) }
                 if panoTex == nil { game.say("Could not load panorama image", 6) }
             } else {
-                terrainMesh = GPUMesh(device, game.terrain.buildMesh())
-                var scenery = game.terrain.buildScenery()
-                game.terrain.buildStructureMesh(into: &scenery)
-                sceneryMesh = GPUMesh(device, scenery)
-                func upload(_ b: MeshBuilder, _ cell: Float) -> [GPUChunk] {
-                    chunked(b, cell: cell).compactMap { c in GPUMesh(device, c.mesh).map { GPUChunk(mesh: $0, center: c.center, radius: c.radius) } }
-                }
-                vegetation = upload(game.terrain.buildVegetation(), 150)
-                grass = upload(game.terrain.buildGrass(), 30)
-                treeShadowMesh = GPUMesh(device, game.terrain.buildTreeShadows())
-                waterMesh = GPUMesh(device, game.terrain.buildWater())
+                // built in the background with the landscape when the site was chosen; otherwise (the first site) now
+                let g = (game.preparedSite as? SiteGPU) ?? SiteGPU(device, game.terrain)
+                game.preparedSite = nil
+                terrainMesh = g.terrain; sceneryMesh = g.scenery; vegetation = g.vegetation; grass = g.grass
+                treeShadowMesh = g.treeShadows; waterMesh = g.water
             }
         }
         if aircraftVersion != game.aircraftVersion {

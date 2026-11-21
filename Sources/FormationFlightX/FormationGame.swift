@@ -312,7 +312,7 @@ extension Game {
         // the host's choices apply to everyone: where, and in what weather and light
         if !isHost, let w = wingmen.first(where: { $0.id == hostID }), now - w.lastHello < 3 {
             let h = w.hello
-            if Int(h.site) != siteIndex, Int(h.site) < SiteSpec.all.count { selectSite(Int(h.site)) }
+            if Int(h.site) != siteIndex, Int(h.site) != loadingSite, Int(h.site) < SiteSpec.all.count { selectSite(Int(h.site)) }
             if Int(h.timeOfDay) < Game.timeNames.count { timeOfDay = Int(h.timeOfDay) }
             env.windSpeed = h.windSpeed; env.windFrom = h.windFrom; env.turbulence = h.turbulence; env.gustiness = h.gustiness
             env.thermalStrength = h.thermals; env.cloud = h.cloud; env.haze = h.haze

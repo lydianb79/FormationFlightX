@@ -816,7 +816,7 @@ func defaultRates(_ spec0: AircraftSpec) -> AircraftSpec {
     switch spec.kind {
     case .airplane:
         let calm: [String: (roll: Float, expo: Float)] = ["Trainers & Sport": (95, 0.2), "Scale Civil": (80, 0.2), "Gliders": (65, 0.15), "Warbirds": (115, 0.25), "Jets": (125, 0.3),
-                                                           "Wings": (125, 0.3), "Aerobatic": (160, 0.35), "Foam 3D": (160, 0.4)]
+                                                           "Wings": (125, 0.3), "Aerobatic": (160, 0.35), "Foam 3D": (160, 0.65)]          // (3D set-ups: full throws, heavy expo, so the hover is calm round the centre)
         guard let c = calm[spec.category] else { return spec }
         let size = clampf(pow(1.4 / spec.span, 0.35), 0.75, 1.3) * (spec.wingArea > 0 ? clampf(pow(6 * spec.wingArea / (spec.span * spec.span), 0.3), 0.8, 1.15) : 1) * (spec.props.count > 1 ? 0.9 : 1)
         let full = (rateTargets[spec.category]?.roll ?? 150) * size          // the roll rate it was calibrated to

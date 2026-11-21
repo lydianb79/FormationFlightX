@@ -65,7 +65,9 @@ final class HUDModel: ObservableObject {
 
     func thumbnail(_ spec: AircraftSpec) -> NSImage? {
         if let t = thumbs[spec.name] { return t }
+        let t0 = CACurrentMediaTime()
         guard let img = thumbnailer?(spec) else { return nil }
+        if Game.timing { print(String(format: "TIMING thumbnail %@ %.0f ms", spec.name, (CACurrentMediaTime() - t0) * 1000)); fflush(stdout) }
         thumbs[spec.name] = img
         return img
     }
@@ -120,7 +122,19 @@ final class HUDModel: ObservableObject {
     }
 
     /// Get every photo site's preview ready ahead of time.
-    func warmSitePreviews() { for site in SiteSpec.all where site.panorama != nil { _ = sitePreview(site) } }
+    func warmSitePreviews() {
+        for site in SiteSpec.all where site.panorama != nil { _ = sitePreview(site) }
+        // the 3D sites' pictures are decoded once, in the background, so the site list opens without a stall
+        for site in SiteSpec.all where site.panorama == nil && sitePreviews[site.name] == nil {
+            guard let url = resourceURL("Previews/site_\(site.key).jpg") else { continue }
+            HUDModel.previewQueue.async { [weak self] in
+                guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+                      let cg = CGImageSourceCreateImageAtIndex(src, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary) else { return }
+                let img = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+                DispatchQueue.main.async { if self?.sitePreviews[site.name] == nil { self?.sitePreviews[site.name] = img } }
+            }
+        }
+    }
 }
 
 /// Locate a bundled resource, both inside the .app and when run from the source folder.
@@ -207,6 +221,7 @@ final class Game {
     var wingmen: [Wingman] = []
     // the flight shown behind the menus
     static var noShowcase = false
+    static let timing = CommandLine.arguments.contains("--timing")
     static var showLog = CommandLine.arguments.contains("--showlog")
     var mapRange: Float = 120
     // a hand-launched aircraft is held until the launch button is pressed
@@ -459,6 +474,7 @@ final class Game {
 
     func selectAircraft(_ i: Int) {
         guard i >= 0 && i < AircraftLibrary.all.count else { return }
+        let t0 = CACurrentMediaTime(); defer { if Game.timing { print(String(format: "TIMING selectAircraft %.0f ms", (CACurrentMediaTime() - t0) * 1000)); fflush(stdout) } }
         if together && sessionRunning && !isHost && i != aircraftIndex {
             say("Wings can be changed when the host stops the session", 3); return
         }
@@ -473,11 +489,38 @@ final class Game {
         say(aircraft.spec.name + " — " + aircraft.spec.blurb, 4)
     }
 
+    /// Set by the renderer: makes everything the GPU needs for a landscape. With it, a new site is built in the
+    /// background while the old one stays on screen, and swapped in once it is ready.
+    var siteBuilder: ((Terrain) -> AnyObject)?
+    var preparedSite: AnyObject?
+    private(set) var loadingSite: Int? = nil
+    private var siteRequest = 0
+
     func selectSite(_ i: Int) {
         guard i >= 0 && i < SiteSpec.all.count else { return }
+        if loadingSite == i { return }
+        if let build = siteBuilder, SiteSpec.all[i].panorama == nil {
+            loadingSite = i; siteRequest += 1
+            let request = siteRequest, spec = SiteSpec.all[i]
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let t = Terrain(site: spec), gpu = build(t)
+                DispatchQueue.main.async {
+                    guard let self, request == self.siteRequest else { return }      // a newer choice came in meanwhile
+                    self.loadingSite = nil
+                    self.applySite(i, t, gpu)
+                }
+            }
+            return
+        }
+        applySite(i, Terrain(site: SiteSpec.all[i]), nil)
+    }
+
+    private func applySite(_ i: Int, _ t: Terrain, _ gpu: AnyObject?) {
+        let t0 = CACurrentMediaTime(); defer { if Game.timing { print(String(format: "TIMING selectSite %.0f ms", (CACurrentMediaTime() - t0) * 1000)); fflush(stdout) } }
         siteIndex = i
         site = SiteSpec.all[i]
-        terrain = Terrain(site: site)
+        terrain = t
+        preparedSite = gpu
         env.configure(site)
         env.obstacles = terrain.windObstacles
         panoLight = site.panorama != nil ? Panoramas.analyze(site) : nil

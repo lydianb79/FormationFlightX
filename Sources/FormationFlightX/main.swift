@@ -1017,6 +1017,28 @@ if let di = CommandLine.arguments.firstIndex(of: "--handsoff"), di + 1 < Command
     exit(0)
 }
 
+if CommandLine.arguments.contains("--loadtime") {
+    // How long the pieces of changing a site take, site by site: the landscape, and each mesh the renderer builds.
+    func ms(_ f: () -> Void) -> Double { let t = CACurrentMediaTime(); f(); return (CACurrentMediaTime() - t) * 1000 }
+    var total: [Double] = [0, 0, 0, 0, 0, 0, 0]
+    for (i, site) in SiteSpec.all.enumerated() where site.panorama == nil {
+        var t: Terrain!
+        let a = ms { t = Terrain(site: site) }
+        let b = ms { _ = t.buildMesh() }
+        var sc = MeshBuilder()
+        let c = ms { sc = t.buildScenery(); t.buildStructureMesh(into: &sc) }
+        let d = ms { _ = chunked(t.buildVegetation(), cell: 150) }
+        let e = ms { _ = chunked(t.buildGrass(), cell: 30) }
+        let f = ms { _ = t.buildTreeShadows(); _ = t.buildWater() }
+        let g: Double = 0
+        for (k, v) in [a, b, c, d, e, f, g].enumerated() { total[k] += v }
+        print(String(format: "%-20@ landscape %5.0f  terrain mesh %4.0f  scenery %4.0f  vegetation %4.0f  grass %4.0f  shadows+water %4.0f   | new Game %5.0f ms", site.name as NSString, a, b, c, d, e, f, g))
+    }
+    let n = Double(SiteSpec.all.count)
+    print(String(format: "MEAN                 landscape %5.0f  terrain mesh %4.0f  scenery %4.0f  vegetation %4.0f  grass %4.0f  shadows+water %4.0f   | new Game %5.0f ms", total[0] / n, total[1] / n, total[2] / n, total[3] / n, total[4] / n, total[5] / n, total[6] / n))
+    exit(0)
+}
+
 if let name = CommandLine.arguments.firstIndex(of: "--rolltrace").map({ CommandLine.arguments[$0 + 1] }) {
     // A torque roll: hang the aircraft on its propeller, hold the hover with elevator and rudder as a pilot would,
     // then hold aileron so it rotates about its own axis. Prints how far the nose leans off vertical, which way, and
