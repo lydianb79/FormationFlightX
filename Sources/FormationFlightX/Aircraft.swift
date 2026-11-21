@@ -213,7 +213,9 @@ struct AircraftSpec {
     /// Pitch trim that eases off with speed, as a throttle-to-elevator mix on the transmitter does: above the speed
     /// the aircraft is trimmed for, this much down elevator (as a share of full throw) is fed in, in step with how
     /// much less lift the wing has to make. Without it a model trimmed for cruise noses up hard when it goes fast.
-    var speedTrim: Float = 0
+    var speedTrim: Float = 0        // ... flat out
+    var speedTrimHalf: Float = 0    // ... and on half throttle; between the two speeds it is taken in proportion
+    var speedHalf: Float = 0, speedFull: Float = 0
     var trimSpeed: Float = 0
     var rollTrim: Float = 0         // aileron trim that holds the wings level against the propeller's torque in the cruise
     var designMargin: Float = 0.1   // static margin the balance was set for, as a fraction of the mean chord
@@ -365,13 +367,15 @@ final class Aircraft {
     func step(dt: Float, c: Controls, terrain: Terrain, wind: V3, rollMu: Float) {
         let R = simd_float3x3(q)
         let Rt = R.transpose
-        // (it follows the speed with a lag of a few seconds, as a trim does that the pilot feeds in: a launch or a burst
-        // of power still lifts the nose at first, and only sustained speed is trimmed out)
+        // (it follows the speed with a short lag, and stays out of the first seconds after a launch: the climb-out comes first)
         var wanted: Float = 0
-        if spec.speedTrim > 0 && airspeed > spec.trimSpeed { wanted = spec.speedTrim * (1 - spec.trimSpeed * spec.trimSpeed / (airspeed * airspeed)) }
+        if spec.speedTrim > 0 && airspeed > spec.trimSpeed {
+            let k = spec.speedFull > spec.speedHalf + 0.5 ? lerp(spec.speedTrimHalf, spec.speedTrim, clampf((airspeed - spec.speedHalf) / (spec.speedFull - spec.speedHalf), 0, 1)) : spec.speedTrim
+            wanted = k * (1 - spec.trimSpeed * spec.trimSpeed / (airspeed * airspeed))
+        }
         sinceReset += dt
-        wanted *= smoothstep(3, 6, sinceReset)                  // not in the first seconds after a launch: the climb-out comes first
-        ease += (wanted - ease) * min(1, dt / 2)
+        wanted *= smoothstep(3, 6, sinceReset)
+        ease += (wanted - ease) * min(1, dt / 0.5)
         servo += (V3(c.aileron, clampf(c.elevator - ease, -1, 1), c.rudder) - servo) * min(1, dt / 0.04)
         if spec.hasFlaps { flap += clampf(c.flaps - flap, -dt / 1.5, dt / 1.5) }
         if spec.hasRetracts { gear += clampf((c.gearUp && !crashed ? 1 : 0) - gear, -dt / 1.2, dt / 1.2) }

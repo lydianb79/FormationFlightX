@@ -875,17 +875,26 @@ func levelElevator(_ spec: AircraftSpec, throttle: Float, seconds: Float = 30) -
     return (ac.crashed ? .nan : sum / n, ac.airspeed)
 }
 
-/// Set the pitch trim's easing with speed: fly the aircraft level flat out, see how much forward stick that takes,
-/// and take four fifths of it out. The fifth that is left keeps the natural tendency to climb when going faster.
+/// Set the pitch trim's easing with speed: fly the aircraft level flat out and on half throttle, see how much
+/// forward stick each takes, and trim exactly that out. With it the aircraft goes faster when the throttle is
+/// opened, not up; it climbs when the pilot pulls.
 func easeTrim(_ spec0: AircraftSpec) -> AircraftSpec {
     var spec = spec0
     guard spec.kind == .airplane, !spec.props.isEmpty, spec.trimSpeed > 0 else { return spec }       // (a glider with a motor counts)
     spec.speedTrim = 0
-    var f = levelElevator(spec, throttle: 1, seconds: 16)
-    // a slow starter has not settled in that time: give it longer
-    if !f.elev.isFinite || f.elev > -0.02 { f = levelElevator(spec, throttle: 1, seconds: 40) }
+    func run(_ thr: Float) -> (elev: Float, speed: Float) {
+        var f = levelElevator(spec, throttle: thr, seconds: thr < 1 ? 30 : 16)       // on half throttle the speed takes longer to settle
+        // a slow starter has not settled in that time: give it longer
+        if !f.elev.isFinite || f.elev > -0.02 { f = levelElevator(spec, throttle: thr, seconds: 40) }
+        return f
+    }
+    func gain(_ f: (elev: Float, speed: Float)) -> Float { clampf(-f.elev / (1 - spec.trimSpeed * spec.trimSpeed / (f.speed * f.speed)), 0, 0.8) }
+    let f = run(1)
     guard f.elev.isFinite, f.elev < -0.02, f.speed > spec.trimSpeed * 1.15 else { return spec }
-    spec.speedTrim = clampf(0.8 * -f.elev / (1 - spec.trimSpeed * spec.trimSpeed / (f.speed * f.speed)), 0, 0.6)
+    let h = run(0.5)                                            // (both runs are flown before any easing is set)
+    spec.speedTrim = gain(f); spec.speedFull = f.speed
+    if h.elev.isFinite, h.elev < 0, h.speed > spec.trimSpeed * 1.15, h.speed < f.speed - 1 { spec.speedTrimHalf = gain(h); spec.speedHalf = h.speed }
+    else { spec.speedTrimHalf = spec.speedTrim; spec.speedHalf = spec.trimSpeed }
     return spec
 }
 

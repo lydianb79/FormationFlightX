@@ -209,10 +209,17 @@ struct HUDView: View {
                             }
                         }
                         Spacer()
-                        MiniMap(s: s).allowsHitTesting(false)
+                        VStack(alignment: .trailing, spacing: 8) {
+                            MiniMap(s: s).allowsHitTesting(false)
+                            TrimGauge(trim: s.trim, up: { m.game.trim(1) }, down: { m.game.trim(-1) })
+                        }
                     }
                     .padding(.horizontal, 12).padding(.top, 8)
 
+                    if !s.launchHint.isEmpty {
+                        Text(s.launchHint).font(.system(size: 15, weight: .bold)).foregroundColor(Theme.ink)
+                            .padding(.horizontal, 16).padding(.vertical, 8).background(Capsule().fill(Theme.amber)).padding(.top, 10).allowsHitTesting(false)
+                    }
                     if !s.score.isEmpty {
                         Text(s.score).font(.system(size: 14, weight: .bold, design: .default)).monospacedDigit().foregroundColor(Theme.paper)
                             .padding(.horizontal, 14).padding(.vertical, 6).glass(9).padding(.top, 8).allowsHitTesting(false)
@@ -908,7 +915,7 @@ struct HelpView: View {
     @ObservedObject var m: HUDModel
     private let groups: [(String, [(String, String)])] = [
         ("Flying", [("← →", "Aileron (roll)"), ("↑ ↓", "Elevator — ↓ pulls up"), ("A  D", "Rudder (yaw)"), ("W  S", "Throttle / collective"),
-                    ("X", "Throttle cut"), ("Q", "Wheel brakes"), ("Shift", "Full stick deflection"), ("L", "High / low rates"), ("−  =", "Pitch trim: nose down / up"), ("0", "Centre the pitch trim"), ("Space", "Start again with a hand launch")]),
+                    ("X", "Throttle cut"), ("Q", "Wheel brakes"), ("Shift", "Full stick deflection"), ("L", "High / low rates"), ("−  =", "Pitch trim: nose down / up"), ("0", "Centre the pitch trim"), ("Space", "Launch from the hand / take it back")]),
         ("Formation", [("J", "Join up: start in the air behind your slot"), ("U", "Take the lead / hand it back"), ("O", "Next formation (lead only)"), ("I", "Spacing: tight, normal, loose (lead only)"),
                        ("Y", "Smoke"), ("E", "Flaps"), ("G", "Landing gear"), ("[  ]", "Previous / next wing"), ("Tab", "Wing browser")]),
         ("View and simulation", [("C", "Camera: chase, onboard, pilot"), ("Z", "Zoom mode"), ("V", "Hide / show display"), ("P", "Pause"),
@@ -946,6 +953,40 @@ struct HelpView: View {
 // MARK: - Formation
 
 /// Top view of where the slot is relative to this pilot's aircraft, with a bar for the height difference.
+/// Pitch trim: a scale with a marker, an arrow above it for nose up and one below for nose down.
+private struct TrimGauge: View {
+    var trim: Int
+    var up: () -> Void, down: () -> Void
+    var body: some View {
+        let h: CGFloat = 96, f = CGFloat(trim) / CGFloat(Game.trimMax)
+        func arrow(_ icon: String, _ help: String, _ action: @escaping () -> Void) -> some View {
+            Button(action: action) {
+                Image(systemName: icon).font(.system(size: 12, weight: .heavy)).foregroundColor(Theme.paper)
+                    .frame(width: 34, height: 24).background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.paper.opacity(0.12)))
+            }
+            .buttonStyle(.plain).focusable(false).help(help)
+        }
+        return HStack(spacing: 8) {
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("PITCH TRIM").font(.system(size: 8.5, weight: .heavy)).tracking(0.8).foregroundColor(Theme.dim)
+                Text(trim == 0 ? "centre" : String(format: "%+d", trim)).font(.system(size: 15, weight: .bold)).monospacedDigit().foregroundColor(Theme.paper)
+                Text(trim == 0 ? " " : (trim > 0 ? "nose up" : "nose down")).font(.system(size: 9, weight: .medium)).foregroundColor(Theme.dim)
+            }
+            VStack(spacing: 5) {
+                arrow("chevron.up", "Trim nose up (=)", up)
+                ZStack {
+                    Capsule().fill(Theme.paper.opacity(0.1)).frame(width: 6, height: h)
+                    ForEach(-2...2, id: \.self) { k in Rectangle().fill(Theme.paper.opacity(k == 0 ? 0.55 : 0.25)).frame(width: k == 0 ? 16 : 10, height: 1).offset(y: -CGFloat(k) * h / 4) }
+                    Capsule().fill(trim == 0 ? Theme.paper : Theme.amber).frame(width: 20, height: 5).offset(y: -f * h / 2)
+                }
+                .frame(width: 34, height: h)
+                arrow("chevron.down", "Trim nose down (−)", down)
+            }
+        }
+        .padding(8).glass(12)
+    }
+}
+
 /// The map in the corner of the display: this aircraft at the centre pointing up, everyone else round it to scale.
 /// A real pilot carries a name; a computer partner is a plain grey arrow. The lead has a ring.
 private struct MiniMap: View {

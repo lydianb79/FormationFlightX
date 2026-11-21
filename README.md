@@ -104,7 +104,9 @@ What these are and are not:
 - The **shapes** are built from photographs of the real aircraft: the Flik's large dark winglets, the F-01's down-turned red tips, the Dolphin's long pointed nose and single fin, the AR Wing in black with a red leading edge, white bands and chequered fins, the black forward-swept Chupito with its fin on the body, the Penguin's wide lifting body with two motors and two leaning fins, the grey T1 Ranger and T2 Cruza as a pod on a thin boom with a tall fin, the Altus and Swordfish with their V-tails, the Hunter's tube fuselage and red dashes, and the Drift with its motor on a pylon behind the wing. They are made from simple generated shapes: wings are straight-tapered, bodies are not blended into the wing, and there are no printed graphics. V-tails are drawn as V-tails but fly as the plain tail of the same size.
 - The Penguin is modelled as the tailless lifting body it is, and with its small listed wing area stalls at about 40 km/h.
 - Each is trimmed in pitch for a gentle cruise (37 to 60 km/h) and in roll against its propeller's torque, as you would on the first flights, so it flies straight with the sticks let go.
-- **Pitch trim eases off with speed.** A model trimmed for a gentle cruise noses up hard when it goes fast, and the flying wings needed half or more of the stick held forward flat out. Every powered aircraft now has what a throttle-to-elevator mix on the transmitter gives: above its trim speed, four fifths of that nose-up is trimmed out, following the speed with a lag of two seconds and not in the first seconds after a launch. Flat out, level flight takes 6% of the low-rate throw on average (it was 29%); the fifth that is left still makes the aircraft climb a little when it goes faster. The pitch trim keys (− and =) remain for the rest.
+- **Pitch trim follows the speed.** A model trimmed for a gentle cruise noses up hard when it goes fast. Every powered aircraft now has that trimmed out, as a throttle-to-elevator mix on the transmitter does: calibrated from level runs on half and on full throttle, it holds the aircraft level at any speed with the stick centred, so opening the throttle makes it go faster, not up. It follows the speed with a lag of half a second and stays out of the first seconds after a launch. `--powertest` measures it: 0% of the stick on average flat out, 3% at worst.
+- **Launching.** A hand-launched aircraft stays in your hand, motor running, until you press **Launch**: Space, or a key, a gamepad button or a transmitter switch of your choice (Controller Setup). The computer pilots beside you throw theirs at the same moment. On the autopilot the aircraft throws itself.
+- **Trim gauge.** Under the map: the pitch trim in clicks, with an arrow above for nose up and one below for nose down.
 - None of them has a flight controller: no stabilisation, no return to home.
 
 **The other categories** each have two or three aircraft from FlightCore OSX: trainers, scale civil, warbirds, aerobatic, foam 3D, jets and gliders. Those that are not hand-launched start on the runway, one behind the other in formation order. The eleven original flying wings are in FPV Aircrafts with the rest.
@@ -234,7 +236,8 @@ Formations for up to five: vic, echelon right, echelon left, line astern, line a
 | E, G | Flaps, landing gear (aircraft that have them) |
 | C | Camera: chase, onboard, pilot on the ground |
 | Y | Smoke (the others see it too) |
-| Space | Start again with a hand launch |
+| Space | Launch: throw the aircraft from your hand; in flight, take it back into the hand (the key can be changed) |
+| − =, 0 | Pitch trim nose down / up, centre (also the two arrows of the trim gauge) |
 | Esc, Tab | Main menu, wing browser |
 
 **H** in the app lists the rest. Gamepads and USB RC transmitters work as in FlightCore OSX (Controller Setup, ⌘,).

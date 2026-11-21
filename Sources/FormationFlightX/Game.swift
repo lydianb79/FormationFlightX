@@ -28,6 +28,8 @@ struct HUDState {
     var mapNorth: Float = 0                 // where north is, clockwise from straight ahead
     var onboard = false
     var smoke = false
+    var trim = 0                    // pitch trim in clicks
+    var launchHint = ""             // what to press while the aircraft is held in the hand
     var mapNote = ""                // who the nearest aircraft of interest is, and how far
 }
 
@@ -207,6 +209,10 @@ final class Game {
     static var noShowcase = false
     static var showLog = CommandLine.arguments.contains("--showlog")
     var mapRange: Float = 120
+    // a hand-launched aircraft is held until the launch button is pressed
+    var inHand = false, partnersHeld = false
+    var handPos = V3.zero, handQ = simd_quatf(ix: 0, iy: 0, iz: 0, r: 1)
+    private var launchPadWas = false
     var leadWaits = false               // the computer lead is flying slower for you to catch up
     var flownOnce = false               // a flight has been started since the site or aircraft was chosen
     // smoke trails, by whose they are; the last point of a trail that is being laid rides on the aircraft
@@ -363,8 +369,38 @@ final class Game {
         rotorSpeed = 1
     }
 
+    /// How fast an aircraft leaves the hand: a good throw, and always clear of the stall.
+    static func throwSpeed(_ spec: AircraftSpec) -> Float { max(clampf(spec.stallSpeed * 1.7, 4, 9), spec.stallSpeed * 1.3) }
+
+    /// Hold the aircraft in the hand, nose a little up, until the launch button.
+    private func hold(at p: V3, heading: Float) {
+        aircraft.reset(pos: p, heading: heading, speed: 0)
+        handPos = p
+        handQ = simd_quatf(angle: heading, axis: V3(0, 1, 0)) * simd_quatf(angle: 10 * deg, axis: V3(1, 0, 0))
+        aircraft.q = handQ
+        inHand = true
+    }
+
+    /// Throw it. The computer pilots standing beside you throw theirs at the same moment.
+    func launch() {
+        guard inHand else { return }
+        inHand = false
+        aircraft.pos = handPos; aircraft.q = handQ; aircraft.omega = .zero
+        aircraft.vel = handQ.act(V3(0, 0, -Game.throwSpeed(aircraft.spec)))
+        aircraft.sinceReset = 0; aircraft.ease = 0
+        lastYReset()
+        if partnersHeld { launchPartners() }
+        launchGrace = 6
+    }
+
+    /// The launch key: throws the aircraft if it is in the hand, and otherwise takes it back into the hand.
+    func launchPressed() {
+        if inHand { launch() } else if !simHeld { resetAircraft(); launchPartners() }
+    }
+
     func resetAircraft() {
         let spec = aircraft.spec
+        inHand = false
         if spec.hasFloats, let p = terrain.waterStart(windFrom: env.windFrom) {
             // floatplanes start on the water, pointing into the wind
             aircraft.reset(pos: p + V3(0, aircraft.restHeight - 0.05, 0), heading: -env.windFrom * deg)
@@ -372,11 +408,11 @@ final class Game {
             // photo sites: each has its own start point and take-off direction
             let k: Float = spec.kind == .airplane ? 1 : 0.6
             let hd = -site.startHeading * deg
-            if spec.handLaunch { aircraft.reset(pos: V3(2, 1.9, -3), heading: hd, speed: clampf(spec.stallSpeed * 1.7, 4, 9)) }
+            if spec.handLaunch { hold(at: V3(2, 1.9, -3), heading: hd) }
             else { aircraft.reset(pos: V3(site.startX * k, terrain.height(site.startX * k, site.startZ * k) + aircraft.restHeight + 0.02, site.startZ * k), heading: hd) }
         } else if spec.handLaunch {
             // pilots stand side by side, in formation order
-            aircraft.reset(pos: terrain.pilotPos + V3(2 + 3 * Float(max(order.firstIndex(of: net.id) ?? 0, 0)), 1.9, -3), heading: 0, speed: clampf(spec.stallSpeed * 1.7, 4, 9))
+            hold(at: terrain.pilotPos + V3(2 + 3 * Float(max(order.firstIndex(of: net.id) ?? 0, 0)), 1.9, -3), heading: 0)
         } else {
             // on the runway, one behind the other in formation order
             let x: Float = (spec.kind == .airplane ? -min(site.runwayLen / 2 - 20, 45) : -5) - 7 * Float(max(order.firstIndex(of: net.id) ?? 0, 0))
@@ -478,6 +514,8 @@ final class Game {
     }
 
     func keyDown(_ k: UInt16) {
+        if k == input.launchKey { launchPressed(); return }
+        if k == 0xFFF0 { if inHand { launch() } else if aircraft.crashed || aircraft.onGround { resetAircraft(); launchPartners() }; return }      // a switch or button assigned to Launch
         switch k {
         case 49, 15: resetAircraft(); launchPartners()
         case 35: paused.toggle()
@@ -587,13 +625,20 @@ final class Game {
         aircraft.unlimitedBattery = unlimitedBattery || autopilotOn
         if aircraft.spec.kind == .airplane && aircraft.battery < 0.15 && !warnedBattery { warnedBattery = true; say(aircraft.spec.burnsFuel ? "Fuel low — land soon" : "Battery low — land soon", 4) }
 
+        // the launch button on a gamepad, and the autopilot, which throws for itself
+        let pad = input.padPressed(input.launchPad)
+        if pad && !launchPadWas && !simHeld { if inHand { launch() } else if aircraft.crashed || aircraft.onGround { resetAircraft(); launchPartners() } }
+        launchPadWas = pad
+        if inHand && autopilotOn && !simHeld { launch() }
         if !paused && !simHeld {
             let h: Float = 0.001
             acc += dt * timeScale
             while acc >= h {
                 env.advance(dt: h, at: aircraft.pos, airspeed: aircraft.airspeed, terrain: terrain)
                 aircraft.step(dt: h, c: controls, terrain: terrain, wind: env.wind(at: aircraft.pos, terrain: terrain), rollMu: site.rollMu)
-                for w in wingmen where w.ai != nil {
+                // in the hand the motor runs but nothing moves
+                if inHand { aircraft.pos = handPos; aircraft.q = handQ; aircraft.vel = .zero; aircraft.omega = .zero; aircraft.crashed = false }
+                for w in wingmen where w.ai != nil && !partnersHeld {
                     w.aircraft.step(dt: h, c: w.controls, terrain: terrain, wind: env.wind(at: w.aircraft.pos, terrain: terrain), rollMu: site.rollMu)
                 }
                 acc -= h
@@ -940,6 +985,8 @@ final class Game {
         s.wind = env.windSpeed < 0.1 ? "Calm" : String(format: "%@ %.0f m/s", dirs[Int((env.windFrom + 22.5) / 45) % 8], env.windSpeed)
         s.onboard = cameraMode == 2
         s.smoke = smokeOn
+        s.trim = pitchTrim
+        s.launchHint = inHand && !simHeld ? "In your hand  ·  press \(input.launchHint) to launch" : ""
         s.camera = Game.cameraNames[cameraMode] + (cameraMode == 0 ? " · " + Game.zoomNames[zoomMode] : "")
         s.mode = spec.modes.count > 1 ? spec.modes[flightMode] : ""
         s.input = autopilotOn ? "Demo pilot" : input.source
@@ -962,7 +1009,7 @@ final class Game {
         if spec.hasFlaps { cfg.append(["Flaps up", "Flaps ½", "Flaps full"][Int(flapSetting * 2)]) }
         if spec.hasRetracts { cfg.append(gearUp ? "Gear up" : "Gear down") }
         if spec.kind == .airplane && !unlimitedBattery { cfg.append(String(format: spec.burnsFuel ? "Fuel %.0f%%" : "Battery %.0f%%", aircraft.battery * 100)) }
-        if spec.kind == .airplane && aircraft.wingStall > 0.35 && !aircraft.onGround { cfg.append("STALL") }
+        if spec.kind == .airplane && aircraft.wingStall > 0.35 && !aircraft.onGround && !inHand { cfg.append("STALL") }
         if spec.kind == .helicopter && aircraft.vortexRing > 0.3 { cfg.append("VORTEX RING") }
         if controls.brake > 0.5 && aircraft.onGround { cfg.append("Brakes") }
         if spec.kind == .helicopter { cfg.append(String(format: "Rotor %.0f%%%@", aircraft.levels[0] * 100, hold ? " HOLD" : "")) }

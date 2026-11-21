@@ -107,6 +107,10 @@ struct InputSettings: Codable {
     var talkKey: UInt16? = nil
     var talkKeyName: String? = nil
     var talkPad: Int? = nil
+    // launch: the same three ways
+    var launchKey: UInt16? = nil
+    var launchKeyName: String? = nil
+    var launchPad: Int? = nil
 
     static let axisNames = ["X", "Y", "Z", "Rx", "Ry", "Rz", "Slider", "Dial", "Wheel"]
     static let channelNames = ["Aileron", "Elevator", "Throttle", "Rudder"]
@@ -129,6 +133,7 @@ struct ControlAction {
 final class InputManager {
     static let actions: [ControlAction] = [
         ControlAction(id: "talk", title: "Push to talk", states: -1, key: 0),
+        ControlAction(id: "launch", title: "Launch (throw the aircraft)", states: 0, key: 0xFFF0),
         ControlAction(id: "rates", title: "Rates: low / high", states: 2, key: 37),
         ControlAction(id: "smoke", title: "Smoke", states: 2, key: 16),
         ControlAction(id: "flaps", title: "Flaps: up / half / full", states: 3, key: 14),
@@ -159,8 +164,13 @@ final class InputManager {
     /// Push to talk held on a controller: the assigned switch or button of a USB transmitter, or the chosen gamepad button.
     var talkOnDevice: Bool {
         if hid.connected, let b = settings.bindings?["talk"], value(of: b) > 0.3 { return true }
+        return padPressed(talkPad)
+    }
+
+    /// Whether the gamepad button with this number in `padButtons` is down.
+    func padPressed(_ n: Int) -> Bool {
         guard let gp = GCController.controllers().compactMap({ $0.extendedGamepad }).first else { return false }
-        switch talkPad {
+        switch n {
         case 1: return gp.buttonA.isPressed
         case 2: return gp.buttonB.isPressed
         case 3: return gp.buttonX.isPressed
@@ -175,6 +185,19 @@ final class InputManager {
         case 12: return gp.dpad.right.isPressed
         default: return false
         }
+    }
+
+    // MARK: Launch
+
+    /// The key that throws the aircraft (Space unless the pilot chose another), and the gamepad button that does.
+    var launchKey: UInt16 { settings.launchKey ?? 49 }
+    var launchKeyName: String { settings.launchKeyName ?? "Space" }
+    var launchPad: Int { min(max(settings.launchPad ?? 6, 0), InputManager.padButtons.count - 1) }
+    /// What to press to launch, on whatever the pilot is flying with.
+    var launchHint: String {
+        if hid.connected, let b = settings.bindings?["launch"] { return InputManager.label(b) + " or " + launchKeyName }
+        if GCController.controllers().contains(where: { $0.extendedGamepad != nil }), launchPad > 0 { return InputManager.padButtons[launchPad] + " or " + launchKeyName }
+        return launchKeyName
     }
 
     /// What to hold to talk, on whatever the pilot is flying with.

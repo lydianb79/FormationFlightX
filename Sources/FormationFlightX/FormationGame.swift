@@ -130,6 +130,8 @@ extension Game {
     func launchPartners() {
         computeOrder()
         for w in wingmen where w.ai != nil { place(w, launch: true) }
+        // while you still hold your aircraft they hold theirs, and throw when you do
+        partnersHeld = inHand && remotePilots.isEmpty
         launchGrace = 6
     }
 
@@ -342,7 +344,7 @@ extension Game {
             ac.reset(pos: p, heading: atan2(-f.x, -f.z), speed: max(length(lead.vel), spec.stallSpeed * 1.4))
         } else {
             // thrown from beside the pilots; an aircraft that needs a runway is given flying speed a little higher up
-            if spec.handLaunch { ac.reset(pos: home + V3(2 + 3 * Float(n), 1.9, -3), heading: 0, speed: clampf(spec.stallSpeed * 1.7, 4, 9)) }
+            if spec.handLaunch { ac.reset(pos: home + V3(2 + 3 * Float(n), 1.9, -3), heading: 0, speed: Game.throwSpeed(spec)); ac.q = ac.q * simd_quatf(angle: 10 * deg, axis: V3(1, 0, 0)); ac.vel = ac.q.act(V3(0, 0, -Game.throwSpeed(spec))) }
             else { ac.reset(pos: home + V3(2 + 5 * Float(n), 5, -3), heading: 0, speed: spec.stallSpeed * 1.6) }
         }
         for i in ac.levels.indices { ac.levels[i] = 0.7 }

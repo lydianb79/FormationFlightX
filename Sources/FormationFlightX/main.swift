@@ -1027,7 +1027,7 @@ if CommandLine.arguments.contains("--powertest") {
         print(String(format: "%-28@ %5.0f km/h  %+4.0f%% (%+4.0f%% of low)   %5.0f km/h  %+4.0f%% (%+4.0f%% of low)", spec.name as NSString,
                      h.speed * 3.6, h.elev * 100, h.elev / spec.lowRate * 100, f.speed * 3.6, f.elev * 100, f.elev / spec.lowRate * 100))
         if f.elev.isFinite { worst = max(worst, -f.elev / spec.lowRate); sum += -f.elev / spec.lowRate; n += 1 }
-        if CommandLine.arguments.contains("--verbose") { print(String(format: "      eased by %.2f above %.0f km/h (stall %.0f km/h)", spec.speedTrim, spec.trimSpeed * 3.6, spec.stallSpeed * 3.6)) }
+        if CommandLine.arguments.contains("--verbose") { print(String(format: "      eased by %.2f flat out (%.0f km/h), %.2f on half throttle (%.0f km/h), above %.0f km/h (stall %.0f km/h)", spec.speedTrim, spec.speedFull * 3.6, spec.speedTrimHalf, spec.speedHalf * 3.6, spec.trimSpeed * 3.6, spec.stallSpeed * 3.6)) }
     }
     print(String(format: "full throttle: mean %.0f%% of the low-rate throw forward, worst %.0f%%", sum / n * 100, worst * 100))
     // and the hand launch, full throttle, sticks let go: how low it gets, and where it is after four seconds
@@ -1698,6 +1698,7 @@ final class SetupModel: ObservableObject {
     @Published var s: InputSettings { didSet { input.settings = s } }
     @Published var listening: String? = nil         // action waiting for a switch or button to be moved
     @Published var listeningKey = false             // waiting for the key that will be push to talk
+    @Published var listeningLaunch = false          // waiting for the key that will launch
     private var keyMonitor: Any?
     private var seenAxes: [Float] = [], seenButtons: [Bool] = []
     func listen(_ id: String) {
@@ -1718,7 +1719,12 @@ final class SetupModel: ObservableObject {
         self.input = input
         s = input.settings
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
-            guard let m = self, m.listeningKey else { return e }
+            guard let m = self, m.listeningKey || m.listeningLaunch else { return e }
+            if m.listeningLaunch {
+                m.listeningLaunch = false
+                if e.keyCode != 53 { m.s.launchKey = e.keyCode; m.s.launchKeyName = e.keyCode == 49 ? "Space" : InputManager.keyName(e) }
+                return nil
+            }
             m.listeningKey = false
             if e.keyCode != 53 { m.s.talkKey = e.keyCode; m.s.talkKeyName = InputManager.keyName(e) }      // Esc cancels
             return nil
@@ -1810,6 +1816,23 @@ struct SetupView: View {
                 }.labelsHidden().frame(width: 190)
             }.font(.system(size: 12))
             Text("Held to talk while voice is on Push to talk. The key works in flight; a gamepad button also works in the lobby. On a USB transmitter, assign “Push to talk” to a switch or button in the list below. The chosen key no longer does what it did before.")
+                .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+            Text("Launch").font(.headline)
+            HStack {
+                Text("Keyboard key").frame(width: 165, alignment: .leading)
+                Text(model.listeningLaunch ? "press a key… (Esc cancels)" : (model.s.launchKeyName ?? "Space")).foregroundColor(model.listeningLaunch ? .orange : .primary).frame(width: 190, alignment: .leading)
+                Button(model.listeningLaunch ? "Cancel" : "Change…") { model.listeningLaunch.toggle(); model.listeningKey = false }
+                Button("Reset") { model.s.launchKey = nil; model.s.launchKeyName = nil }.disabled(model.s.launchKey == nil)
+            }.font(.system(size: 12))
+            HStack {
+                Text("Gamepad button").frame(width: 165, alignment: .leading)
+                Picker("", selection: Binding(get: { model.s.launchPad ?? 6 }, set: { model.s.launchPad = $0 })) {
+                    ForEach(InputManager.padButtons.indices, id: \.self) { Text(InputManager.padButtons[$0]).tag($0) }
+                }.labelsHidden().frame(width: 190)
+            }.font(.system(size: 12))
+            Text("A hand-launched aircraft stays in your hand, motor running, until you press this. The keyboard key also takes a flying aircraft back into the hand; the gamepad button and a transmitter switch only do that after a landing or a crash. On a USB transmitter, assign “Launch” to a switch or button in the list below.")
                 .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
 
             Divider()
