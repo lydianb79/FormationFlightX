@@ -94,7 +94,7 @@ What these are and are not:
 
 **Behind the menus** the site is alive: five of the aircraft you have chosen fly it in the formation you have chosen, trailing smoke, and a camera follows them, cutting between a chase view, a view from alongside, a fly-past seen from the ground, a slow circle round the flight and a view from ahead. Change the aircraft, the site or the formation and the flight changes with it. Your own aircraft waits where you left it.
 
-**Smoke** is drawn as a trail, not as puffs: a soft ribbon that leaves the aircraft, drifts with the wind, widens and thins out over five seconds. A small model lays a thin trail, a large one a broad one. Your own smoke and the other pilots' are drawn the same way.
+**Smoke** is switched on and off with the second button of the bar at the top right (or its key), and is drawn as a trail, not as puffs: a soft ribbon that leaves the aircraft, drifts with the wind, widens and thins out over five seconds. A small model lays a thin trail, a large one a broad one. Your own smoke and the other pilots' are drawn the same way.
 
 ## Flying sites
 
@@ -132,7 +132,7 @@ Twenty-nine sites, none of them from FlightCore OSX. The site browser filters by
 | Tundra | Winter | Snow-patched grass and black meltwater pools; a research station on legs |
 | Ski Resort | Winter | Three pistes through snowy forest, a chairlift with a solid cable, chalets |
 
-**How the sites are drawn.** Buildings get their windows, cladding, brickwork and concrete panels from the shader, so a tower is one box and still has a thousand windows, some of them lit after sunset. Steep ground turns to layered rock. Farmland round the open sites is divided into fields of different crops. Lamps, runway lights and lighthouse lanterns glow at dusk. The terrain grid is 16 m (it was 24 m).
+**How the sites are drawn.** There are no picture textures: every surface is drawn by the shader from what it is. Buildings get framed windows (some lit after sunset, some with blinds down), shopfronts with name boards on the ground floor of offices and towers, shutters on houses, cladding, brickwork and concrete panels, so a tower is one box and still has a thousand windows. Roofs are tiled in courses, timber is boarded with the grain showing. The ground knows what it is from its colour: turf grows in clumps and dries in patches, sand has wind ripples and grain, snow has drifts and crystals that glint in the sun, bare earth has stones lying on it, the yards are concrete slabs with stains and the Old Town is cobbled. Steep ground turns to layered, fractured rock. Farmland round the open sites is divided into fields of different crops. Lamps, runway lights and lighthouse lanterns glow at dusk. The terrain grid is 16 m.
 
 **Racing.** On a race track the next gate glows. Fly through the first gate to start the clock, then through the gates in order; a gate out of order does not count. Every lap's time is shown, your best is kept until the site changes, and when you fly with others each lap is announced in the chat. The host's **Start Session** puts everyone on the launch line at once, which makes it a race. Gate posts are solid.
 

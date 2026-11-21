@@ -185,6 +185,8 @@ struct HUDView: View {
                         HStack(spacing: 5) {
                             BarButton(icon: s.onboard ? "video.fill" : "airplane", help: s.onboard ? "View from behind the aircraft" : "FPV: view from on board") { m.game.toggleFPV() }
                                 .overlay(alignment: .bottom) { Text(s.onboard ? "FPV" : "3RD").font(.system(size: 6.5, weight: .heavy)).foregroundColor(Theme.amber).offset(y: 1).allowsHitTesting(false) }
+                            BarButton(icon: s.smoke ? "smoke.fill" : "smoke", help: s.smoke ? "Smoke off" : "Smoke on") { m.game.toggleSmoke() }
+                                .overlay(alignment: .bottom) { Text(s.smoke ? "ON" : "OFF").font(.system(size: 6.5, weight: .heavy)).foregroundColor(s.smoke ? Theme.amber : Theme.dim).offset(y: 1).allowsHitTesting(false) }
                             BarButton(icon: s.unread > 0 ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right", help: "Lobby: chat and voice (Return)") { m.game.cameFromMenu = false; m.overlay = m.overlay == .lobby ? .none : .lobby }
                             BarButton(icon: "person.3.fill", help: "Options: pilots, hosting and joining") { m.game.cameFromMenu = false; m.overlay = m.overlay == .options ? .none : .options }
                             BarButton(icon: "wind", help: "Wind, weather and time of day") { m.game.cameFromMenu = false; m.overlay = m.overlay == .environment ? .none : .environment }

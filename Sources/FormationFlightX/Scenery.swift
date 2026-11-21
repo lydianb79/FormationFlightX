@@ -415,8 +415,10 @@ extension Terrain {
         b.append(m, M4.translation(p) * M4.rotation(facing, V3(0, 1, 0)))
     }
 
-    private func building(_ b: inout MeshBuilder, at c: V3, size: V3, wall: V4, roof: V4, facing: Float, porch: Bool) {
+    private func building(_ b: inout MeshBuilder, at c: V3, size: V3, wall plainWall: V4, roof plainRoof: V4, facing: Float, porch: Bool) {
         var m = MeshBuilder()
+        // boarded walls, a tiled roof: the shader draws both (see the kinds of surface in Structures.swift)
+        let wall = V4(plainWall.x, plainWall.y, plainWall.z, 11 + min(plainWall.w, 0.9)), roof = V4(plainRoof.x, plainRoof.y, plainRoof.z, 10 + min(plainRoof.w, 0.9))
         let w = size.x / 2, d = size.z / 2, h = size.y, ridge = h + size.z * 0.28
         let trim = cg(0.92, 0.92, 0.9), glass = cg(0.2, 0.3, 0.4, 1)
         m.box(center: V3(0, 0.15, 0), size: V3(size.x + 0.2, 0.3, size.z + 0.2), color: cg(0.5, 0.5, 0.5))
@@ -436,7 +438,7 @@ extension Terrain {
         for z in [-d * 0.4, d * 0.4] { m.box(center: V3(-w - 0.04, 1.7, z), size: V3(0.06, 0.95, 1.1), color: glass) }
         m.box(center: V3(-w * 0.5, ridge + 0.2, d * 0.3), size: V3(0.5, 1.1, 0.5), color: cg(0.45, 0.25, 0.2))
         if porch {
-            m.quad(V3(-w, h - 0.1, -d), V3(w, h - 0.1, -d), V3(w, h - 0.55, -d - 2.4), V3(-w, h - 0.55, -d - 2.4), shade(roof, 1.15))
+            m.quad(V3(-w, h - 0.1, -d), V3(w, h - 0.1, -d), V3(w, h - 0.55, -d - 2.4), V3(-w, h - 0.55, -d - 2.4), roof)
             var x = -w + 0.2
             while x <= w - 0.1 {
                 m.box(center: V3(x, (h - 0.5) / 2, -d - 2.2), size: V3(0.12, h - 0.5, 0.12), color: trim)

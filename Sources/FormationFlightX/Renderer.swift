@@ -363,6 +363,11 @@ final class Renderer: NSObject, MTKViewDelegate {
         fu.screen = V4(1 / Float(rw), 1 / Float(rh), Float(shadow1Size), s0Half)
         let tint = Game.photoTints[game.photoLight]
         fu.pano = V4(tint.x, tint.y, tint.z, game.photoLight > 0 ? 1 : 0)      // photographs are shown as they are unless the light is graded
+        if !pano {
+            // 3D sites have no photograph to grade: the slot says what bare ground here is paved with (0 nothing, 1 concrete slabs, 2 cobbles)
+            let pal = game.site.palette
+            fu.pano = V4(pal == 28 ? 1 : (pal == 33 ? 2 : 0), 0, 0, 0)
+        }
 
         // frustum side planes, for culling grass and trees
         let m = fu.viewProj

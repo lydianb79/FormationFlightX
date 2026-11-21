@@ -11,7 +11,8 @@ struct SolidBox {
     var c: V3, half: V3
     var yaw: Float = 0
     var color: V4
-    var kind = 0            // surface: 0 plain, 2 offices, 3 glass tower, 4 houses, 5 corrugated sheet, 6 concrete panels, 7 brick or stone
+    var kind = 0            // surface: 0 plain, 2 offices, 3 glass tower, 4 houses, 5 corrugated sheet, 6 concrete panels, 7 brick or stone,
+                            // 8 a lamp, 9 rock, 10 roof tiles, 11 timber boards
     var rot: simd_quatf? = nil
     var round = false
     var hidden = false      // hit but not drawn: something in `decor` shows it
@@ -248,7 +249,9 @@ extension Terrain {
         for b in boxes where !b.hidden {
             let q = b.orientation
             // the shader reads the kind of surface from the whole part of alpha, the gloss from the fraction
-            let col = V4(b.color.x, b.color.y, b.color.z, Float(b.kind) + min(b.color.w, 0.9))
+            // anything plain and brown is timber, and is drawn boarded
+            let c = b.color, timber = b.kind == 0 && c.x > c.y * 1.15 && c.y > c.z * 1.1 && c.x > 0.25 && c.x < 0.62
+            let col = V4(c.x, c.y, c.z, Float(timber ? 11 : b.kind) + min(c.w, 0.9))
             if b.round {
                 m.cylinder(from: b.c - V3(0, b.half.y, 0), to: b.c + V3(0, b.half.y, 0), r0: b.half.x, r1: b.half.x, seg: b.half.x > 3 ? 24 : 12, color: col)
                 continue

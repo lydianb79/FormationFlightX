@@ -64,6 +64,13 @@ static float fbm5(float2 p) {
     for (int i = 0; i < 5; i++) { s += a * vnoise(p); p = p * 2.07 + 13.0; a *= 0.5; }
     return s / 0.96875;
 }
+/// The cheap kind of cell, for use on every pixel of the ground: one point to a grid square, moved off centre.
+/// x = distance to it, y = a number belonging to the square. Warp `p` first so the squares do not show.
+static float2 jcell(float2 p) {
+    float2 i = floor(p);
+    float2 f = fract(p) - 0.5 - (float2(hash21(i), hash21(i + 17.3)) - 0.5) * 0.5;
+    return float2(length(f), hash21(i + 3.1));
+}
 static float3 tonemap(float3 c) {
     return saturate((c * (2.51 * c + 0.03)) / (c * (2.43 * c + 0.59) + 0.14));
 }
@@ -173,27 +180,74 @@ fragment float4 sceneFS(VOut in [[stage_in]], constant Frame& f [[buffer(1)]], c
             // rock and heaped stone: layers and blotches
             float strata = vnoise(float2(wp.y * 0.5 + 2.0 * fbm2(wp.xz * 0.05), 1.7));
             albedo *= 0.84 + 0.2 * strata + 0.5 * (fbm(wp.xz * 0.35 + wp.y * 0.21) - 0.5);
+        } else if (kind == 10) {
+            // roof tiles: courses up the slope, every other one shifted half a tile
+            float3 T = abs(N.y) > 0.98 ? float3(1.0, 0.0, 0.0) : normalize(cross(float3(0.0, 1.0, 0.0), N));
+            float u = dot(wp, T), row = floor(wp.y / 0.2);
+            float uu = u / 0.28 + 0.5 * fract(row * 0.5);
+            float2 q = float2(fract(uu), fract(wp.y / 0.2));
+            float lod = saturate(1.4 - fwidth(u) * 6.0);
+            float tile = hash21(float2(floor(uu), row));
+            albedo *= mix(1.0, (0.78 + 0.4 * tile) * (1.0 - 0.4 * smoothstep(0.3, 0.0, q.y)) * (1.0 - 0.22 * smoothstep(0.1, 0.0, min(q.x, 1.0 - q.x))), lod);
+            albedo *= 0.86 + 0.28 * fbm2(float2(u, wp.y) * 0.35);              // weather and moss
+        } else if (kind == 11) {
+            // timber: boards side by side, each its own shade, the grain running along them
+            bool lying = abs(N.y) > 0.5;
+            float3 T = lying ? float3(1.0, 0.0, 0.0) : normalize(cross(float3(0.0, 1.0, 0.0), N));
+            float u = dot(wp, T), v = lying ? wp.z : wp.y;
+            float lod = saturate(1.4 - fwidth(u) * 8.0);
+            float board = floor(u / 0.17), qx = fract(u / 0.17);
+            float grain = vnoise(float2(u * 55.0, v * 2.5 + board * 7.0));
+            albedo *= mix(1.0, (0.82 + 0.32 * hash21(float2(board, 2.0))) * (0.86 + 0.28 * grain) * (1.0 - 0.45 * smoothstep(0.08, 0.0, min(qx, 1.0 - qx))), lod);
+            albedo *= 0.9 + 0.2 * fbm2(float2(u, v) * 0.5);
         } else if (abs(N.y) < 0.5) {
             float3 T = normalize(cross(float3(0.0, 1.0, 0.0), N));
             float u = dot(wp, T), v = wp.y;
             float lod = saturate(1.4 - fwidth(u) * 1.2);                          // patterns melt away with distance instead of shimmering
-            float grime = 0.86 + 0.28 * fbm2(float2(u * 0.13, v * 0.31) + 5.0);
+            float grime = 0.86 + 0.28 * vnoise(float2(u * 0.2, v * 0.45) + 5.0);
             if (kind == 2 || kind == 3 || kind == 4) {
                 float cw = kind == 2 ? 3.0 : (kind == 3 ? 1.7 : 3.6), ch = kind == 4 ? 3.0 : 3.4;
-                float2 cell = float2(floor(u / cw), floor(v / ch)), q = float2(fract(u / cw), fract(v / ch));
+                float base = kind == 4 ? 0.0 : 4.4;                              // offices and towers stand on a row of shopfronts
+                float vv = v - base;
+                float2 cell = float2(floor(u / cw), floor(vv / ch)), q = float2(fract(u / cw), fract(vv / ch));
                 float2 lo = kind == 2 ? float2(0.14, 0.3) : (kind == 3 ? float2(0.05, 0.1) : float2(0.3, 0.34));
                 float2 hi = kind == 2 ? float2(0.86, 0.82) : (kind == 3 ? float2(0.95, 0.94) : float2(0.7, 0.8));
                 float aa = 0.02 + fwidth(u) / cw;
-                float win = smoothstep(lo.x - aa, lo.x + aa, q.x) * smoothstep(hi.x + aa, hi.x - aa, q.x) * smoothstep(lo.y - aa, lo.y + aa, q.y) * smoothstep(hi.y + aa, hi.y - aa, q.y);
-                win *= step(1.2, v) * lod;
+                float upper = step(kind == 4 ? 1.2 : 0.0, vv) * lod;
+                float win = smoothstep(lo.x - aa, lo.x + aa, q.x) * smoothstep(hi.x + aa, hi.x - aa, q.x) * smoothstep(lo.y - aa, lo.y + aa, q.y) * smoothstep(hi.y + aa, hi.y - aa, q.y) * upper;
+                float2 fr = float2(0.1 / cw, 0.1 / ch);
+                float outer = smoothstep(lo.x - fr.x - aa, lo.x - fr.x + aa, q.x) * smoothstep(hi.x + fr.x + aa, hi.x + fr.x - aa, q.x) * smoothstep(lo.y - fr.y - aa, lo.y - fr.y + aa, q.y) * smoothstep(hi.y + fr.y + aa, hi.y + fr.y - aa, q.y) * upper;
                 float h = hash21(cell + 0.37);
                 float3 glass = mix(float3(0.012, 0.02, 0.03), albedo * 0.18, kind == 3 ? 0.6 : 0.0) * (0.6 + 0.8 * h);
+                glass += mix(f.horizon.rgb, f.zenith.rgb, q.y) * 0.035 * (0.4 + 0.6 * h);                                             // the sky in the glass
                 if (kind != 3) glass = mix(glass, float3(0.3, 0.29, 0.26), step(0.86, h) * 0.5 * step(q.y, lo.y + (hi.y - lo.y) * (0.4 + 0.6 * fract(h * 7.0))));   // blinds part-way down
-                albedo = mix(albedo * grime, glass, win);
+                float3 wall = albedo * grime;
+                if (kind != 3) wall *= 1.0 - 0.14 * upper * smoothstep(lo.y, lo.y - 0.22, q.y) * step(lo.x, q.x) * step(q.x, hi.x) * step(0.4, fract(h * 3.1));   // rain marks under the sills
+                float3 frame = kind == 4 ? float3(0.72, 0.72, 0.7) : albedo * 0.4;
+                albedo = mix(wall, frame, kind == 3 ? 0.0 : saturate(outer - win));
+                albedo = mix(albedo, glass, win);
+                if (kind == 2) albedo = mix(albedo, frame, win * smoothstep(0.012 + aa, 0.012, abs(q.x - 0.5)));                      // a bar down the middle
                 gloss = mix(gloss, 0.85, win);
                 float lit = step(kind == 4 ? 0.6 : 0.74, fract(h * 13.7)) * dusk * win;
                 glow = float3(1.0, 0.72, 0.38) * lit * (0.5 + 1.2 * fract(h * 5.3));
-                if (kind != 3) albedo *= 1.0 - 0.1 * step(0.94, q.y) * lod;       // a shadow line under each floor
+                if (kind != 3) albedo *= 1.0 - 0.1 * step(0.94, q.y) * upper;     // a shadow line under each floor
+                if (kind == 4) {
+                    // shutters folded back either side of the window, one colour to a house
+                    float sh = upper * smoothstep(lo.y - aa, lo.y + aa, q.y) * smoothstep(hi.y + aa, hi.y - aa, q.y) * (step(lo.x - 0.09, q.x) * step(q.x, lo.x) + step(hi.x, q.x) * step(q.x, hi.x + 0.09));
+                    float hw = hash21(float2(floor(u / 37.0), N.x * 3.0 + N.z * 7.0));
+                    float3 shCol = hw < 0.33 ? float3(0.03, 0.09, 0.05) : (hw < 0.66 ? float3(0.12, 0.05, 0.03) : float3(0.03, 0.06, 0.12));
+                    albedo = mix(albedo, shCol * (0.8 + 0.4 * fract(q.y * 14.0)), sh);
+                } else if (vv < 0.0 && v > 0.0) {
+                    // the ground floor: shop windows between piers, a name board over each
+                    float bay = cw * 2.0, sid = floor(u / bay), hs = hash21(float2(sid, 1.0));
+                    float2 sq = float2(fract(u / bay), v / 4.4);
+                    float shop = smoothstep(0.06, 0.075, sq.x) * smoothstep(0.94, 0.925, sq.x) * step(0.13, sq.y) * step(sq.y, 0.72) * lod;
+                    float board = step(0.77, sq.y) * step(sq.y, 0.95) * step(0.04, sq.x) * step(sq.x, 0.96) * lod * step(0.3, fract(hs * 5.1));
+                    albedo = mix(wall * 0.8, float3(0.015, 0.02, 0.028) + f.horizon.rgb * 0.03, shop);
+                    albedo = mix(albedo, 0.45 * fract(hs * float3(1.0, 7.3, 13.7)) + 0.04, board);
+                    gloss = mix(gloss, 0.85, shop);
+                    glow = float3(1.0, 0.85, 0.62) * (shop * dusk * 0.55 * step(0.35, fract(hs * 3.3)));
+                }
             } else if (kind == 5) {
                 float rib = cos(u * 31.4);
                 N = normalize(N + T * rib * 0.3 * lod);
@@ -212,7 +266,7 @@ fragment float4 sceneFS(VOut in [[stage_in]], constant Frame& f [[buffer(1)]], c
                 albedo = mix(albedo, float3(0.4, 0.38, 0.34), 0.5 * mortar);
             }
         } else if (N.y > 0.5) {
-            float n = fbm(wp.xz * 0.9);
+            float n = fbm2(wp.xz * 0.9);
             albedo = (kind == 5 ? albedo * (0.9 + 0.1 * cos(wp.x * 31.4)) : mix(albedo, float3(0.16, 0.16, 0.17), 0.55)) * (0.8 + 0.4 * n);
         }
     }
@@ -267,11 +321,67 @@ fragment float4 sceneFS(VOut in [[stage_in]], constant Frame& f [[buffer(1)]], c
         float3 bump = float3(h0 - hx, 0.0, h0 - hz);
         float bumpAmt = 0.6 * mott;
 
+        // what the ground is made of, read from its colour: turf, snow, sand, or bare earth, gravel and paving
+        float3 c0 = pow(in.col.rgb, float3(2.2));
+        float mx = max(c0.r, max(c0.g, c0.b)), mn = min(c0.r, min(c0.g, c0.b)), sat = (mx - mn) / max(mx, 0.001);
+        float wGrass = smoothstep(0.0, 0.04, c0.g - max(c0.r, c0.b));
+        float wSnow = smoothstep(0.5, 0.75, mn) * (1.0 - wGrass);
+        float wSand = (1.0 - wGrass) * (1.0 - wSnow) * smoothstep(0.2, 0.4, sat) * smoothstep(0.85, 0.65, sat) * step(c0.b, c0.r) * smoothstep(0.2, 0.4, mx);
+        float wBare = (1.0 - wGrass) * (1.0 - wSnow) * (1.0 - wSand);
+        float nf = exp(-dist * 0.03), mf = exp(-dist * 0.007);
+        float3 relief = float3(0.0);
+        float wob = detail;
+        float2 pw = p + float2(wob, 1.7 * wob) * 0.7;                                   // the ground plan, pulled about a little
+        if (wGrass > 0.01) {
+            // turf grows in clumps, dries out in patches, and close to shows its tufts
+            albedo *= mix(1.0, 0.78 + 0.44 * smoothstep(0.3, 0.7, detail), wGrass * mf * 0.8);
+            albedo = mix(albedo, albedo * float3(1.3, 1.12, 0.7), wGrass * 0.45 * smoothstep(0.55, 0.8, macro));
+            if (nf > 0.02) { float2 tf = jcell(pw * 7.0); albedo *= mix(1.0, 0.74 + 0.5 * tf.x + 0.2 * (tf.y - 0.5), wGrass * nf); }
+        }
+        if (wSand > 0.01) {
+            // sand: wind ripples, grains
+            float ph = dot(p, float2(0.8, 0.6)) * 13.0 + 4.0 * wob;
+            albedo *= 1.0 + wSand * nf * (0.03 * sin(ph) + 0.12 * (hash21(floor(p * 90.0)) - 0.5));
+            albedo *= 1.0 + wSand * mf * 0.16 * (detail - 0.5);
+            relief += float3(0.8, 0.0, 0.6) * (cos(ph) * 0.06 * wSand * nf);
+        }
+        if (wSnow > 0.01) {
+            // snow: crystals that catch the sun
+            float glint = pow(vnoise(p * 85.0 + V.xz * 22.0), 22.0);
+            glow += f.sunColor.rgb * (glint * 2.5 * wSnow * nf * saturate(L.y * 3.0));
+        }
+        if (wBare > 0.01) {
+            int paving = int(f.pano.x + 0.5);
+            if (paving == 1) {
+                // concrete laid in slabs, stained where things have stood
+                float2 q = fract(p / 3.2), id = floor(p / 3.2);
+                float joint = max(smoothstep(0.012, 0.0, min(q.x, 1.0 - q.x)), smoothstep(0.012, 0.0, min(q.y, 1.0 - q.y)));
+                float lodp = saturate(1.5 - fwidth(p.x) * 2.0);
+                albedo *= mix(1.0, (0.9 + 0.2 * hash21(id)) * (1.0 - 0.45 * joint * lodp), wBare);
+                albedo *= 1.0 - 0.3 * wBare * smoothstep(0.6, 0.85, vnoise(p * 0.21 + 30.0));
+                albedo *= 1.0 + wBare * nf * 0.16 * (hash21(floor(p * 40.0)) - 0.5);
+            } else if (paving == 2) {
+                // cobbles: courses of stones, every other course shifted, each stone its own grey
+                float2 q = p * 4.5;
+                float row = floor(q.y);
+                q.x += 0.5 * fract(row * 0.5) + 0.3 * hash21(float2(row, 5.0));
+                float2 fq = fract(q);
+                float edge = min(min(fq.x, 1.0 - fq.x), min(fq.y, 1.0 - fq.y));
+                float lodp = saturate(1.5 - fwidth(p.x) * 5.0);
+                albedo *= mix(1.0, (0.78 + 0.44 * hash21(floor(q))) * (1.0 - 0.5 * smoothstep(0.1, 0.02, edge)), wBare * lodp);
+            } else {
+                // earth and gravel: patches, and stones lying on it
+                albedo *= mix(1.0, 0.92 + 0.16 * detail, wBare * mf);
+                if (nf > 0.02) { float2 pb = jcell(pw * 6.0); albedo *= mix(1.0, 0.82 + 0.4 * pb.y, smoothstep(0.34, 0.2, pb.x) * wBare * nf); }
+            }
+        }
         // steep ground is rock: layered, cracked, darker in the gullies
         float steep = smoothstep(0.86, 0.62, N.y);
         if (steep > 0.0) {
+            float2 blk = jcell(float2(pw.x + pw.y, in.wp.y + 2.0 * wob) * 0.3);
+            albedo *= 1.0 + steep * ((blk.y - 0.5) * 0.3 - 0.2 * smoothstep(0.45, 0.6, blk.x));
             float strata = vnoise(float2(in.wp.y * 0.42 + 3.0 * fbm2(p * 0.013), 1.7));
-            float crack = fbm(float2(p.x + p.y, in.wp.y * 2.0) * 0.11);
+            float crack = fbm2(float2(p.x + p.y, in.wp.y * 2.0) * 0.11);
             albedo *= 1.0 + steep * ((strata - 0.5) * 0.5 + (crack - 0.5) * 0.5);
             bumpAmt = mix(bumpAmt, 1.3, steep);
         }
@@ -311,7 +421,7 @@ fragment float4 sceneFS(VOut in [[stage_in]], constant Frame& f [[buffer(1)]], c
                 albedo = mix(albedo, dirt, inside);
             }
         }
-        N = normalize(N + bump * (bumpAmt * bumpFade));
+        N = normalize(N + bump * (bumpAmt * bumpFade) + relief * (1.0 - inside));
     } else if (dot(N, V) < 0.0) {
         N = -N;
     }

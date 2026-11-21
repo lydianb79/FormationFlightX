@@ -36,8 +36,9 @@ extension Terrain {
     }
 
     /// A pitched roof over a rectangle whose eaves are at `c`; the ridge runs the long way. Hipped, the ends slope too.
-    func roof(_ c: V3, _ sx: Float, _ sz: Float, rise: Float, yaw: Float, _ color: V4, gable: V4, over: Float = 0.5, hip: Bool = false) {
-        if sz > sx { roof(c, sz, sx, rise: rise, yaw: yaw + .pi / 2, color, gable: gable, over: over, hip: hip); return }
+    func roof(_ c: V3, _ sx: Float, _ sz: Float, rise: Float, yaw: Float, _ plain: V4, gable: V4, over: Float = 0.5, hip: Bool = false, tiled: Bool = true) {
+        if sz > sx { roof(c, sz, sx, rise: rise, yaw: yaw + .pi / 2, plain, gable: gable, over: over, hip: hip, tiled: tiled); return }
+        let color = tiled && plain.w < 1.5 ? surf(plain, 10) : plain
         let q = yq(yaw), w = sx / 2 + over, d = sz / 2 + over, rx = hip ? max(w - d, 0) : w
         func P(_ x: Float, _ y: Float, _ z: Float) -> V3 { c + q.act(V3(x, y, z)) }
         decor.quad(P(-w, 0, d), P(w, 0, d), P(rx, rise, 0), P(-rx, rise, 0), color)
@@ -329,7 +330,7 @@ extension Terrain {
             let p = V3(x, g, z) + q.act(V3(s * sx / 2, 0, t * sz / 2))
             decor.cylinder(from: p, to: p + V3(0, poles, 0), r0: 0.05, r1: 0.05, seg: 5, color: V4(0.4, 0.3, 0.2, 0.05))
         } } }
-        roof(V3(x, g + poles, z), sx, sz, rise: poles > 0 ? 0.9 : min(sx, sz) * 0.55, yaw: yaw, cloth, gable: cloth, over: 0.2)
+        roof(V3(x, g + poles, z), sx, sz, rise: poles > 0 ? 0.9 : min(sx, sz) * 0.55, yaw: yaw, cloth, gable: cloth, over: 0.2, tiled: false)
         guardBox(V3(x, g + (poles + 0.9) / 2, z), V3(sx, poles + 0.9, sz), yaw: yaw)
     }
 

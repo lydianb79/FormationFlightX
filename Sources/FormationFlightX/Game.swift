@@ -27,6 +27,7 @@ struct HUDState {
     var mapHome: SIMD2<Float> = .zero       // the pilots' position: x to the right, y ahead, metres
     var mapNorth: Float = 0                 // where north is, clockwise from straight ahead
     var onboard = false
+    var smoke = false
 }
 
 /// Another aircraft on the map. `name` is set for a real pilot and empty for a computer partner.
@@ -395,6 +396,8 @@ final class Game {
         if isFPV { cameraMode = 2 } else if cameraMode == 2 { cameraMode = 1 }
         camSnap = true
     }
+    /// The button in the display, and the key: smoke on, smoke off.
+    func toggleSmoke() { smokeOn.toggle(); say(smokeOn ? "Smoke on" : "Smoke off") }
     /// The button in the display: from on board to behind the aircraft and back.
     func toggleFPV() {
         if site.panorama != nil { cameraMode = 0; say("Photo sites use the pilot camera only"); return }
@@ -491,7 +494,7 @@ final class Game {
         case 31: nextFormation()
         case 32: takeLead()
         case 34: nextSpacing()
-        case 16: smokeOn.toggle(); say(smokeOn ? "Smoke on" : "Smoke off")
+        case 16: toggleSmoke()
         case 37: input.lowRates.toggle(); say(input.lowRates ? String(format: "Low rates (%.0f%%)", input.lowRateInUse * 100) : "High rates")
         case 24: trim(1)
         case 27: trim(-1)
@@ -929,6 +932,7 @@ final class Game {
         let dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
         s.wind = env.windSpeed < 0.1 ? "Calm" : String(format: "%@ %.0f m/s", dirs[Int((env.windFrom + 22.5) / 45) % 8], env.windSpeed)
         s.onboard = cameraMode == 2
+        s.smoke = smokeOn
         s.camera = Game.cameraNames[cameraMode] + (cameraMode == 0 ? " · " + Game.zoomNames[zoomMode] : "")
         s.mode = spec.modes.count > 1 ? spec.modes[flightMode] : ""
         s.input = autopilotOn ? "Demo pilot" : input.source
