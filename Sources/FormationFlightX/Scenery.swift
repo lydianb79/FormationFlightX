@@ -233,6 +233,27 @@ extension Terrain {
                 }
             }
         }
+        if site.layout == 13 {
+            // vineyards: blocks of rows combing the slopes, each row a low green hedge that follows the ground
+            let blocks = SiteSpec.vineBlocks
+            for (cx, cz, w, d, ang) in blocks {
+                let q = simd_quatf(angle: ang, axis: V3(0, 1, 0))
+                var v: Float = -d / 2
+                while v <= d / 2 {
+                    var u: Float = -w / 2
+                    while u <= w / 2 {
+                        let o = q.act(V3(u, 0, v)), x = cx + o.x, z = cz + o.z
+                        u += 7
+                        if (abs(x) < 115 && z > -60 && z < 90) || (x - 230) * (x - 230) + (z + 235) * (z + 235) < 55 * 55 { continue }
+                        let g = rng.next()
+                        let c = V3(x, (height(x - 3, z) + height(x + 3, z)) / 2 + 0.7, z)
+                        let slope = atan2(height(x + o.x * 0 + q.act(V3(3, 0, 0)).x, z + q.act(V3(3, 0, 0)).z) - height(x - q.act(V3(3, 0, 0)).x, z - q.act(V3(3, 0, 0)).z), 6)
+                        b.box(center: c, size: V3(7.2, 1.5, 0.9), color: V4(0.2 + 0.1 * g, 0.5 + 0.12 * g, 0.12, 0.25), rot: q * simd_quatf(angle: slope, axis: V3(0, 0, 1)))
+                    }
+                    v += 3.4
+                }
+            }
+        }
         // bushes and hedges near the field
         let pal = site.pal
         let bushCol = leaf(pal.bush.x, pal.bush.y, pal.bush.z)
@@ -246,7 +267,7 @@ extension Terrain {
             bush(&b, at: gy(x, z), size: rng.range(0.7, 2.2), color: bushCol, rng: &rng)
             placed += 1
         }
-        if site.style != 1 && site.surroundings != 3 && site.facility == 0 && site.palette != 4 {
+        if site.clubhouse && site.style != 1 && site.surroundings != 3 && site.facility == 0 && site.palette != 4 {
             // hedge behind the pits and along the access road
             var x: Float = -hl - 10
             while x < hl + 10 {
@@ -447,6 +468,7 @@ extension Terrain {
         b.box(center: board + V3(0, 1.35, 0), size: V3(1.6, 0.9, 0.05), color: cg(0.15, 0.3, 0.2))
         for i in 0..<8 { b.box(center: board + V3(-0.6 + Float(i % 4) * 0.4, 1.5 - Float(i / 4) * 0.35, -0.03), size: V3(0.25, 0.2, 0.02), color: [cg(0.9, 0.2, 0.2), cg(0.95, 0.8, 0.2), cg(0.9, 0.9, 0.9), cg(0.2, 0.5, 0.9)][i % 4]) }
 
+        if site.clubhouse {
         // --- clubhouse with porch, storage container, toilet, flagpole
         let club = gy(-48, hw + 34)
         let wall = site.style == 1 ? cg(0.85, 0.8, 0.7) : (site.style == 2 ? cg(0.42, 0.3, 0.2) : cg(0.7, 0.28, 0.2))
@@ -461,6 +483,7 @@ extension Terrain {
         b.cylinder(from: flag, to: flag + V3(0, 7, 0), r0: 0.05, r1: 0.035, seg: 8, color: steel)
         b.blob(center: flag + V3(0, 7.05, 0), radii: V3(0.07, 0.07, 0.07), color: cg(0.85, 0.7, 0.2, 0.8), seg: 8, rings: 4, seed: 1, lump: 0)
 
+        }
         // --- pits: shade canopy, tables, people
         let s0 = gy(18, hw + 16)
         for (dx, dz) in [(Float(-3.2), Float(-2.2)), (3.2, -2.2), (3.2, 2.2), (-3.2, 2.2)] {
@@ -486,6 +509,7 @@ extension Terrain {
             b.cylinder(from: gy(bx, hw + 20), to: gy(bx, hw + 20) + V3(0, 0.85, 0), r0: 0.27, r1: 0.3, seg: 10, color: cg(0.2, 0.35, 0.22, 0.2))
         }
 
+        if site.clubhouse {
         // --- gravel car park and access road, vehicles
         let park = gy(-27, hw + 40)
         let gravel = site.style == 1 ? cg(0.62, 0.55, 0.45) : cg(0.5, 0.48, 0.44)
@@ -501,6 +525,7 @@ extension Terrain {
         for s in [Float(-0.9), 0.9] { b.cylinder(from: tr + V3(s - 0.08, 0.3, 0.3), to: tr + V3(s + 0.08, 0.3, 0.3), r0: 0.3, r1: 0.3, seg: 10, color: cg(0.05, 0.05, 0.05)) }
         b.box(center: tr + V3(0, 0.45, -2.1), size: V3(0.08, 0.08, 1.2), color: steel)
 
+        }
         // --- runway edge cones, windsock pole, wind tee
         x = -hl
         while x <= hl + 0.1 {

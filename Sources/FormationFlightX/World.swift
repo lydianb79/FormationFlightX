@@ -54,6 +54,9 @@ struct SiteSpec {
     var flatHalfX: Float? = nil         // half-width of the levelled ground along the runway, if wider than the runway
     var layout = 0                      // what is built here: 0 nothing, 1-3 race tracks, 4-5 obstacle courses, 6-7 cities
     var cruiseAlt: Float = 38           // height at which the computer lead flies its racetrack: clear of everything built
+    var clubhouse = true                // the model club's hut, car park and hedge behind the flight line
+    var treeRange: Float = 1300         // trees are scattered this far out from the field
+    var patchwork = false               // farmland: the country round about is divided into fields of different crops
 
     /// 3D sites only: every pilot in a formation has to be in the same place, which a photo cannot give.
     static var all: [SiteSpec] = builtIn
@@ -151,20 +154,95 @@ struct SiteSpec {
         make("Container Yard", key: "containers", style: 0, seed: 571, runway: (220, 18, 0), flat: (-90, 200), trees: 0, wind: (300, 3, 0.3), mu: 0.035, cloud: 0.6, fog: 0.00014,
              category: "Obstacles", difficulty: 4,
              info: "Seven rows of stacked shipping containers with lanes between them just wide enough for a formation in line astern, gaps to dart through, and two gantry cranes to fly under.") {
-            $0.terrain = 31; $0.palette = 28; $0.flatHalfX = 290; $0.layout = 5; $0.extras = 3; $0.cruiseAlt = 55
+            $0.terrain = 31; $0.palette = 28; $0.flatHalfX = 290; $0.layout = 5; $0.clubhouse = false; $0.extras = 3; $0.cruiseAlt = 55
         },
         // ---- cities
         make("Downtown", key: "downtown", style: 0, seed: 587, runway: (260, 20, 0), flat: (-80, 360), trees: 240, wind: (270, 3, 0.4), mu: 0.035, cloud: 0.35, fog: 0.00016,
              category: "Cities", difficulty: 5,
              info: "A city centre: towers up to a hundred and twenty metres on a grid of streets twenty-four metres wide, with walkways across the avenues. You stand in a square beside a boulevard; the avenue ahead is your way in.") {
-            $0.terrain = 31; $0.palette = 28; $0.flatHalfX = 540; $0.layout = 6; $0.extras = 3; $0.cruiseAlt = 140; $0.defaultTime = 2; $0.treeClear = SIMD2(60, 60)
+            $0.terrain = 31; $0.palette = 28; $0.flatHalfX = 540; $0.layout = 6; $0.clubhouse = false; $0.extras = 3; $0.cruiseAlt = 140; $0.defaultTime = 2; $0.treeClear = SIMD2(60, 60)
         },
         make("Harbour Town", key: "harbour", style: 0, seed: 601, runway: (200, 16, 0), flat: (40, 150), trees: 200, wind: (0, 5, 0.3), mu: 0.035, cloud: 0.45, fog: 0.00013,
              category: "Cities", difficulty: 4,
              info: "A port: low streets behind the quay, cranes with their booms out over the water, two ships alongside, and a long bridge across the harbour mouth with twenty-six metres of air under its deck.") {
-            $0.terrain = 34; $0.palette = 28; $0.flatHalfX = 400; $0.flatBlend = 60; $0.layout = 7; $0.extras = 3; $0.cruiseAlt = 95; $0.waterLevel = -1.2; $0.waterColor = V3(0.03, 0.13, 0.19); $0.treeClear = SIMD2(60, 60)
+            $0.terrain = 34; $0.palette = 28; $0.flatHalfX = 400; $0.flatBlend = 60; $0.layout = 7; $0.clubhouse = false; $0.extras = 3; $0.cruiseAlt = 95; $0.waterLevel = -1.2; $0.waterColor = V3(0.03, 0.13, 0.19); $0.treeClear = SIMD2(60, 60)
+        },
+        // ---- second series
+        make("Lakeside Loop", key: "lakeside", style: 0, seed: 613, runway: (130, 11, 1), flat: (12, 36), trees: 1100, wind: (230, 3, 0.2), mu: 0.06, cloud: 0.35, fog: 0.00011,
+             category: "Race Tracks", difficulty: 3,
+             info: "Eight gates round a lake: four on the shore, four standing in the water with three metres of air under them. A jetty, a boathouse and a few boats at anchor; the water is as hard as the ground.") {
+            $0.terrain = 36; $0.palette = 31; $0.treeKind = 7; $0.treeThreshold = 0.46; $0.waterLevel = -1.6; $0.waterColor = V3(0.03, 0.2, 0.26); $0.flatBlend = 70; $0.layout = 8; $0.extras = 3; $0.patchwork = true
+        },
+        make("Wind Farm", key: "windfarm", style: 0, seed: 631, runway: (160, 12, 1), flat: (12, 40), trees: 160, wind: (265, 7, 0.3), mu: 0.06, cloud: 0.45, fog: 0.0001,
+             category: "Obstacles", difficulty: 3,
+             info: "Seven wind turbines on open upland, a hundred and twenty metres to the blade tips, with a measuring mast held up by wires and a line of pylons leaving the substation. Fly between the towers, under the hubs, round the mast.") {
+            $0.terrain = 37; $0.palette = 32; $0.layout = 9; $0.cruiseAlt = 150; $0.treeThreshold = 0.6; $0.extras = 3; $0.patchwork = true
+        },
+        make("Old Town", key: "oldtown", style: 0, seed: 641, runway: (110, 12, 2), flat: (-40, 250), trees: 420, wind: (250, 2, 0.35), mu: 0.045, cloud: 0.4, fog: 0.00014,
+             category: "Cities", difficulty: 5,
+             info: "A walled town on a river: steep red roofs over narrow streets, a church with a fifty-metre spire, a gate in the wall to fly through, a low stone bridge and a tall aqueduct with arches wide enough for a wing.") {
+            $0.terrain = 38; $0.palette = 33; $0.flatHalfX = 420; $0.flatBlend = 60; $0.layout = 10; $0.extras = 3; $0.cruiseAlt = 90; $0.clubhouse = false
+            $0.waterLevel = -2.2; $0.waterColor = V3(0.05, 0.16, 0.14); $0.treeClear = SIMD2(330, 60); $0.treeThreshold = 0.45; $0.patchwork = true
+        },
+        make("Gravel Works", key: "gravelworks", style: 1, seed: 653, runway: (150, 12, 2), flat: (-40, 150), trees: 520, wind: (240, 3, 0.3), mu: 0.05, cloud: 0.3, fog: 0.00012,
+             category: "Industrial", difficulty: 4,
+             info: "A working gravel pit: a silo tower with conveyor belts climbing to it from the pit and running out to the stockpiles, screening halls, hoppers on stilts and a tower crane. The belts are high enough to fly under; the pit is twenty metres deep with a pond at the bottom.") {
+            $0.terrain = 39; $0.palette = 34; $0.flatHalfX = 200; $0.flatBlend = 60; $0.layout = 11; $0.extras = 3; $0.treeKind = 7; $0.cruiseAlt = 80; $0.clubhouse = false
+            $0.waterLevel = -21.5; $0.waterColor = V3(0.07, 0.26, 0.24); $0.treeClear = SIMD2(260, 120); $0.treeThreshold = 0.48
+        },
+        make("Power Station", key: "powerstation", style: 0, seed: 661, runway: (200, 16, 0), flat: (-60, 260), trees: 260, wind: (290, 4, 0.35), mu: 0.035, cloud: 0.55, fog: 0.00016,
+             category: "Industrial", difficulty: 4,
+             info: "Two cooling towers a hundred metres high, two striped chimneys half as high again, a boiler house, a coal conveyor and a switchyard with its pylons. Big things, wide gaps: room for a whole formation between the towers.") {
+            $0.terrain = 31; $0.palette = 35; $0.flatHalfX = 500; $0.layout = 12; $0.extras = 3; $0.cruiseAlt = 170; $0.clubhouse = false; $0.treeClear = SIMD2(330, 120)
+        },
+        make("Vineyard Hills", key: "vineyard", style: 0, seed: 673, runway: (150, 12, 1), flat: (12, 38), trees: 260, wind: (200, 2, 0.2), mu: 0.06, cloud: 0.25, fog: 0.00012,
+             category: "Fields", difficulty: 2,
+             info: "A grass strip among vineyards on rolling hills, the rows of vines combing every slope, a wine estate with its tower on the knoll to the right and cypresses along the road to it. Hardly any wind.") {
+            $0.terrain = 40; $0.palette = 36; $0.treeKind = 5; $0.treeThreshold = 0.6; $0.layout = 13; $0.patchwork = true; $0.flatBlend = 120
+        },
+        make("Seaside Airport", key: "airport", style: 0, seed: 683, runway: (640, 30, 0), flat: (50, 170), trees: 300, wind: (280, 5, 0.25), mu: 0.035, cloud: 0.4, fog: 0.0001,
+             category: "Airfields", difficulty: 2,
+             info: "A small airport by the sea: 640 metres of asphalt, a glass terminal with three airliners on the apron, a control tower, hangars, a fuel farm and approach lights at both ends. All the room in the world for five abreast.") {
+            $0.terrain = 41; $0.palette = 37; $0.flatHalfX = 470; $0.layout = 14; $0.extras = 3; $0.clubhouse = false; $0.cruiseAlt = 60; $0.treeClear = SIMD2(160, 110)
+            $0.waterLevel = -3; $0.waterColor = V3(0.03, 0.17, 0.25); $0.patchwork = true
+        },
+        make("Glacier Valley", key: "glacier", style: 2, seed: 691, runway: (150, 12, 1), flat: (10, 36), trees: 900, wind: (190, 4, 0.35), mu: 0.06, cloud: 0.3, fog: 0.00008,
+             category: "Mountains", difficulty: 4,
+             info: "A meadow on the floor of a valley with walls seven hundred metres high. A milky green lake lies in front of you, hay barns dot the pasture, and at the head of the valley a glacier comes down between the peaks.") {
+            $0.terrain = 42; $0.palette = 38; $0.treeKind = 2; $0.treeThreshold = 0.45; $0.waterLevel = -3.2; $0.waterColor = V3(0.05, 0.34, 0.36); $0.layout = 15; $0.flatBlend = 80
+        },
+        make("Lighthouse Point", key: "lighthouse", style: 0, seed: 701, runway: (140, 11, 1), flat: (14, 40), trees: 110, wind: (300, 6, 0.3), mu: 0.06, cloud: 0.4, fog: 0.00011,
+             category: "Water", difficulty: 3,
+             info: "A clifftop meadow above the sea, a striped lighthouse out on the point to the right, stacks of rock standing in the water and a natural arch to fly through. Lift along the cliff edge when the wind is onshore.") {
+            $0.terrain = 43; $0.palette = 39; $0.waterLevel = -24; $0.waterColor = V3(0.02, 0.14, 0.22); $0.treeThreshold = 0.6; $0.flatBlend = 60; $0.layout = 16; $0.extras = 3; $0.cruiseAlt = 60
+        },
+        make("Monument Mesa", key: "monument", style: 1, seed: 709, runway: (220, 18, 2), flat: (10, 55), trees: 140, wind: (150, 4, 0.35), mu: 0.05, cloud: 0.12, fog: 0.00006,
+             category: "Desert", difficulty: 3,
+             info: "A red plain with flat-topped buttes two hundred metres high standing on the horizon, three needles of rock close by and a natural arch you can take a formation through. Low evening sun and long shadows.") {
+            $0.terrain = 44; $0.palette = 40; $0.layout = 17; $0.extras = 1; $0.cruiseAlt = 95; $0.defaultTime = 2; $0.treeKind = 1
+        },
+        make("Ski Resort", key: "skiresort", style: 2, seed: 719, runway: (160, 14, 3), flat: (15, 40), trees: 5200, wind: (320, 3, 0.3), mu: 0.08, cloud: 0.3, fog: 0.0001,
+             category: "Winter", difficulty: 4,
+             info: "The valley station of a ski area: the mountain rises in front of you, three pistes come down through snowy forest, and a chairlift climbs beside them with its cable and chairs. Chalets round the strip; the lift cable is solid.") {
+            $0.terrain = 45; $0.palette = 41; $0.treeKind = 6; $0.treeThreshold = 0.3; $0.treeRange = 900; $0.layout = 18; $0.flatBlend = 90; $0.cruiseAlt = 50; $0.keepFrontClear = false; $0.treeClear = SIMD2(70, 40)
         },
     ]
+
+    /// Vineyard Hills: the blocks of vines, as centre, size and the angle of the rows.
+    static let vineBlocks: [(Float, Float, Float, Float, Float)] = [(-235, -200, 240, 170, 0.2), (40, -340, 260, 140, -0.15), (330, -40, 150, 170, 1.2),
+                                                                     (-330, 120, 200, 180, 0.6), (250, 200, 220, 150, -0.4), (-60, 270, 240, 130, 0.1)]
+    static func inVines(_ x: Float, _ z: Float) -> Bool {
+        for (cx, cz, w, d, ang) in vineBlocks {
+            let c = cos(ang), s = sin(ang), dx = x - cx, dz = z - cz
+            if abs(dx * c - dz * s) < w / 2 + 2 && abs(dx * s + dz * c) < d / 2 + 2 { return true }
+        }
+        return false
+    }
+
+    /// Ski Resort: where piste `k` runs, as its x at a given z.
+    static func pisteX(_ k: Int, _ z: Float) -> Float {
+        switch k { case 0: return -170 + 70 * sin(z / 310); case 1: return 30 + 45 * sin(z / 250 + 1); default: return 250 + 60 * sin(z / 340 + 2.4) }
+    }
 }
 
 /// Ground, grass and bush colours for a landscape.
@@ -279,6 +357,39 @@ struct Palette {
         // 30 pale sandstone
         Palette(a: rgb(0.72, 0.58, 0.40), b: rgb(0.64, 0.46, 0.30), rock: rgb(0.7, 0.46, 0.28), high: rgb(0.68, 0.5, 0.34), highFrom: 30, highTo: 120,
                 grassBase: rgb(0.5, 0.42, 0.24), grassTip: rgb(0.72, 0.62, 0.4), grassCount: 3000, bush: rgb(0.4, 0.44, 0.26), bushCount: 90, flowers: false, dust: rgb(0.84, 0.7, 0.5), ground: 4),
+        // 31 lakeside meadow
+        Palette(a: rgb(0.25, 0.40, 0.15), b: rgb(0.36, 0.46, 0.18), rock: rgb(0.42, 0.4, 0.37), high: rgb(0.16, 0.28, 0.13), highFrom: 90, highTo: 240, shore: rgb(0.62, 0.58, 0.46),
+                grassBase: rgb(0.15, 0.27, 0.09), grassTip: rgb(0.36, 0.48, 0.18), bush: rgb(0.18, 0.34, 0.12), bushCount: 200),
+        // 32 upland pasture
+        Palette(a: rgb(0.36, 0.42, 0.19), b: rgb(0.50, 0.48, 0.24), rock: rgb(0.44, 0.42, 0.38), high: rgb(0.3, 0.34, 0.18), highFrom: 90, highTo: 240,
+                grassBase: rgb(0.24, 0.28, 0.1), grassTip: rgb(0.56, 0.54, 0.26), grassCount: 30000, bush: rgb(0.3, 0.36, 0.16), bushCount: 120),
+        // 33 old town: beaten earth and cobbles, green beyond the walls
+        Palette(a: rgb(0.47, 0.44, 0.39), b: rgb(0.40, 0.38, 0.34), rock: rgb(0.42, 0.4, 0.37), high: rgb(0.26, 0.38, 0.16), highFrom: 5, highTo: 26, shore: rgb(0.36, 0.36, 0.3),
+                grassBase: rgb(0.2, 0.3, 0.1), grassTip: rgb(0.4, 0.5, 0.2), grassCount: 0, bush: rgb(0.2, 0.36, 0.14), bushCount: 0, flowers: false, dust: rgb(0.6, 0.57, 0.5), ground: 0),
+        // 34 gravel works: gravel and sand, green hills beyond
+        Palette(a: rgb(0.50, 0.47, 0.39), b: rgb(0.60, 0.55, 0.43), rock: rgb(0.5, 0.48, 0.44), high: rgb(0.27, 0.38, 0.16), highFrom: 7, highTo: 30, shore: rgb(0.5, 0.5, 0.44),
+                grassBase: rgb(0.24, 0.3, 0.12), grassTip: rgb(0.5, 0.52, 0.28), grassCount: 3500, bush: rgb(0.24, 0.34, 0.14), bushCount: 60, flowers: false, dust: rgb(0.66, 0.62, 0.55), ground: 4),
+        // 35 works ground: worn grass and cinders
+        Palette(a: rgb(0.36, 0.40, 0.25), b: rgb(0.44, 0.43, 0.37), rock: rgb(0.4, 0.4, 0.4), high: rgb(0.22, 0.34, 0.16), highFrom: 20, highTo: 100,
+                grassBase: rgb(0.2, 0.28, 0.1), grassTip: rgb(0.44, 0.48, 0.22), grassCount: 9000, bush: rgb(0.2, 0.34, 0.14), bushCount: 40, flowers: false, dust: rgb(0.55, 0.54, 0.5)),
+        // 36 vineyard country
+        Palette(a: rgb(0.34, 0.47, 0.18), b: rgb(0.50, 0.52, 0.24), rock: rgb(0.55, 0.48, 0.38), high: rgb(0.28, 0.4, 0.17), highFrom: 80, highTo: 200,
+                grassBase: rgb(0.3, 0.33, 0.12), grassTip: rgb(0.66, 0.62, 0.3), grassCount: 30000, bush: rgb(0.28, 0.38, 0.16), bushCount: 140),
+        // 37 airfield grass
+        Palette(a: rgb(0.30, 0.42, 0.18), b: rgb(0.42, 0.47, 0.22), rock: rgb(0.44, 0.42, 0.38), high: rgb(0.18, 0.3, 0.14), highFrom: 60, highTo: 200, shore: rgb(0.78, 0.72, 0.56),
+                grassBase: rgb(0.2, 0.3, 0.1), grassTip: rgb(0.46, 0.52, 0.22), grassCount: 16000, bush: rgb(0.2, 0.36, 0.14), bushCount: 60, flowers: false),
+        // 38 glacier valley
+        Palette(a: rgb(0.27, 0.44, 0.17), b: rgb(0.40, 0.50, 0.21), rock: rgb(0.43, 0.42, 0.41), high: rgb(0.94, 0.96, 0.99), highFrom: 430, highTo: 640, snowCaps: true, rockFrom: 150, rockTo: 420, shore: rgb(0.6, 0.6, 0.56),
+                grassBase: rgb(0.15, 0.28, 0.1), grassTip: rgb(0.38, 0.5, 0.2), bush: rgb(0.16, 0.3, 0.14)),
+        // 39 clifftop turf
+        Palette(a: rgb(0.30, 0.44, 0.18), b: rgb(0.44, 0.48, 0.22), rock: rgb(0.40, 0.37, 0.33), high: rgb(0.2, 0.32, 0.15), highFrom: 40, highTo: 140, shore: rgb(0.34, 0.32, 0.29),
+                grassBase: rgb(0.2, 0.3, 0.1), grassTip: rgb(0.48, 0.54, 0.24), grassCount: 30000, bush: rgb(0.24, 0.34, 0.14), bushCount: 140, dust: rgb(0.6, 0.56, 0.46)),
+        // 40 red mesa country
+        Palette(a: rgb(0.70, 0.38, 0.24), b: rgb(0.62, 0.31, 0.19), rock: rgb(0.55, 0.25, 0.15), high: rgb(0.62, 0.3, 0.19), highFrom: 30, highTo: 120,
+                grassBase: rgb(0.46, 0.42, 0.26), grassTip: rgb(0.7, 0.64, 0.42), grassCount: 5000, bush: rgb(0.42, 0.46, 0.3), bushCount: 130, flowers: false, dust: rgb(0.78, 0.45, 0.28), ground: 4),
+        // 41 ski slopes
+        Palette(a: rgb(0.92, 0.94, 0.98), b: rgb(0.85, 0.88, 0.95), rock: rgb(0.38, 0.39, 0.42), high: rgb(0.97, 0.98, 1.0), highFrom: 200, highTo: 500, snowCaps: true,
+                grassBase: rgb(0.45, 0.38, 0.22), grassTip: rgb(0.7, 0.62, 0.4), grassCount: 0, bush: rgb(0.3, 0.3, 0.26), bushCount: 20, flowers: false, dust: rgb(0.95, 0.96, 0.98), ground: 2),
     ]
 }
 
@@ -308,14 +419,15 @@ final class Terrain {
         s.terrain = 31; s.treeCount = 0; s.layout = 0; s.waterLevel = nil
         return Terrain(site: s)
     }()
-    let n = 257
-    let cell: Float = 24
+    let n = 385
+    let cell: Float = 16
     let half: Float
     var h: [Float]
     let site: SiteSpec
     var trees: [Tree] = []
     var boxes: [SolidBox] = []          // everything built here that a wing can hit
     var gates: [Gate] = []              // race gates, in the order they are flown
+    var decor = MeshBuilder()           // what is built here that is only looked at: roofs, cables, lamps, markings
 
     init(site: SiteSpec) {
         self.site = site
@@ -470,6 +582,55 @@ final class Terrain {
         case 34:    // harbour: level quay, then the sea; hills inland
             y = 1.5 - 17 * smoothstep(232, 262, -z + 14 * (fbm(x / 300, 0.5, s + 5) - 0.5))
             y += 140 * smoothstep(420, 1500, z) * fbm(x / 700, z / 700, s + 3)
+        case 36:    // lakeside: meadow and woods round a lake in front of the pilots
+            y = 16 * (fbm(x / 600, z / 600, s) - 0.42) + 3 * (fbm(x / 130, z / 130, s + 7) - 0.5)
+            y += smoothstep(1300, 2900, r) * 300 * fbm(x / 1400, z / 1400, s + 3)
+            let dl = sqrt(x * x / (185 * 185) + (z + 270) * (z + 270) / (120 * 120)) + 0.14 * (fbm(x / 90, z / 90, s + 9) - 0.5)
+            y = lerp(-7, max(y, 0.5), smoothstep(0.88, 1.2, dl))
+        case 37:    // upland: broad open swells
+            y = 34 * (fbm(x / 760, z / 760, s) - 0.45) + 5 * (fbm(x / 170, z / 170, s + 7) - 0.5)
+            y += smoothstep(1500, 2900, r) * 220 * fbm(x / 1400, z / 1400, s + 3)
+        case 38:    // old town: level ground, a river across the front, farmland and hills beyond
+            y = 1.0 * (fbm(x / 400, z / 400, s) - 0.5)
+            let dr = abs(z + 262 - 18 * sin(x / 170))
+            y -= 6.5 * smoothstep(34, 16, dr)
+            y += smoothstep(700, 2600, r) * 190 * fbm(x / 1100, z / 1100, s + 3)
+        case 39:    // gravel works: a level yard, a pit dug in benches to the left
+            y = 2 * (fbm(x / 300, z / 300, s) - 0.5)
+            y += smoothstep(500, 2200, r) * 150 * fbm(x / 900, z / 900, s + 3)
+            let dp = sqrt((x + 400) * (x + 400) + (z + 170) * (z + 170)) + 30 * (fbm(x / 110, z / 110, s + 9) - 0.5)
+            let t = clampf((185 - dp) / 135, 0, 1) * 4
+            y = lerp(y, y - 6 * (floor(t) + smoothstep(0.7, 1, t - floor(t))), smoothstep(200, 185, dp))
+        case 40:    // vineyard hills
+            y = 52 * (fbm(x / 520, z / 520, s) - 0.45) + 6 * (fbm(x / 130, z / 130, s + 7) - 0.5)
+            y += smoothstep(1500, 2900, r) * 240 * fbm(x / 1300, z / 1300, s + 3)
+        case 41:    // airport plain, the sea beyond the far side of the runway
+            y = 5 * (fbm(x / 900, z / 900, s) - 0.5) + 170 * smoothstep(700, 2600, z) * fbm(x / 1100, z / 1100, s + 3)
+            y -= 22 * smoothstep(430, 620, -z + 60 * (fbm(x / 500, 0.3, s + 5) - 0.5))
+        case 42:    // glacier valley: a flat floor between high walls, climbing to the ice at its head
+            let side = abs(x - 70 * sin(z / 600))
+            y = 6 * (fbm(x / 140, z / 140, s + 7) - 0.5)
+            y += 780 * pow(smoothstep(170, 1000, side), 1.15) * (0.55 + 0.9 * fbm(x / 520, z / 520, s))
+            y += 0.1 * max(-z - 250, 0) + 380 * smoothstep(900, 2600, -z) * (0.5 + fbm(x / 600, z / 600, s + 4))
+            y += 300 * smoothstep(500, 2400, z) * fbm(x / 700, z / 700, s + 3)
+            let dl = sqrt((x + 130) * (x + 130) + (z + 250) * (z + 250)) + 26 * (fbm(x / 90, z / 90, s + 9) - 0.5)
+            y = lerp(y, -8, smoothstep(105, 55, dl))
+        case 43:    // clifftop: turf above the sea, a point of land running out to the right
+            let edge = -z - 135 - 150 * exp(-pow((x - 190) / 110, 2)) + 55 * (fbm(x / 260, 0.4, s + 5) - 0.5)    // positive out at sea
+            y = 5 * (fbm(x / 240, z / 240, s) - 0.5) + 50 * smoothstep(250, 1300, z) * fbm(x / 600, z / 600, s + 3)
+            y = lerp(y, -34 - 10 * smoothstep(20, 400, edge), smoothstep(-8, 14, edge))
+        case 44:    // red plain with buttes standing on it
+            y = 3 * (fbm(x / 300, z / 300, s) - 0.5)
+            for b in [(Float(-700), Float(-420), Float(160), Float(180)), (680, -560, 190, 210), (120, -1050, 140, 160), (-250, -1000, 110, 150),
+                      (-900, 300, 220, 190), (850, 250, 170, 180), (-200, 800, 250, 200)] {
+                let d = sqrt((x - b.0) * (x - b.0) + (z - b.1) * (z - b.1)) + 34 * (fbm(x / 70, z / 70, s + 6) - 0.5)
+                y += b.3 * smoothstep(b.2 + 30, b.2 - 6, d) * (0.92 + 0.16 * fbm(x / 160, z / 160, s + 2)) + 34 * smoothstep(b.2 + 170, b.2 + 20, d)
+            }
+            y += smoothstep(1300, 2500, r) * 210 * smoothstep(0.52, 0.62, fbm(x / 900, z / 900, s + 5))
+        case 45:    // ski mountain: the slope rises in front, ridges either side
+            let up = max(-z - 110, 0)
+            y = 560 * smoothstep(0, 1700, up) * (0.75 + 0.5 * fbm(x / 700, z / 700, s)) + 16 * (fbm(x / 160, z / 160, s + 7) - 0.5) * smoothstep(0, 300, up)
+            y += 300 * smoothstep(500, 2200, abs(x)) * fbm(x / 600, z / 600, s + 3) + 120 * smoothstep(300, 1800, z) * fbm(x / 800, z / 800, s + 5)
         default:    // forest floor
             y = 24 * (fbm(x / 600, z / 600, s) - 0.45) + 4 * (fbm(x / 120, z / 120, s + 7) - 0.5)
             y += smoothstep(1300, 2900, r) * 300 * fbm(x / 1400, z / 1400, s + 3)
@@ -574,7 +735,10 @@ final class Terrain {
         let kind = site.trees
         while trees.count < site.treeCount && tries < site.treeCount * 40 {
             tries += 1
-            let x = rng.range(-1300, 1300), z = rng.range(-1300, 1300)
+            let x = rng.range(-site.treeRange, site.treeRange), z = rng.range(-site.treeRange, site.treeRange)
+            if site.terrain == 42 && z < -640 && abs(x - 70 * sin(z / 600)) < 330 { continue }                                  // not on the glacier or its moraine
+            if site.terrain == 39 && (x + 400) * (x + 400) + (z + 170) * (z + 170) < 250 * 250 { continue }                     // not in the pit
+            if site.layout == 13 && SiteSpec.inVines(x, z) { continue }
             let dx = max(abs(x) - (site.runwayLen / 2 + site.treeClear.x), 0), dz = max(abs(z - site.flatCenterZ) - (site.flatHalfZ + site.treeClear.y), 0)
             if dx * dx + dz * dz < 100 { continue }
             if site.keepFrontClear && z < 0 && z > -230 && abs(x) < 320 { continue }         // keep the flying area in front of the pilot open
@@ -621,6 +785,7 @@ final class Terrain {
                 c = mix(c, pal.high, smoothstep(pal.highFrom, pal.highTo, y))
                 c = mix(c, pal.rock, steep)
             }
+            c = paint(c, x, z, y, v)
             if let wl = site.waterLevel {
                 // beach at the waterline, darker bed below it
                 c = mix(pal.shore, c, smoothstep(0.4, 2.2, y - wl))
@@ -638,6 +803,50 @@ final class Terrain {
         } }
         return b
     }
+
+    /// What people have done to the ground: fields of different crops, flooded paddies, a quarry's bare benches,
+    /// groomed pistes, and the ice of a glacier.
+    private func paint(_ c0: V4, _ x: Float, _ z: Float, _ y: Float, _ v: Float) -> V4 {
+        var c = c0
+        let s = site.seed, r = sqrt(x * x + z * z)
+        var farmland: Float? = nil
+        if site.terrain == 38 {
+            // inside the walls the ground is paved; outside it is meadow, and then fields
+            let town = (1 - smoothstep(345, 362, abs(x))) * smoothstep(-228, -214, z) * (1 - smoothstep(150, 166, z))
+            c = mix(mix(rgb(0.28, 0.42, 0.16), rgb(0.38, 0.47, 0.19), v), c, town)
+            farmland = (1 - town) * smoothstep(20, 60, abs(z + 262 - 18 * sin(x / 170)))
+        }
+        if site.patchwork {
+            // plots some 150 m across with wandering edges, each under its own crop
+            let u = x + 70 * (fbm(x / 400, z / 400, s + 61) - 0.5), w = z + 70 * (fbm(x / 400, z / 400, s + 67) - 0.5)
+            let k = hash2(Int32(floor(u / 170)), Int32(floor(w / 130)), s + 71)
+            let crop = k < 0.2 ? rgb(0.62, 0.56, 0.26) : k < 0.4 ? rgb(0.24, 0.42, 0.14) : k < 0.55 ? rgb(0.44, 0.34, 0.22) : k < 0.7 ? rgb(0.4, 0.5, 0.18) : c
+            let far = (farmland ?? smoothstep(site.runwayLen / 2 + 150, site.runwayLen / 2 + 420, r)) * smoothstep(110, 40, y) * (1 - smoothstep(0.9, 0.75, normalAt(x, z)))
+            c = mix(c, crop, 0.7 * far)
+        }
+        switch site.terrain {
+        case 21:    // terraces: every other step is a flooded paddy, the sky in it
+            let step = Int(floor((y + 1.5) / 3))
+            if step % 2 != 0 && abs(y) > 2 { c = mix(c, rgb(0.34, 0.44, 0.42), 0.6) }
+        case 39:    // the pit: bare gravel and rock
+            if y < -2.5 { c = mix(rgb(0.56, 0.53, 0.46), rgb(0.42, 0.41, 0.38), v) }
+        case 42:    // the glacier at the head of the valley, grey moraine in front of it
+            let side = abs(x - 70 * sin(z / 600))
+            let ice = smoothstep(760, 900, -z + 90 * (fbm(x / 200, z / 200, s + 13) - 0.5)) * smoothstep(300, 210, side)
+            let crev = fbm(x / 40, z / 150, s + 17)
+            c = mix(c, rgb(0.5, 0.5, 0.48), smoothstep(640, 760, -z) * smoothstep(330, 230, side) * (1 - ice))
+            c = mix(c, mix(rgb(0.86, 0.92, 0.96), rgb(0.5, 0.74, 0.86), smoothstep(0.55, 0.7, crev)), ice)
+        case 40:    // bare earth between the rows of vines
+            if SiteSpec.inVines(x, z) { c = mix(rgb(0.62, 0.53, 0.36), rgb(0.54, 0.47, 0.32), v) }
+        case 45:    // off the pistes the snow lies blue in the shade of the forest
+            var piste: Float = 0
+            for k in 0..<3 where z < -90 { piste = max(piste, smoothstep(26, 14, abs(x - SiteSpec.pisteX(k, z)))) }
+            c = mix(mix(rgb(0.80, 0.85, 0.93), rgb(0.72, 0.79, 0.90), v), rgb(1, 1, 1), max(piste, smoothstep(-60, -110, -z)))
+        default: break
+        }
+        return c
+    }
+    private func normalAt(_ x: Float, _ z: Float) -> Float { normal(x, z).y }
 
     /// Water surface: one quad per terrain cell that dips below the water level. Vertex colour and
     /// opacity deepen with depth, so shallows look pale and clear.

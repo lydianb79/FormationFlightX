@@ -90,34 +90,47 @@ What these are and are not:
 
 ## Flying sites
 
-Eighteen sites, none of them from FlightCore OSX. The site browser filters by kind.
+Twenty-nine sites, none of them from FlightCore OSX. The site browser filters by kind, and every kind has at least two.
 
 | Site | Kind | |
 |---|---|---|
-| Stadium Circuit | Race Tracks | Eight gates in a loop on a sports ground; all left turns, two gates raised |
+| Stadium Circuit | Race Tracks | Eight gates in a loop on a sports ground with stands and floodlights; all left turns, two gates raised |
 | Forest Slalom | Race Tracks | Seven gates along a ride cut through tall forest |
-| Canyon Run | Race Tracks | Seven gates down a winding canyon sixty metres deep, four high ones back along the rim |
+| Canyon Run | Race Tracks | Seven gates down a winding canyon sixty metres deep, four high ones back along the rim; a footbridge to fly under |
+| Lakeside Loop | Race Tracks | Eight gates round a lake, every other one standing in the water |
 | Pylon Park | Obstacles | A slalom of pylons, three walls with windows, an arch, a limbo bar, a tunnel, two hoops |
 | Container Yard | Obstacles | Lanes between stacked containers, gaps to dart through, gantry cranes to fly under |
-| Downtown | Cities | Towers up to 120 m on a grid of 24 m streets, walkways across the avenues |
-| Harbour Town | Cities | Low streets, quay cranes, two ships, and a bridge with 26 m of air under the deck |
-| Heather Downs | Fields | Open downland; the easy one |
-| Rice Terraces | Fields | A level step on a terraced hillside |
-| Outback Aerodrome | Airfields | 460 m of red dirt, hangars and a tower |
+| Wind Farm | Obstacles | Seven turbines 120 m to the blade tips, a guyed mast, a line of pylons |
+| Downtown | Cities | Towers up to 120 m on a grid of 24 m streets, walkways across the avenues; windows light up at dusk |
+| Harbour Town | Cities | Gabled streets, quay cranes, two ships, a lighthouse, and a bridge with 26 m of air under the deck |
+| Old Town | Cities | A walled town on a river: red roofs, a 50 m spire, a gate to fly through, an aqueduct with arches |
+| Gravel Works | Industrial | A silo tower fed by conveyor belts you can fly under, stockpiles, a tower crane, a pit with a pond |
+| Power Station | Industrial | Two cooling towers, two 150 m chimneys, a boiler house, a coal conveyor, a switchyard and its pylons |
+| Heather Downs | Fields | Open downland with a stone circle and sheep; the easy one |
+| Rice Terraces | Fields | A level step on a terraced hillside, flooded paddies, huts on stilts, a pagoda |
+| Vineyard Hills | Fields | Rolling hills combed with vines, a wine estate, a road lined with cypresses |
+| Outback Aerodrome | Airfields | 460 m of red dirt, hangars, a tower, a water tank and a wind pump |
+| Seaside Airport | Airfields | 640 m of asphalt, a terminal with airliners on the apron, hangars, approach lights, the sea beyond |
 | Karst Valley | Mountains | A valley floor between limestone towers |
-| Caldera | Mountains | The floor of a crater, ringed by its wall |
-| Archipelago | Water | The largest of a scatter of islands in shallow sea |
-| Coral Atoll | Water | A ring of coral sixty metres wide round a lagoon |
-| Badlands | Desert | A flat among gullied clay hills |
-| Oasis | Desert | Gravel plain, a green-ringed pool, palm groves |
-| Frozen Lake | Winter | A strip on a kilometre of ice |
-| Tundra | Winter | Snow-patched grass and black meltwater pools |
+| Caldera | Mountains | The floor of a crater, ringed by its wall; an observatory |
+| Glacier Valley | Mountains | A meadow between 700 m walls, a milky lake, a glacier at the head of the valley |
+| Archipelago | Water | The largest of a scatter of islands in shallow sea; a jetty and boats |
+| Coral Atoll | Water | A ring of coral sixty metres wide round a lagoon; huts on stilts, a wreck |
+| Lighthouse Point | Water | A clifftop above the sea, a lighthouse, rock stacks and a natural arch in the water |
+| Badlands | Desert | A flat among gullied clay hills; an old mine, hoodoos |
+| Oasis | Desert | Gravel plain, a green-ringed pool, palm groves, a mud-brick fort |
+| Monument Mesa | Desert | A red plain with 200 m buttes, three rock needles and an arch a formation fits through |
+| Frozen Lake | Winter | A strip on a kilometre of ice; fishing huts and a rink |
+| Tundra | Winter | Snow-patched grass and black meltwater pools; a research station on legs |
+| Ski Resort | Winter | Three pistes through snowy forest, a chairlift with a solid cable, chalets |
+
+**How the sites are drawn.** Buildings get their windows, cladding, brickwork and concrete panels from the shader, so a tower is one box and still has a thousand windows, some of them lit after sunset. Steep ground turns to layered rock. Farmland round the open sites is divided into fields of different crops. Lamps, runway lights and lighthouse lanterns glow at dusk. The terrain grid is 16 m (it was 24 m).
 
 **Racing.** On a race track the next gate glows. Fly through the first gate to start the clock, then through the gates in order; a gate out of order does not count. Every lap's time is shown, your best is kept until the site changes, and when you fly with others each lap is announced in the chat. The host's **Start Session** puts everyone on the launch line at once, which makes it a race. Gate posts are solid.
 
-**Hitting things.** Everything built on a site is solid: gate posts, pylons, walls, containers, cranes, buildings, bridges, ships. So are trees, as before. A wing that touches one is wrecked and starts again a few seconds later.
+**Hitting things.** Everything built on a site is solid: gate posts, pylons, walls, containers, cranes, buildings and their roofs, bridges, ships and boats, turbine blades, conveyor belts, power lines and lift cables, rock needles, lamp posts. Animals, fences and the chairs on the lift are only to look at. So are trees, as before. A wing that touches one is wrecked and starts again a few seconds later.
 
-**The computer lead** flies its racetrack above whatever is built: 38 m on open sites, higher over the yard, the harbour and the city (140 m over Downtown).
+**The computer lead** flies its racetrack above whatever is built: 38 m on open sites, higher where things stand tall (140 m over Downtown, 150 m over the Wind Farm, 170 m over the Power Station).
 
 ## Sessions
 

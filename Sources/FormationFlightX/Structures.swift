@@ -5,12 +5,17 @@ import Foundation
 // windows, container stacks, city blocks, bridges. Every one is a box (or a few), which keeps both the picture
 // and the collision test simple.
 
-/// A solid box standing on the site. `yaw` turns it about the vertical.
+/// A solid box standing on the site. `yaw` turns it about the vertical; `rot`, when set, turns it any way at all.
+/// A round one is an upright cylinder of radius `half.x`.
 struct SolidBox {
     var c: V3, half: V3
     var yaw: Float = 0
     var color: V4
-    var kind = 0            // 0 plain, 1 building with rows of windows
+    var kind = 0            // surface: 0 plain, 2 offices, 3 glass tower, 4 houses, 5 corrugated sheet, 6 concrete panels, 7 brick or stone
+    var rot: simd_quatf? = nil
+    var round = false
+    var hidden = false      // hit but not drawn: something in `decor` shows it
+    var orientation: simd_quatf { rot ?? simd_quatf(angle: yaw, axis: V3(0, 1, 0)) }
 }
 
 /// A gate to fly through. `c` is the middle of the opening; the heading is the way through it
@@ -23,19 +28,19 @@ struct Gate {
     var right: V3 { V3(cos(heading * deg), 0, sin(heading * deg)) }
 }
 
-private func sc(_ r: Float, _ g: Float, _ b: Float, _ gloss: Float = 0.06) -> V4 { V4(r, g, b, gloss) }
-
 extension Terrain {
-    private func ground(_ x: Float, _ z: Float) -> Float { max(height(x, z), site.waterLevel ?? -1e9) }
+    func ground(_ x: Float, _ z: Float) -> Float { max(height(x, z), site.waterLevel ?? -1e9) }
 
     /// A box whose base stands `lift` above the ground at (x, z).
-    private func add(_ x: Float, _ z: Float, _ size: V3, lift: Float = 0, yaw: Float = 0, _ color: V4, kind: Int = 0, base: Float? = nil) {
+    func add(_ x: Float, _ z: Float, _ size: V3, lift: Float = 0, yaw: Float = 0, _ color: V4, kind: Int = 0, base: Float? = nil) {
         let y = (base ?? ground(x, z)) + lift
         boxes.append(SolidBox(c: V3(x, y + size.y / 2, z), half: size / 2, yaw: yaw, color: color, kind: kind))
     }
+    /// The same, taking the colour and the kind of surface together.
+    func add(_ x: Float, _ z: Float, _ size: V3, lift: Float = 0, _ look: (V4, Int)) { add(x, z, size, lift: lift, look.0, kind: look.1) }
 
     /// A race gate: two striped posts and a bar across the top; raised gates get a bar underneath as well.
-    private func addGate(_ x: Float, _ z: Float, heading: Float, w: Float = 9, h: Float = 6, lift: Float = 1) {
+    func addGate(_ x: Float, _ z: Float, heading: Float, w: Float = 9, h: Float = 6, lift: Float = 1) {
         let g0 = ground(x, z)
         let gate = Gate(c: V3(x, g0 + lift + h / 2, z), heading: heading, w: w, h: h)
         let n = gates.count
@@ -54,7 +59,7 @@ extension Terrain {
     }
 
     /// A wall across the way with a window to fly through. `heading` is the way through the window.
-    private func addWindowWall(_ x: Float, _ z: Float, heading: Float, width: Float, height: Float, hole: (w: Float, h: Float, sill: Float), _ color: V4) {
+    func addWindowWall(_ x: Float, _ z: Float, heading: Float, width: Float, height: Float, hole: (w: Float, h: Float, sill: Float), _ color: V4) {
         let yaw = -heading * deg, r = V3(cos(heading * deg), 0, sin(heading * deg)), g0 = ground(x, z)
         let side = (width - hole.w) / 2
         for s: Float in [-1, 1] {
@@ -76,7 +81,6 @@ extension Terrain {
                                                          (-110, -140, 190, 1), (-115, -80, 170, 9), (-85, -35, 110, 1), (-30, -22, 80, 1)]
             for g in track { addGate(g.0, g.1, heading: g.2, lift: g.3) }
             // grandstands along the far side, and marker pylons inside the turns
-            for x: Float in [-150, -60, 60, 150] { add(x, -230, V3(70, 9, 12), concrete); add(x, -238, V3(70, 3, 4), lift: 9, sc(0.2, 0.3, 0.5)) }
             for p: (Float, Float) in [(0, -110), (-70, -110), (-50, -70)] { add(p.0, p.1, V3(1.2, 14, 1.2), yellow) }
         case 2:     // forest slalom: gates in a ride cut through the trees, clockwise
             let track: [(Float, Float, Float, Float)] = [(20, -60, 0, 1), (40, -150, 20, 1), (110, -220, 70, 1), (200, -200, 130, 1),
@@ -104,7 +108,9 @@ extension Terrain {
             }
             for (x, z) in [(Float(430), Float(-60)), (120, -45), (-200, -45), (-470, -70)] { addGate(x, z, heading: 270, w: 12, h: 8, lift: 14) }
         case 4:     // pylon park: things to fly round, through and under
-            for k in 0..<7 { add(-150 + Float(k) * 50, -70, V3(1.6, 26, 1.6), k % 2 == 0 ? red : sc(0.95, 0.95, 0.95, 0.3)) }           // slalom line
+            for k in 0..<7 { for b in 0..<6 {                                                                                       // slalom line, banded
+                add(-150 + Float(k) * 50, -70, V3(1.6, 26.0 / 6, 1.6), lift: Float(b) * 26 / 6, (k + b) % 2 == 0 ? red : sc(0.95, 0.95, 0.95, 0.3))
+            } }
             addWindowWall(-120, -150, heading: 90, width: 46, height: 22, hole: (10, 7, 6), sc(0.85, 0.5, 0.15))
             addWindowWall(-20, -150, heading: 90, width: 46, height: 22, hole: (7, 5, 11), sc(0.2, 0.55, 0.8))
             addWindowWall(80, -150, heading: 90, width: 46, height: 22, hole: (14, 5, 2), sc(0.3, 0.7, 0.35))
@@ -127,7 +133,7 @@ extension Terrain {
                     defer { x += 12.7 }
                     if abs(x - 8) < 20 || rng.next() < 0.14 { continue }            // the lane ahead of the launch, and gaps to dart through
                     let levels = 1 + Int(rng.next() * rng.next() * 5)
-                    for l in 0..<levels { add(x, z, V3(12.2, 2.6, 5), lift: Float(l) * 2.6, paint[Int(rng.next() * 5.99)]) }
+                    for l in 0..<levels { add(x, z, V3(12.2, 2.6, 5), lift: Float(l) * 2.6, paint[Int(rng.next() * 5.99)], kind: 5) }
                 }
             }
             for x: Float in [-130, 130] {                                           // gantry cranes across the lanes
@@ -148,13 +154,13 @@ extension Terrain {
                     let pick = rng.next(), far = min(1, (abs(cx) + abs(cz)) / 500)
                     if pick < 0.5 {
                         let w = rng.range(30, 50), d = rng.range(30, 50)
-                        add(cx, cz, V3(w, rng.range(28, 60) + 60 * rng.next() * (1 - 0.5 * far), d), glass[Int(rng.next() * 5.99)], kind: 1)
+                        add(cx, cz, V3(w, rng.range(28, 60) + 60 * rng.next() * (1 - 0.5 * far), d), { let c = glass[Int(rng.next() * 5.99)]; return (c, c.w >= 0.45 ? 3 : 2) }())
                     } else if pick < 0.85 {
                         let h1 = rng.range(18, 70), h2 = rng.range(14, 50)
-                        add(cx - 15, cz, V3(26, h1, rng.range(34, 52)), glass[Int(rng.next() * 5.99)], kind: 1)
-                        add(cx + 15, cz, V3(26, h2, rng.range(34, 52)), glass[Int(rng.next() * 5.99)], kind: 1)
+                        add(cx - 15, cz, V3(26, h1, rng.range(34, 52)), { let c = glass[Int(rng.next() * 5.99)]; return (c, c.w >= 0.45 ? 3 : 2) }())
+                        add(cx + 15, cz, V3(26, h2, rng.range(34, 52)), { let c = glass[Int(rng.next() * 5.99)]; return (c, c.w >= 0.45 ? 3 : 2) }())
                     } else {
-                        add(cx, cz, V3(52, rng.range(6, 10), 52), glass[Int(rng.next() * 5.99)], kind: 1)       // a low hall
+                        add(cx, cz, V3(52, rng.range(6, 10), 52), { let c = glass[Int(rng.next() * 5.99)]; return (c, c.w >= 0.45 ? 3 : 2) }())       // a low hall
                     }
                 }
             }
@@ -172,7 +178,9 @@ extension Terrain {
                     if abs(cx - 6) < 30 && cz < 0 { continue }                      // the street ahead of the launch
                     if cz > 0 && abs(cx) < 110 && cz < 140 { continue }             // the pilots' quay-side square
                     if rng.next() < 0.1 { continue }
-                    add(cx, cz, V3(rng.range(26, 36), rng.range(7, 26), rng.range(24, 34)), walls[Int(rng.next() * 4.99)], kind: 1)
+                    let h = rng.range(7, 26), w = rng.range(26, 36), d = rng.range(24, 34), col = walls[Int(rng.next() * 4.99)]
+                    if h < 15 { house(cx, cz, w, d, wall: h, rise: rng.range(4, 6.5), col, roof: rng.next() < 0.6 ? sc(0.56, 0.26, 0.18, 0.05) : sc(0.26, 0.27, 0.31, 0.1)) }
+                    else { add(cx, cz, V3(w, h, d), col, kind: 2) }
                 }
             }
             for x: Float in [-260, -120, 150, 290] {                                // quay cranes, booms out over the water
@@ -183,7 +191,7 @@ extension Terrain {
             for (x, z) in [(Float(-190), Float(-262)), (220, -270)] {               // ships alongside
                 add(x, z, V3(110, 11, 18), sc(0.14, 0.18, 0.3, 0.2), base: site.waterLevel ?? 0)
                 add(x + 38, z, V3(16, 16, 14), lift: 11, sc(0.9, 0.9, 0.88, 0.2), base: site.waterLevel ?? 0)
-                for k in 0..<5 { add(x - 40 + Float(k) * 13, z, V3(12.2, 5.2, 12), lift: 11, walls[k % 5], base: site.waterLevel ?? 0) }
+                for k in 0..<5 { add(x - 40 + Float(k) * 13, z, V3(12.2, 5.2, 12), lift: 11, walls[k % 5], kind: 5, base: site.waterLevel ?? 0) }
             }
             let wl = site.waterLevel ?? 0                                           // the bridge: deck 26 m up, two towers
             add(0, -420, V3(760, 3, 16), lift: 26, sc(0.4, 0.42, 0.45, 0.2), base: wl)
@@ -191,11 +199,12 @@ extension Terrain {
             for x: Float in [-150, 150] { for s: Float in [-1, 1] { add(x, -420 + s * 9, V3(4, 78, 3), red, base: wl) }; add(x, -420, V3(4, 4, 18), lift: 74, red, base: wl) }
         default: break
         }
+        furnish()
         // trees give way to what was built, and to the way through the gates
         if !boxes.isEmpty || !gates.isEmpty {
             let path = gates.map { $0.c }
             trees.removeAll { t in
-                for b in boxes where abs(t.p.x - b.c.x) < max(b.half.x, b.half.z) + 5 && abs(t.p.z - b.c.z) < max(b.half.x, b.half.z) + 5 { return true }
+                for b in boxes where b.rot == nil && abs(t.p.x - b.c.x) < max(b.half.x, b.half.z) + 4 && abs(t.p.z - b.c.z) < max(b.half.x, b.half.z) + 4 { return true }
                 for i in path.indices {
                     let a = path[i], c = path[(i + 1) % path.count]
                     let ab = V3(c.x - a.x, 0, c.z - a.z), ap = V3(t.p.x - a.x, 0, t.p.z - a.z)
@@ -210,13 +219,24 @@ extension Terrain {
     /// Whether something `reach` metres across at `p` touches anything built here.
     func strikes(_ p: V3, reach: Float) -> Bool {
         for b in boxes {
-            let dy = p.y - b.c.y
-            if abs(dy) > b.half.y + reach { continue }
-            let dx = p.x - b.c.x, dz = p.z - b.c.z
+            let d = p - b.c
+            if let q = b.rot {
+                let m = length(b.half) + reach
+                if abs(d.x) > m || abs(d.y) > m || abs(d.z) > m { continue }
+                let l = q.inverse.act(d)
+                if abs(l.x) < b.half.x + reach && abs(l.y) < b.half.y + reach && abs(l.z) < b.half.z + reach { return true }
+                continue
+            }
+            if abs(d.y) > b.half.y + reach { continue }
+            if b.round {
+                let r = b.half.x + reach
+                if d.x * d.x + d.z * d.z < r * r { return true }
+                continue
+            }
             let m = max(b.half.x, b.half.z) * 1.42 + reach
-            if abs(dx) > m || abs(dz) > m { continue }
+            if abs(d.x) > m || abs(d.z) > m { continue }
             let c = cos(b.yaw), s = sin(b.yaw)
-            let lx = dx * c - dz * s, lz = dx * s + dz * c
+            let lx = d.x * c - d.z * s, lz = d.x * s + d.z * c
             if abs(lx) < b.half.x + reach && abs(lz) < b.half.z + reach { return true }
         }
         return false
@@ -224,27 +244,33 @@ extension Terrain {
 
     /// The picture of everything built here, to go in with the rest of the scenery.
     func buildStructureMesh(into m: inout MeshBuilder) {
-        let dark = V4(0.05, 0.08, 0.12, 0.3)
-        for b in boxes {
-            let q = simd_quatf(angle: b.yaw, axis: V3(0, 1, 0))
-            m.box(center: b.c, size: b.half * 2, color: b.color, rot: q)
-            guard b.kind == 1, b.half.y > 3 else { continue }
-            // rows of windows: one dark band per floor on each face, and something on the roof
-            let floors = Int((b.half.y * 2 - 1.5) / 3.4)
-            for face in 0..<4 {
-                let along = face % 2 == 0 ? b.half.x : b.half.z, out = (face % 2 == 0 ? b.half.z : b.half.x) + 0.04
-                let n = q.act(face == 0 ? V3(0, 0, 1) : face == 1 ? V3(1, 0, 0) : face == 2 ? V3(0, 0, -1) : V3(-1, 0, 0))
-                let t = q.act(face % 2 == 0 ? V3(1, 0, 0) : V3(0, 0, 1))
-                for f in 0..<floors {
-                    let y = b.c.y - b.half.y + 2.4 + Float(f) * 3.4
-                    let o = V3(b.c.x, y, b.c.z) + n * out
-                    let a = o - t * (along - 0.8), c = o + t * (along - 0.8)
-                    let up = V3(0, 1.5, 0)
-                    if face == 0 || face == 1 { m.quad(a, c, c + up, a + up, dark) } else { m.quad(c, a, a + up, c + up, dark) }
-                }
+        var rng = LCG(UInt64(site.seed) + 4242)
+        for b in boxes where !b.hidden {
+            let q = b.orientation
+            // the shader reads the kind of surface from the whole part of alpha, the gloss from the fraction
+            let col = V4(b.color.x, b.color.y, b.color.z, Float(b.kind) + min(b.color.w, 0.9))
+            if b.round {
+                m.cylinder(from: b.c - V3(0, b.half.y, 0), to: b.c + V3(0, b.half.y, 0), r0: b.half.x, r1: b.half.x, seg: b.half.x > 3 ? 24 : 12, color: col)
+                continue
             }
-            m.box(center: b.c + V3(0, b.half.y + 1.2, 0), size: V3(b.half.x * 0.7, 2.4, b.half.z * 0.7), color: V4(0.4, 0.4, 0.42, 0.1), rot: q)
+            m.box(center: b.c, size: b.half * 2, color: col, rot: q)
+            guard b.kind == 2 || b.kind == 3, b.half.y > 6, b.rot == nil else { continue }
+            // roofs of the larger buildings: a parapet, plant rooms, air handlers, a mast now and then
+            let top = b.c + V3(0, b.half.y, 0), grey = V4(0.42, 0.42, 0.44, 0.1)
+            for (dx, dz, sx, sz) in [(Float(0), Float(1), b.half.x, Float(0.2)), (0, -1, b.half.x, 0.2), (1, 0, 0.2, b.half.z), (-1, 0, 0.2, b.half.z)] {
+                m.box(center: top + q.act(V3(dx * (b.half.x - 0.2), 0.45, dz * (b.half.z - 0.2))), size: V3(sx * 2, 0.9, sz * 2), color: V4(b.color.x * 0.8, b.color.y * 0.8, b.color.z * 0.8, 0.05), rot: q)
+            }
+            m.box(center: top + q.act(V3(b.half.x * rng.range(-0.3, 0.3), 1.6, b.half.z * rng.range(-0.3, 0.3))), size: V3(b.half.x * 0.6, 3.2, b.half.z * 0.5), color: grey, rot: q)
+            for _ in 0..<Int(rng.range(2, 6)) {
+                let o = V3(b.half.x * rng.range(-0.8, 0.8), 0.7, b.half.z * rng.range(-0.8, 0.8))
+                m.box(center: top + q.act(o), size: V3(rng.range(1.5, 3.5), 1.4, rng.range(1.5, 3)), color: V4(0.6, 0.61, 0.62, 0.3), rot: q)
+            }
+            if b.half.y > 30 && rng.next() < 0.5 {
+                let o = top + q.act(V3(b.half.x * 0.3, 3.2, 0))
+                m.cylinder(from: o, to: o + V3(0, rng.range(8, 20), 0), r0: 0.25, r1: 0.08, seg: 6, color: V4(0.8, 0.8, 0.82, 0.4))
+            }
         }
+        m.append(decor)
     }
 }
 

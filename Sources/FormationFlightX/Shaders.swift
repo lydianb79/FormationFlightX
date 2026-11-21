@@ -159,6 +159,63 @@ fragment float4 sceneFS(VOut in [[stage_in]], constant Frame& f [[buffer(1)]], c
     int shadowTaps = material == 6 ? 1 : (material == 0 ? 6 : 4);        // grass is dense and noisy: one tap is enough
     float gloss = material == 0 ? in.col.a * d.params.y : 0.0;
     float shininess = 400.0;
+    float3 glow = float3(0.0);
+    if (material == 0 && in.col.a >= 1.5) {
+        // something built: the whole part of alpha says what its surface is, and the pattern is drawn here
+        int kind = int(floor(in.col.a + 0.001));
+        gloss = fract(in.col.a + 0.001) * d.params.y;
+        float3 wp = in.wp;
+        float dusk = smoothstep(0.34, 0.06, f.sunDir.y);
+        if (kind == 8) {
+            // a lamp: lit by day, bright after sunset
+            glow = albedo * (0.25 + 3.0 * dusk);
+        } else if (kind == 9) {
+            // rock and heaped stone: layers and blotches
+            float strata = vnoise(float2(wp.y * 0.5 + 2.0 * fbm2(wp.xz * 0.05), 1.7));
+            albedo *= 0.84 + 0.2 * strata + 0.5 * (fbm(wp.xz * 0.35 + wp.y * 0.21) - 0.5);
+        } else if (abs(N.y) < 0.5) {
+            float3 T = normalize(cross(float3(0.0, 1.0, 0.0), N));
+            float u = dot(wp, T), v = wp.y;
+            float lod = saturate(1.4 - fwidth(u) * 1.2);                          // patterns melt away with distance instead of shimmering
+            float grime = 0.86 + 0.28 * fbm2(float2(u * 0.13, v * 0.31) + 5.0);
+            if (kind == 2 || kind == 3 || kind == 4) {
+                float cw = kind == 2 ? 3.0 : (kind == 3 ? 1.7 : 3.6), ch = kind == 4 ? 3.0 : 3.4;
+                float2 cell = float2(floor(u / cw), floor(v / ch)), q = float2(fract(u / cw), fract(v / ch));
+                float2 lo = kind == 2 ? float2(0.14, 0.3) : (kind == 3 ? float2(0.05, 0.1) : float2(0.3, 0.34));
+                float2 hi = kind == 2 ? float2(0.86, 0.82) : (kind == 3 ? float2(0.95, 0.94) : float2(0.7, 0.8));
+                float aa = 0.02 + fwidth(u) / cw;
+                float win = smoothstep(lo.x - aa, lo.x + aa, q.x) * smoothstep(hi.x + aa, hi.x - aa, q.x) * smoothstep(lo.y - aa, lo.y + aa, q.y) * smoothstep(hi.y + aa, hi.y - aa, q.y);
+                win *= step(1.2, v) * lod;
+                float h = hash21(cell + 0.37);
+                float3 glass = mix(float3(0.012, 0.02, 0.03), albedo * 0.18, kind == 3 ? 0.6 : 0.0) * (0.6 + 0.8 * h);
+                if (kind != 3) glass = mix(glass, float3(0.3, 0.29, 0.26), step(0.86, h) * 0.5 * step(q.y, lo.y + (hi.y - lo.y) * (0.4 + 0.6 * fract(h * 7.0))));   // blinds part-way down
+                albedo = mix(albedo * grime, glass, win);
+                gloss = mix(gloss, 0.85, win);
+                float lit = step(kind == 4 ? 0.6 : 0.74, fract(h * 13.7)) * dusk * win;
+                glow = float3(1.0, 0.72, 0.38) * lit * (0.5 + 1.2 * fract(h * 5.3));
+                if (kind != 3) albedo *= 1.0 - 0.1 * step(0.94, q.y) * lod;       // a shadow line under each floor
+            } else if (kind == 5) {
+                float rib = cos(u * 31.4);
+                N = normalize(N + T * rib * 0.3 * lod);
+                albedo *= grime * (0.93 + 0.07 * rib * lod);
+                albedo = mix(albedo, float3(0.2, 0.09, 0.04), 0.35 * smoothstep(0.62, 0.8, fbm(float2(u * 0.5, v * 0.25))));      // rust, in patches
+            } else if (kind == 6) {
+                float2 q = float2(fract(u / 3.6), fract(v / 1.8));
+                float seam = max(smoothstep(0.03, 0.0, min(q.x, 1.0 - q.x)), smoothstep(0.05, 0.0, min(q.y, 1.0 - q.y))) * lod;
+                albedo *= grime * (1.0 - 0.3 * seam) * (0.94 + 0.12 * hash21(float2(floor(u / 3.6), floor(v / 1.8))));
+                albedo *= 1.0 - 0.25 * smoothstep(0.55, 0.9, fbm(float2(u * 0.7, v * 0.08)));       // streaks running down
+            } else {
+                float row = floor(v / 0.42);
+                float2 q = float2(fract(u / 0.9 + 0.5 * fract(row * 0.5)), fract(v / 0.42));
+                float mortar = max(smoothstep(0.06, 0.0, min(q.x, 1.0 - q.x)), smoothstep(0.12, 0.0, min(q.y, 1.0 - q.y))) * lod;
+                albedo *= grime * (0.85 + 0.3 * hash21(float2(floor(u / 0.9 + 0.5 * fract(row * 0.5)), row)) * lod);
+                albedo = mix(albedo, float3(0.4, 0.38, 0.34), 0.5 * mortar);
+            }
+        } else if (N.y > 0.5) {
+            float n = fbm(wp.xz * 0.9);
+            albedo = (kind == 5 ? albedo * (0.9 + 0.1 * cos(wp.x * 31.4)) : mix(albedo, float3(0.16, 0.16, 0.17), 0.55)) * (0.8 + 0.4 * n);
+        }
+    }
     float3 haze = skyBase(normalize(float3(-V.x, 0.03, -V.z)), f);
     float fog = 1.0 - exp(-dist * f.sunColor.w);
 
@@ -183,6 +240,11 @@ fragment float4 sceneFS(VOut in [[stage_in]], constant Frame& f [[buffer(1)]], c
         albedo *= (0.8 + 0.4 * hsh) * (0.4 + 0.6 * t);        // darker at the roots: cheap self-shadowing
         N = float3(0.0, 1.0, 0.0);
         material = 5;
+    } else if (material == 5) {
+        // leaves: light and dark in clumps, so a crown is not one flat green
+        float3 w = in.wp;
+        float lf = vnoise(w.xz * 2.3 + w.y * 1.7) * 0.5 + vnoise(w.xz * 6.7 - w.y * 4.9) * 0.3 + vnoise(w.xz * 19.0 + w.y * 13.0) * 0.2;
+        albedo = mix(albedo, float3(dot(albedo, float3(0.3, 0.6, 0.1))), 0.22) * (0.36 + 0.9 * lf);
     }
     if (material == 1) {
         float2 p = in.wp.xz;
@@ -205,6 +267,14 @@ fragment float4 sceneFS(VOut in [[stage_in]], constant Frame& f [[buffer(1)]], c
         float3 bump = float3(h0 - hx, 0.0, h0 - hz);
         float bumpAmt = 0.6 * mott;
 
+        // steep ground is rock: layered, cracked, darker in the gullies
+        float steep = smoothstep(0.86, 0.62, N.y);
+        if (steep > 0.0) {
+            float strata = vnoise(float2(in.wp.y * 0.42 + 3.0 * fbm2(p * 0.013), 1.7));
+            float crack = fbm(float2(p.x + p.y, in.wp.y * 2.0) * 0.11);
+            albedo *= 1.0 + steep * ((strata - 0.5) * 0.5 + (crack - 0.5) * 0.5);
+            bumpAmt = mix(bumpAmt, 1.3, steep);
+        }
         float hl = f.runway.x, hw = f.runway.y;
         int type = int(f.sunDir.w);
         float ax = abs(p.x), az = abs(p.y);
@@ -291,6 +361,7 @@ fragment float4 sceneFS(VOut in [[stage_in]], constant Frame& f [[buffer(1)]], c
         col = mix(col, env, fres * gloss * 0.7);
         col += f.sunColor.rgb * (pow(ndh, shininess) * (shininess > 100.0 ? 3.0 : 0.5) + pow(ndh, 50.0) * 0.22) * gloss * shadow * step(0.0, dot(N, L));
     }
+    col += glow * 2.2;
     col = mix(col, haze, fog);
     return shade(col, 1.0, f);
 }
