@@ -211,7 +211,7 @@ struct HUDView: View {
                         Spacer()
                         VStack(alignment: .trailing, spacing: 8) {
                             MiniMap(s: s).allowsHitTesting(false)
-                            TrimGauge(trim: s.trim, up: { m.game.trim(1) }, down: { m.game.trim(-1) })
+                            TrimGauge(trim: s.trim, noseUp: { m.game.trim(1) }, noseDown: { m.game.trim(-1) })
                         }
                     }
                     .padding(.horizontal, 12).padding(.top, 8)
@@ -953,10 +953,11 @@ struct HelpView: View {
 // MARK: - Formation
 
 /// Top view of where the slot is relative to this pilot's aircraft, with a bar for the height difference.
-/// Pitch trim: a scale with a marker, an arrow above it for nose up and one below for nose down.
+/// Pitch trim, laid out as the elevator trim on a transmitter: up the scale (stick forward) is nose down, down the
+/// scale is nose up. The arrow above trims nose down, the one below nose up, and the marker goes the same way.
 private struct TrimGauge: View {
     var trim: Int
-    var up: () -> Void, down: () -> Void
+    var noseUp: () -> Void, noseDown: () -> Void
     var body: some View {
         let h: CGFloat = 96, f = CGFloat(trim) / CGFloat(Game.trimMax)
         func arrow(_ icon: String, _ help: String, _ action: @escaping () -> Void) -> some View {
@@ -973,14 +974,14 @@ private struct TrimGauge: View {
                 Text(trim == 0 ? " " : (trim > 0 ? "nose up" : "nose down")).font(.system(size: 9, weight: .medium)).foregroundColor(Theme.dim)
             }
             VStack(spacing: 5) {
-                arrow("chevron.up", "Trim nose up (=)", up)
+                arrow("chevron.up", "Trim nose down (−)", noseDown)
                 ZStack {
                     Capsule().fill(Theme.paper.opacity(0.1)).frame(width: 6, height: h)
                     ForEach(-2...2, id: \.self) { k in Rectangle().fill(Theme.paper.opacity(k == 0 ? 0.55 : 0.25)).frame(width: k == 0 ? 16 : 10, height: 1).offset(y: -CGFloat(k) * h / 4) }
-                    Capsule().fill(trim == 0 ? Theme.paper : Theme.amber).frame(width: 20, height: 5).offset(y: -f * h / 2)
+                    Capsule().fill(trim == 0 ? Theme.paper : Theme.amber).frame(width: 20, height: 5).offset(y: f * h / 2)
                 }
                 .frame(width: 34, height: h)
-                arrow("chevron.down", "Trim nose down (−)", down)
+                arrow("chevron.down", "Trim nose up (=)", noseUp)
             }
         }
         .padding(8).glass(12)

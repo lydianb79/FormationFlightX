@@ -106,7 +106,7 @@ What these are and are not:
 - Each is trimmed in pitch for a gentle cruise (37 to 60 km/h) and in roll against its propeller's torque, as you would on the first flights, so it flies straight with the sticks let go.
 - **Pitch trim follows the speed, and the throttle.** A model trimmed for a gentle cruise noses up hard when it goes fast. Every powered aircraft now has that trimmed out, as a transmitter mix would: calibrated from level runs on half and on full throttle, it holds the aircraft level at any speed with the stick centred, and acts from the moment of the throw, as fast as a servo. On top of that a throttle-to-elevator mix cancels what the motor's own thrust does to the pitch (a motor on a pylon pushes the nose down). The result flies where it is pointed: open the throttle and it goes faster, not up. A climb is kept, not steepened, until you push. `--powertest` measures it, `--pitchtrace <aircraft>` follows one through a throw and throttle changes, hands off. `--spintrace <aircraft>` follows a spin and `--rolltrace <aircraft>` a torque roll, with the moment of each surface.
 - **Launching.** A hand-launched aircraft stays in your hand, motor running, until you press **Launch**: Space, or a key, a gamepad button or a transmitter switch of your choice (Controller Setup). The computer pilots beside you throw theirs at the same moment. On the autopilot the aircraft throws itself.
-- **Trim gauge.** Under the map: the pitch trim in clicks, with an arrow above for nose up and one below for nose down.
+- **Trim gauge.** Under the map: the pitch trim in clicks, laid out as the elevator trim on a transmitter: the arrow above trims nose down, the one below nose up, and the marker moves the same way.
 - None of them has a flight controller: no stabilisation, no return to home.
 
 **The 3D foamies** (Foam Extra XL, Shock Flyer 800) are built 0–0, wing and tailplane at zero incidence, as their builders set them up: neutral, so they fly the same upright and inverted and hang without wanting to go anywhere. They get no cruise trim and no speed trim; with the stick centred they settle at about 30 and 18 km/h. Their fin and rudder run as far below the fuselage line as above it, as real profile planes are cut. So rolling in a hover (a torque roll) no longer swings the nose over: with full aileron and the rudder and elevator left alone, the Foam Extra XL is 3° off vertical after half a second, where it was 15°, and a pilot holding the hover needs 1% rudder instead of 6%. The rudder no longer rolls them either, which helps in knife-edge. Their sticks are set up as 3D pilots set theirs: 65% expo (other aerobats 35%), so on high rates the hover is calm around the centre and full stick still has the full throw.
@@ -241,7 +241,7 @@ Formations for up to five: vic, echelon right, echelon left, line astern, line a
 | C | Camera: chase, onboard, pilot on the ground |
 | Y | Smoke (the others see it too) |
 | Space | Launch: throw the aircraft from your hand; in flight, take it back into the hand (the key can be changed) |
-| − =, 0 | Pitch trim nose down / up, centre (also the two arrows of the trim gauge) |
+| − =, 0 | Pitch trim nose down / up, centre (also the two arrows of the trim gauge: upper nose down, lower nose up) |
 | Esc, Tab | Main menu, wing browser |
 
 **H** in the app lists the rest. Gamepads and USB RC transmitters work as in FlightCore OSX (Controller Setup, ⌘,).
