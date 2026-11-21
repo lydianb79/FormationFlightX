@@ -999,6 +999,12 @@ if let ti = CommandLine.arguments.firstIndex(of: "--formtrace"), ti + 2 < Comman
     if CommandLine.arguments[ti + 2] == "1" { g.leadEpoch = 1; g.autopilotOn = true }
     for f in 0..<(60 * 120) {
         g.frame(dt: 1 / 60)
+        if CommandLine.arguments.contains("--finewing"), f > 2400, f < 3000, f % 12 == 0, let w = g.wingmen.first(where: { $0.id != g.leadID }) {
+            let a = w.aircraft
+            print(String(format: "  %.1f roll %+.2f p %+.2f yawrate %+.2f pitch %+.2f ail %+.2f ele %+.2f thr %.2f v %.1f track %+.2f hdg %+.2f stall %.2f slip %+.2f", Float(f) / 60, a.roll, -a.omega.z, a.omega.y, a.pitch,
+                         w.controls.aileron, w.controls.elevator, w.controls.throttle, a.airspeed, atan2(a.vel.x, -a.vel.z), atan2(a.forward.x, -a.forward.z), a.wingStall,
+                         asin(clampf(dot(normalize(a.vel), a.right), -1, 1))))
+        }
         if CommandLine.arguments.contains("--fine"), f > 600, f < 1200, f % 12 == 0, let w = g.wingmen.first(where: { $0.id == g.leadID }) {
             let a = w.aircraft
             print(String(format: "  %.1f roll %+.2f p %+.2f yawrate %+.2f pitch %+.2f ail %+.2f ele %+.2f thr %.2f v %.1f hdg %+.2f stall %.2f slip %+.2f", Float(f) / 60, a.roll, -a.omega.z, a.omega.y, a.pitch,

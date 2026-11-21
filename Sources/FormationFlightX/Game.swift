@@ -155,6 +155,7 @@ final class Game {
     static let rotorNames = ["Low (80%)", "Normal (90%)", "High (100%)"]
     var autopilotOn = false
     var autopilot = Autopilot()
+    var ownPilot = FormationPilot()         // the autopilot for this pilot's own wing (K)
     var controls = Controls()
     var siteVersion = 0, aircraftVersion = 0
     var panoLight: Lighting?
@@ -320,7 +321,7 @@ final class Game {
         input.resetThrottle(spec.kind, launch: spec.handLaunch)
         touchQuiet = 0.6            // settling onto its wheels is not a touchdown
         crashTimer = 0
-        autopilot = Autopilot()
+        autopilot = Autopilot(); ownPilot = FormationPilot()
         camSnap = true
         debris = []; wasCrashed = false; warnedBattery = false
         flapSetting = 0; gearUp = false; hold = false
@@ -414,7 +415,7 @@ final class Game {
         case 46: sound.muted.toggle(); say(sound.muted ? "Sound off" : "Sound on")
         case 45: chooseSite((siteIndex + 1) % SiteSpec.all.count)
         case 11: toggleChallenge()
-        case 40: autopilotOn.toggle(); autopilot = Autopilot(); say(autopilotOn ? "Demo pilot flying" : "You have control")
+        case 40: autopilotOn.toggle(); ownPilot = FormationPilot(); say(autopilotOn ? (isLead ? "Autopilot leading the racetrack" : "Autopilot holding your slot") : "You have control")
         case 3:
             let n = aircraft.spec.modes.count
             if n > 1 { flightMode = (flightMode + 1) % n; say("Flight mode: " + aircraft.spec.modes[flightMode]) }
@@ -475,7 +476,7 @@ final class Game {
         applyBindings()
         updateRoster()
         if autopilotOn && !aircraft.crashed {
-            controls = autopilot.update(aircraft, terrain: terrain, dt: dt)
+            controls = flyMyPart(dt: dt)
             _ = input.poll(dt: dt, kind: aircraft.spec.kind)
         } else {
             controls = input.poll(dt: dt, kind: aircraft.spec.kind)

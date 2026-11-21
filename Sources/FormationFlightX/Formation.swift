@@ -163,16 +163,23 @@ struct FormationPilot {
     /// Speed the lead holds: comfortably above the stall, with power in hand for the wingmen to catch up.
     static func cruise(_ spec: AircraftSpec) -> Float { clampf(spec.stallSpeed * 1.9, 9, 24) }
 
-    mutating func lead(_ ac: Aircraft, terrain: Terrain, dt: Float) -> Controls {
+    /// `reach` is how far the outermost wingman sits to the side. The lead turns wide enough for the wingman on
+    /// the inside to keep flying and the one on the outside to keep up: their speeds differ from the lead's by
+    /// the ratio of that distance to the turn radius.
+    mutating func lead(_ ac: Aircraft, terrain: Terrain, reach: Float = 3, dt: Float) -> Controls {
         let home = terrain.pilotPos
         let target = FormationPilot.circuit[wp]
         let to = V3(home.x + target.x - ac.pos.x, 0, home.z + target.y - ac.pos.z)
-        if length(to) < 55 { wp = (wp + 1) % FormationPilot.circuit.count }
+        let vc = FormationPilot.cruise(ac.spec)
+        let radius = clampf(9 * reach, vc * vc / (gravity * tan(0.5)), 95)
+        let maxBank = atan(vc * vc / (gravity * radius))
+        if length(to) < max(55, radius + 12) { wp = (wp + 1) % FormationPilot.circuit.count }
         let herr = headingError(ac, to: to)
         let ground = max(terrain.height(ac.pos.x, ac.pos.z), terrain.site.waterLevel ?? -1e9)
         let altT = max(home.y + FormationPilot.altitude, ground + 22)
-        let low = ac.pos.y - ground < 5
-        let rollT = low ? 0 : clampf(herr * 1.1, -0.5, 0.5)
+        // after a hand launch, climb straight ahead before the first turn so the others can form up behind
+        let low = ac.pos.y - ground < 12
+        let rollT = low ? 0 : clampf(herr * 1.1, -maxBank, maxBank)
         let pitchT = clampf(0.02 * (altT - ac.pos.y) - 0.04 * ac.vel.y, -0.14, 0.24)
         let v = FormationPilot.cruise(ac.spec)
         thrI = clampf(thrI + 0.04 * (v - ac.airspeed) * dt, 0.15, 0.85)
@@ -193,17 +200,28 @@ struct FormationPilot {
         let near = length(e) < 40
         let ground = max(terrain.height(ac.pos.x, ac.pos.z), terrain.site.waterLevel ?? -1e9)
         let low = ac.pos.y - ground < 5
-        let rollT = low ? 0 : clampf(1.8 * herr + (near ? lead.roll : 0), -0.9, 0.9)
-        // height: the lead's flight path, plus a correction for the height error and its rate
-        let gamma = near ? asin(clampf(lead.vel.y / max(length(lead.vel), 3), -0.5, 0.5)) : 0
-        pitchI = clampf(pitchI + 0.02 * clampf(ey, -3, 3) * dt, -0.15, 0.15)
-        var pitchT = gamma + clampf(0.05 * ey + 0.05 * (lead.vel.y - ac.vel.y), -0.25, 0.3) + pitchI
-        if low { pitchT = max(pitchT, 0.12) }
+        // Speed first: close to the stall a wing that is asked to climb or to bank hard only mushes and wallows,
+        // so both are allowed only as far as the speed in hand permits.
+        let vs = ac.spec.stallSpeed
+        let margin = clampf((ac.airspeed - 1.2 * vs) / (0.5 * vs), 0, 1)
+        let maxBank = 0.9 * (0.35 + 0.65 * margin)
+        // a wide wing answers the ailerons with a slow swing of the nose; steering it as sharply as a small one keeps that swing going
+        let steer = 1.8 / clampf(ac.spec.span / 1.5, 1, 1.6)
+        let rollT = low ? 0 : clampf(steer * herr + (near ? lead.roll : 0), -maxBank, maxBank)
         // speed: the lead's, faster when behind the slot and slower when ahead of it
         // Speeds are compared over the ground, because that is how the slot moves; the wind then needs no thought.
         let vg = length(V3(ac.vel.x, 0, ac.vel.z))
         var dv = vl + clampf(0.55 * along, -0.3 * vl, 7) - vg
         dv = max(dv, ac.spec.stallSpeed * 1.25 - ac.airspeed)           // never slow down into the stall
+        // height: the lead's flight path, plus a correction for the height error and its rate
+        let gamma = near ? asin(clampf(lead.vel.y / max(length(lead.vel), 3), -0.5, 0.5)) : 0
+        pitchI = clampf(pitchI + 0.02 * clampf(ey, -3, 3) * dt, -0.15, 0.15)
+        var pitchT = gamma + min(clampf(0.05 * ey + 0.05 * (lead.vel.y - ac.vel.y), -0.25, 0.3) + pitchI, 0.04 + 0.26 * margin)
+        // A wing has no brakes. Sliding ahead of the slot with more speed than wanted, the only way to lose it is
+        // to stop descending and let the nose come up a little: height is cheap to give back afterwards.
+        let over = clampf((-along - 0.8) / 5, 0, 1) * clampf(-dv / 1.5, 0, 1)
+        pitchT = max(pitchT, gamma - 0.25 * (1 - over)) + 0.1 * over
+        if low { pitchT = max(pitchT, 0.12) }
         thrI = clampf(thrI + (0.05 * dv + (near ? 0.015 * clampf(along, -4, 4) : 0)) * dt, 0.1, 0.9)
         return inner(ac, rollT: rollT, pitchT: pitchT, throttle: clampf(thrI + 0.16 * dv, 0, 1))
     }

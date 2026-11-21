@@ -92,6 +92,19 @@ extension Game {
         selectSite(i)
     }
 
+    /// How far the outermost wingman sits to the side of the lead.
+    var formationReach: Float { spacingMetres * max(abs(formation.offset(1).x), abs(formation.offset(2).x)) }
+
+    /// The autopilot for this pilot's own wing flies whatever part the pilot has: as the lead a wide racetrack
+    /// the others can follow, as a wingman the slot.
+    func flyMyPart(dt: Float) -> Controls {
+        let n = myNumber
+        if n >= 1, let lead = flying(leadID), !lead.crashed, let s = slot(n) {
+            return ownPilot.follow(aircraft, lead: lead, slot: s, terrain: terrain, dt: dt * timeScale)
+        }
+        return ownPilot.lead(aircraft, terrain: terrain, reach: formationReach, dt: dt * timeScale)
+    }
+
     // MARK: Roster
 
     func computeOrder() {
@@ -204,7 +217,7 @@ extension Game {
             } else if !terrain.contains(ac.pos) || !ac.pos.y.isFinite || terrain.overWater(ac.pos) {
                 place(w)
             } else if n == 0 {
-                w.controls = w.ai!.lead(ac, terrain: terrain, dt: sdt)
+                w.controls = w.ai!.lead(ac, terrain: terrain, reach: formationReach, dt: sdt)
             } else if let lead = flying(leadID), !lead.crashed, let s = slot(n) {
                 w.controls = w.ai!.follow(ac, lead: lead, slot: s, terrain: terrain, dt: sdt)
             } else {

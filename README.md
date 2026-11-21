@@ -41,8 +41,9 @@ While no other pilot is connected, two computer-flown wings fill the formation (
 
 - By default the computer leads round a wide racetrack about 38 m above the field, and you fly number 2 with another computer wing as number 3.
 - Press **U** to take the lead: both computer wings then hold their slots on you.
+- **K** hands your own wing to the autopilot, which flies whatever part you have: the racetrack if you lead, your slot if you do not.
 
-Measured over 150 seconds of racetrack (`--formtest`), the computer wingmen hold their slots to between 0.6 m and 2.8 m RMS with ten of the eleven wings, turns included, and none of them crashes. The exception is the Thermal Wing 2.4: its computer wingmen wander 13 m to 22 m RMS from their slots.
+Measured over 150 seconds of racetrack with each of the eleven wings (`--formtest`), the computer wingmen hold their slots to between 0.6 m and 2.8 m RMS, turns included, both behind a computer lead and behind your own wing on its autopilot after a hand launch. None of them crashes. The computer lead turns wider the wider the formation is, so the wingman on the inside of a turn keeps flying speed.
 
 ## Holding your slot
 
@@ -84,7 +85,6 @@ Command-line checks: `--formtest` flies the computer partners with every wing an
 ## Not yet done
 
 - Tested with two copies on one Mac only: discovery, lead, site sync and position updates work there. Three Macs on Wi-Fi and peer-to-peer Wi-Fi have not been tried.
-- The computer wingmen cannot hold formation with the Thermal Wing 2.4 (see Flying alone).
 - The other wings make no sound, cast no shadow on the ground beyond 14 m from yours, and do not break apart when they crash.
 - No wake turbulence behind another wing.
 - `main.swift` still carries FlightCore's test commands, several of which name aircraft that are no longer in the library.
