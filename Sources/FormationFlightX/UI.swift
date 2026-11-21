@@ -351,6 +351,14 @@ struct AircraftBrowser: View {
         }
     }
     private func fly(_ i: Int) { m.game.selectAircraft(i); m.overlay = .menu }
+    /// A click selects at once; a second click on the same card within the double-click time flies it. (SwiftUI's own
+    /// double-tap gesture held every single click back until the double-click time had run out.)
+    @State private var lastTap: (index: Int, time: Double) = (-1, 0)
+    private func tap(_ i: Int) {
+        let now = CACurrentMediaTime()
+        if lastTap.index == i && now - lastTap.time < NSEvent.doubleClickInterval { lastTap = (-1, 0); fly(i); return }
+        lastTap = (i, now); selected = i
+    }
 
     var body: some View {
         Sheet(m: m, title: "Choose Aircraft", subtitle: "\(all.count) models", back: m.game.cameFromMenu ? .menu : .none) {
@@ -405,8 +413,7 @@ struct AircraftBrowser: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(selected == i ? Theme.paper : Theme.stroke, lineWidth: selected == i ? 2 : 1))
                                 .contentShape(Rectangle())
-                                .onTapGesture(count: 2) { fly(i) }
-                                .onTapGesture { selected = i }
+                                .onTapGesture { tap(i) }
                             }
                         }
                         .padding(.horizontal, 14).padding(.bottom, 14)
@@ -476,6 +483,14 @@ struct SiteBrowser: View {
         }
     }
     private func fly(_ i: Int) { m.game.chooseSite(i); m.overlay = .menu }
+    /// A click selects at once; a second click on the same card within the double-click time flies it. (SwiftUI's own
+    /// double-tap gesture held every single click back until the double-click time had run out.)
+    @State private var lastTap: (index: Int, time: Double) = (-1, 0)
+    private func tap(_ i: Int) {
+        let now = CACurrentMediaTime()
+        if lastTap.index == i && now - lastTap.time < NSEvent.doubleClickInterval { lastTap = (-1, 0); fly(i); return }
+        lastTap = (i, now); selected = i
+    }
 
     private func filterRow(_ f: String, icon: String) -> some View {
         Button { filter = f } label: {
@@ -554,8 +569,7 @@ struct SiteBrowser: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(selected == i ? Theme.paper : Theme.stroke, lineWidth: selected == i ? 2 : 1))
                                 .contentShape(Rectangle())
-                                .onTapGesture(count: 2) { fly(i) }
-                                .onTapGesture { selected = i }
+                                .onTapGesture { tap(i) }
                             }
                         }
                         .padding(.horizontal, 14).padding(.bottom, 14)
