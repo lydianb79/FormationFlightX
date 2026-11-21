@@ -73,6 +73,12 @@ extension Game {
             showAcc -= h
         }
         for w in showFlight { w.aircraft.updateRenderPose(ahead: showAcc) }
+        if Game.showLog {
+            // a jump in where the lead is drawn, beyond what its speed accounts for, would put a kink in its smoke
+            let p = lead.renderPos, step = distance(p, showLast), want = length(lead.vel) * dt
+            if showLast != .zero && abs(step - want) > 0.25 { print(String(format: "SHOW jump: moved %.2f m in a frame of %.1f ms, speed says %.2f m (shot %d at %.2f s)", step, dt * 1000, want, showShot, showShotTime)); fflush(stdout) }
+            showLast = p
+        }
         for w in showFlight where !w.aircraft.crashed { laySmoke(w.id, from: w.aircraft, dt: dt) }
     }
 

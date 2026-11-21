@@ -214,6 +214,7 @@ final class Game {
     var showAcc: Float = 0, showShotTime: Float = 0, showAngle: Float = 0
     var showShot = 0, showKey = -1, showSnap = true
     var showEye = V3.zero, showTarget = V3.zero
+    var showLast = V3.zero
     var formation: FormationKind = FormationKind(rawValue: UserDefaults.standard.integer(forKey: "formation")) ?? .vic { didSet { UserDefaults.standard.set(formation.rawValue, forKey: "formation") } }
     var spacing: Int = (UserDefaults.standard.object(forKey: "spacing") as? Int) ?? 1 { didSet { UserDefaults.standard.set(spacing, forKey: "spacing") } }
     /// Computer-flown partners fill the formation while no other pilot is connected.
@@ -779,7 +780,11 @@ final class Game {
     /// every few hundredths of a second and from then on drifts with the wind.
     func laySmoke(_ id: UInt32, from ac: Aircraft, dt: Float) {
         let p = ac.renderPos + ac.renderQ.act(ac.spec.smokePos)
-        let fresh = TrailPoint(pos: p, vel: env.windVec * 0.8 + V3(rng.range(-0.3, 0.3), rng.range(0, 0.35), rng.range(-0.3, 0.3)), age: 0, wide: rng.range(0.75, 1.3) * clampf(ac.spec.span / 1.3, 0.4, 1.6))   // a small model lays a thin trail
+        // each point drifts a little on its own, but much like its neighbour, so the trail billows without zigzagging;
+        // the wind carries the whole trail alike (see ageSmoke)
+        let near = trails[id]?.last?.vel ?? .zero
+        let own = near * 0.8 + V3(rng.range(-0.5, 0.5), rng.range(-0.1, 0.5), rng.range(-0.5, 0.5)) * 0.2
+        let fresh = TrailPoint(pos: p, vel: own, age: 0, wide: rng.range(0.75, 1.3) * clampf(ac.spec.span / 1.3, 0.4, 1.6))   // a small model lays a thin trail
         var t = trails[id] ?? []
         let laid = trailLaid[id]
         if laid == nil || laid!.frame < trailFrame - 1 || t.isEmpty {
@@ -798,9 +803,10 @@ final class Game {
     /// The smoke in the air drifts, ages and goes.
     func ageSmoke(_ dt: Float) {
         trailFrame += 1
+        let wind = env.windVec * 0.8
         for (id, var t) in trails {
             let live = trailLaid[id].map { $0.frame >= trailFrame - 1 } ?? false
-            for i in t.indices where !(live && i == t.count - 1) { t[i].age += dt; t[i].pos += t[i].vel * dt; t[i].vel *= 1 - min(0.5 * dt, 1) }
+            for i in t.indices where !(live && i == t.count - 1) { t[i].age += dt; t[i].pos += (t[i].vel + wind) * dt }
             t.removeAll { $0.age >= Game.trailLife }
             trails[id] = t.isEmpty ? nil : t
         }
