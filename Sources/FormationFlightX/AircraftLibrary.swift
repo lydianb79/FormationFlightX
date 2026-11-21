@@ -1630,6 +1630,10 @@ enum AircraftLibrary {
                 $0.rootChord = 0.155; $0.tipChord = 0.1; $0.mass = 1.15; $0.thrust = 14; $0.pitchSpeed = 32; $0.propDia = 0.178; $0.twin = 0.2
                 $0.fuseLen = 0.81; $0.noseZ = -0.3; $0.fuseW = 0.09; $0.fuseH = 0.09; $0.cdA = 0.0048; $0.cd0 = 0.011; $0.endurance = 960; $0.ailThrow = 16; $0.elevThrow = 14
                 $0.fuse = rgb(0.95, 0.95, 0.95); $0.wingTop = rgb(0.95, 0.95, 0.95); $0.wingBottom = rgb(0.1, 0.35, 0.65); $0.tail = rgb(0.1, 0.35, 0.65); $0.accent = rgb(0.9, 0.2, 0.15); $0.sound = 250 },
+            fpvTwin("HeeWing H1 Hunter", "680 mm twin that takes off under 250 grams on two cells: slow, gentle and tough, made for a first FPV flight", span: 0.68) {
+                $0.rootChord = 0.17; $0.tipChord = 0.125; $0.mass = 0.245; $0.thrust = 3.3; $0.pitchSpeed = 21; $0.propDia = 0.097; $0.twin = 0.13
+                $0.fuseLen = 0.55; $0.noseZ = -0.21; $0.fuseW = 0.065; $0.fuseH = 0.07; $0.cdA = 0.003; $0.endurance = 540; $0.ailThrow = 18; $0.elevThrow = 16; $0.tough = 2.6; $0.dihedral = 5
+                $0.fuse = rgb(0.96, 0.96, 0.96); $0.wingTop = rgb(0.96, 0.96, 0.96); $0.wingBottom = rgb(0.2, 0.55, 0.9); $0.tail = rgb(0.2, 0.55, 0.9); $0.accent = rgb(0.95, 0.5, 0.1); $0.sound = 380 },
             sized(glider, span: 0.877) {
                 $0.name = "ZOHD Drift"; $0.blurb = "877 mm pusher glider at a quarter of a kilogram: floats on a breath of throttle and lands at a walk"
                 $0.category = "Gliders"; $0.rootChord = 0.135; $0.tipChord = 0.09; $0.mass = 0.265; $0.thrust = 3.3; $0.pitchSpeed = 17; $0.propDia = 0.127
@@ -1643,16 +1647,21 @@ enum AircraftLibrary {
         // FormationFlightX: every flying wing, and a few of each other kind so that no category stands empty
         let others: Set<String> = ["Skylark Trainer", "Tundra Trainer", "Piper J-3 Cub", "Cessna 172 Skyhawk", "Pilatus PC-12", "P-51D Mustang", "Supermarine Spitfire",
                                    "Vought F4U Corsair", "Extra 300", "Zivko Edge 540", "Pitts Special", "Foam Extra XL", "Shock Flyer 800", "F-16 Fighting Falcon", "BAe Hawk",
-                                   "Aero L-39 Albatros", "ASK 21", "Thermal 2M", "Kestrel 550", "Sparrow 450", "Quad X450", "Apex 5 Racer", "Tiny Whoop 65"]
+                                   "Aero L-39 Albatros", "ASK 21", "Thermal 2M"]
         let fpv = Set((fpvWings + fpvPlanes).map { $0.name })
         // flying wings first (the app opens on the first aircraft), then the other FPV aircraft, then the rest
         func rank(_ s: AircraftSpec) -> Int { s.category == "Wings" ? (fpv.contains(s.name) ? 0 : 1) : (fpv.contains(s.name) ? 2 : 3) }
-        let chosen = everything.filter { $0.category == "Wings" || others.contains($0.name) || fpv.contains($0.name) }
+        // fixed-wing only: FormationFlightX has no helicopters or multirotors
+        let chosen = everything.filter { $0.kind == .airplane && ($0.category == "Wings" || others.contains($0.name) || fpv.contains($0.name)) }
         return (0..<4).flatMap { r in chosen.filter { rank($0) == r } }.pmap { s in
             // (the stall is measured last: trimmed for a faster cruise, a small wing runs out of up elevator
             // before it stalls, and would only seem to stall faster)
-            let done = trimRoll(defaultRates(calibrateRates(trimForCruise(s))))
-            return fpv.contains(done.name) ? measureStall(done) : done
+            var done = trimRoll(defaultRates(calibrateRates(trimForCruise(s))))
+            if fpv.contains(done.name) { done = measureStall(done) }
+            // Shown together as one category. (Set last: until here the kind of aircraft, wing or plane or
+            // glider, decides its aerofoil, balance and control rates.)
+            if done.category == "Wings" || fpv.contains(done.name) { done.category = "FPV Aircrafts" }
+            return done
         }
     }()
 }

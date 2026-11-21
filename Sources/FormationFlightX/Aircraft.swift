@@ -129,6 +129,10 @@ extension AircraftSpec {
         case "Scale Civil": return 2
         case "Gliders": return 2
         case "Wings": return ["Race", "Speed"].contains { name.contains($0) } ? 4 : (name.contains("Delta") || name.contains("Slope") ? 3 : 2)
+        case "FPV Aircrafts":
+            if ["Race", "Speed", "Chupito", "Mojito"].contains(where: { name.contains($0) }) { return 4 }
+            if ["Delta", "Slope", "F-01", "Combat"].contains(where: { name.contains($0) }) { return 3 }
+            return ["Hunter", "Drift", "Penguin", "Ranger", "Altus"].contains { name.contains($0) } ? 1 : 2
         case "Aerobatic", "Foam 3D": return 3
         case "Warbirds", "Jets": return 4
         case "Helicopters": return (heli?.maxRate ?? 5) < 4.5 ? 4 : 5

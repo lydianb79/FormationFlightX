@@ -57,24 +57,25 @@ Anyone who knows the address can connect while hosting is on. Set a group name t
 
 ## Aircraft
 
-Forty-six aircraft. The flying wings come first, and the app opens on one.
+Forty-two fixed-wing aircraft; there are no helicopters or multirotors. The **FPV Aircrafts** category holds every flying wing and FPV plane, twenty-four in all; they come first, and the app opens on one.
 
 **FPV aircraft you can buy**, modelled from their published span, flying weight and wing area. Power, propeller and drag are set so that the simulated aircraft stalls, cruises and tops out where the real one is reported to (speeds in km/h, as measured by `--flighttest` in still air):
 
 | Aircraft | Category | Span | Weight | Stall | Half throttle | Flat out |
 |---|---|---|---|---|---|---|
-| Alight Flik Wing | Wings | 0.50 m | 235 g | 32 | 45 | 85 |
-| HeeWing F-01 | Wings | 0.69 m | 500 g | 37 | 60 | 110 |
-| AtomRC Dolphin | Wings | 0.85 m | 620 g | 36 | 54 | 101 |
-| SonicModell AR Wing | Wings | 0.90 m | 620 g | 35 | 53 | 98 |
-| TBS Chupito | Wings | 0.80 m | 650 g | 39 | 83 | 151 |
-| TBS Mojito | Wings | 1.27 m | 1800 g | 59 | 91 | 185 |
-| AtomRC Penguin | Trainers & Sport | 0.75 m | 680 g | 30 | 46 | 88 |
-| HeeWing T1 Ranger | Trainers & Sport | 0.73 m | 480 g | 29 | 43 | 83 |
-| HeeWing T2 Cruza | Trainers & Sport | 1.20 m | 1900 g | 38 | 52 | 100 |
-| ZOHD Altus | Trainers & Sport | 0.98 m | 920 g | 32 | 46 | 88 |
-| AtomRC Swordfish | Trainers & Sport | 1.20 m | 1150 g | 39 | 54 | 101 |
-| ZOHD Drift | Gliders | 0.88 m | 265 g | 22 | 31 | 59 |
+| Alight Flik Wing | FPV Aircrafts | 0.50 m | 235 g | 32 | 45 | 85 |
+| HeeWing F-01 | FPV Aircrafts | 0.69 m | 500 g | 37 | 60 | 110 |
+| AtomRC Dolphin | FPV Aircrafts | 0.85 m | 620 g | 36 | 54 | 101 |
+| SonicModell AR Wing | FPV Aircrafts | 0.90 m | 620 g | 35 | 53 | 98 |
+| TBS Chupito | FPV Aircrafts | 0.80 m | 650 g | 39 | 83 | 151 |
+| TBS Mojito | FPV Aircrafts | 1.27 m | 1800 g | 59 | 91 | 185 |
+| AtomRC Penguin | FPV Aircrafts | 0.75 m | 680 g | 30 | 46 | 88 |
+| HeeWing T1 Ranger | FPV Aircrafts | 0.73 m | 480 g | 29 | 43 | 83 |
+| HeeWing T2 Cruza | FPV Aircrafts | 1.20 m | 1900 g | 38 | 52 | 100 |
+| HeeWing H1 Hunter | FPV Aircrafts | 0.68 m | 245 g | 22 | 33 | 64 |
+| ZOHD Altus | FPV Aircrafts | 0.98 m | 920 g | 32 | 46 | 88 |
+| AtomRC Swordfish | FPV Aircrafts | 1.20 m | 1150 g | 39 | 54 | 101 |
+| ZOHD Drift | FPV Aircrafts | 0.88 m | 265 g | 22 | 31 | 59 |
 
 What these are and are not:
 
@@ -84,9 +85,9 @@ What these are and are not:
 - Each is trimmed in pitch for a gentle cruise (37 to 60 km/h) and in roll against its propeller's torque, as you would on the first flights, so it flies straight with the sticks let go. On more than cruise power the overpowered wings climb, as the real ones do; hold a little down or use the pitch trim (− and =).
 - None of them has a flight controller: no stabilisation, no return to home.
 
-**The other categories** each have a few aircraft from FlightCore OSX: trainers, scale civil, warbirds, aerobatic, foam 3D, jets, gliders, two helicopters and three multirotors. Those that are not hand-launched start on the runway, one behind the other in formation order. The eleven original flying wings are still there.
+**The other categories** each have two or three aircraft from FlightCore OSX: trainers, scale civil, warbirds, aerobatic, foam 3D, jets and gliders. Those that are not hand-launched start on the runway, one behind the other in formation order. The eleven original flying wings are in FPV Aircrafts with the rest.
 
-**Computer partners** fly any fixed-wing aircraft, and hold formation with all forty-one of them to within about 3 m RMS in `--formtest`. For fast aircraft the computer lead flies a larger racetrack. There are no computer partners when you fly a helicopter or a multirotor.
+**Computer partners** fly every aircraft, and hold formation with all forty-two of them to within about 3 m RMS in `--formtest`. For fast aircraft the computer lead flies a larger racetrack.
 
 ## Flying sites
 
@@ -206,7 +207,7 @@ Formations for up to five: vic, echelon right, echelon left, line astern, line a
 | `FormationGame.swift` | Roster, lead, slots, collisions, chat, what is sent and shown |
 | everything else | FlightCore OSX, limited to flying wings and 3D sites |
 
-Command-line checks: `--flighttest` flies every fixed-wing aircraft and reports stall, half-throttle and top speed, climb, glide, roll rate, the speed it is trimmed for and whether it flies on hands-off, with a verdict against the real figures for the twelve FPV aircraft (`--new` for those only); `--sitetest` checks on every site that the five launch lanes are clear, that each gate is open with a way in and out and is counted in order, and that the computer lead's racetrack clears the ground and everything built; `--voicetest` sends speech and chat through the coder and the message format with no audio hardware; `--formtest` flies the computer partners with every wing and prints how well they hold formation; `--formtrace <wing> <0|1>` prints one flight in detail; `--net --netlog --name <name>` runs a windowed copy that logs who it sees; add `--host`, or `--join <address>`, and `--nobonjour` to try the online path on one Mac.
+Command-line checks: `--flighttest` flies every fixed-wing aircraft and reports stall, half-throttle and top speed, climb, glide, roll rate, the speed it is trimmed for and whether it flies on hands-off, with a verdict against the real figures for the thirteen bought FPV aircraft (`--new` for those only); `--sitetest` checks on every site that the five launch lanes are clear, that each gate is open with a way in and out and is counted in order, and that the computer lead's racetrack clears the ground and everything built; `--voicetest` sends speech and chat through the coder and the message format with no audio hardware; `--formtest` flies the computer partners with every wing and prints how well they hold formation; `--formtrace <wing> <0|1>` prints one flight in detail; `--net --netlog --name <name>` runs a windowed copy that logs who it sees; add `--host`, or `--join <address>`, and `--nobonjour` to try the online path on one Mac.
 
 ## Not yet done
 

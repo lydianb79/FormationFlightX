@@ -320,7 +320,7 @@ struct AircraftBrowser: View {
     @State private var search = ""
     @State private var selected = 0
 
-    private static let order = ["Wings", "Trainers & Sport", "Gliders", "Scale Civil", "Warbirds", "Aerobatic", "Foam 3D", "Jets", "Helicopters", "Multirotors"]
+    private static let order = ["FPV Aircrafts", "Trainers & Sport", "Gliders", "Scale Civil", "Warbirds", "Aerobatic", "Foam 3D", "Jets"]
     private var all: [AircraftSpec] { AircraftLibrary.all }
     private var shown: [Int] {
         all.indices.filter { i in
@@ -867,7 +867,7 @@ struct HelpView: View {
         ("Flying", [("← →", "Aileron (roll)"), ("↑ ↓", "Elevator — ↓ pulls up"), ("A  D", "Rudder (yaw)"), ("W  S", "Throttle / collective"),
                     ("X", "Throttle cut"), ("Q", "Wheel brakes"), ("Shift", "Full stick deflection"), ("L", "High / low rates"), ("−  =", "Pitch trim: nose down / up"), ("0", "Centre the pitch trim"), ("Space", "Start again with a hand launch")]),
         ("Formation", [("J", "Join up: start in the air behind your slot"), ("U", "Take the lead / hand it back"), ("O", "Next formation (lead only)"), ("I", "Spacing: tight, normal, loose (lead only)"),
-                       ("Y", "Smoke"), ("E", "Flaps"), ("G", "Landing gear"), ("F", "Flight mode (rotorcraft)"), (";  '", "Helicopter: throttle hold, rotor speed"), ("[  ]", "Previous / next wing"), ("Tab", "Wing browser")]),
+                       ("Y", "Smoke"), ("E", "Flaps"), ("G", "Landing gear"), ("[  ]", "Previous / next wing"), ("Tab", "Wing browser")]),
         ("View and simulation", [("C", "Camera: chase, onboard, pilot"), ("Z", "Zoom mode"), ("V", "Hide / show display"), ("P", "Pause"),
                                  ("T", "Slow motion"), (",  .", "Less / more wind"), ("N", "Next flying site"),
                                  ("K", "Autopilot for your own wing"), ("Return", "Lobby: chat and voice"), ("B", "Hold to talk (can be changed in Controller Setup)"), ("M", "Mute sound"), ("Esc", "Main menu")]),
