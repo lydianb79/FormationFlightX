@@ -1,28 +1,30 @@
 import simd
 import Foundation
 
-/// The shapes a three-ship can fly. Number 1 leads; numbers 2 and 3 hold a slot relative to the lead.
+/// The shapes a formation of up to five can fly. Number 1 leads; the others hold a slot relative to the lead.
 enum FormationKind: Int, CaseIterable {
     case vic, echelonRight, echelonLeft, trail, abreast
 
     var name: String { ["Vic", "Echelon right", "Echelon left", "Line astern", "Line abreast"][rawValue] }
     var blurb: String {
-        ["Number 2 on the right, number 3 on the left, both stepped back",
-         "Both wingmen stepped back to the right of the lead",
-         "Both wingmen stepped back to the left of the lead",
+        ["Wingmen stepped back on both sides of the lead, even numbers on the left",
+         "Every wingman stepped back to the right of the one ahead",
+         "Every wingman stepped back to the left of the one ahead",
          "One behind the other, each a little lower than the one ahead",
-         "Side by side, wingtip to wingtip with the lead"][rawValue]
+         "Side by side, wingtip to wingtip, the lead in the middle"][rawValue]
     }
 
-    /// Slot of wingman `n` (1 or 2) in spacings: x to the lead's right, y up, z behind the lead.
+    /// Slot of wingman `n` (1...4) in spacings: x to the lead's right, y up, z behind the lead.
     func offset(_ n: Int) -> V3 {
         let k = Float(n)
+        let row = Float((n + 1) / 2)                    // 1, 1, 2, 2: wingmen pair off left and right
+        let side: Float = n % 2 == 1 ? 1 : -1           // odd numbers to the right
         switch self {
-        case .vic: return V3(n == 1 ? 1 : -1, 0, 0.8)
+        case .vic: return V3(side * row, 0, 0.8 * row)
         case .echelonRight: return V3(k, 0, 0.8 * k)
         case .echelonLeft: return V3(-k, 0, 0.8 * k)
         case .trail: return V3(0, -0.25 * k, 1.6 * k)
-        case .abreast: return V3(n == 1 ? 1 : -1, 0, 0)
+        case .abreast: return V3(side * row, 0, 0)
         }
     }
 }
@@ -31,6 +33,8 @@ enum Formation {
     static let spacingNames = ["Tight", "Normal", "Loose"]
     /// Distance between neighbours, centre to centre, in wingspans of the lead's aircraft.
     static let spacingSpans: [Float] = [1.5, 2.5, 5]
+    /// How many fly together at most.
+    static let maxPilots = 5
 
     static func spacing(_ i: Int, span: Float) -> Float { spacingSpans[min(max(i, 0), 2)] * max(span, 0.8) }
 

@@ -209,6 +209,12 @@ final class Game {
     var chatOut: [(data: Data, left: Int, next: Double)] = []      // lines still being repeated
     var chatSeen = Set<UInt64>()
     var lobbyTalk = false               // the lobby's hold-to-talk button is down
+    // the session, run by the host: while it is stopped everyone waits in the lobby
+    var sessionRunning = false
+    var sessionCount: UInt32 = 0        // starts and restarts so far, as the host counts them
+    var sessionSeen: UInt32 = 0         // the last start this pilot acted on
+    var launchGrace: Float = 0          // seconds after a launch during which wings pass through each other
+    var lobbyReturn = false             // a browser opened from the lobby goes back to it
     var leadEpoch: UInt32 = 0
     var order: [UInt32] = []            // the formation: lead first, then numbers 2 and 3
     var slotMarker: (pos: V3, fwd: V3, radius: Float, good: Bool)? = nil
@@ -234,7 +240,7 @@ final class Game {
     var musicEnabled = !UserDefaults.standard.bool(forKey: "musicOff") { didSet { UserDefaults.standard.set(!musicEnabled, forKey: "musicOff") } }
     var cameFromMenu = false        // browsers and panels return to the main menu when opened from it
     /// The flight is held: a menu or browser is open, or a panel that was opened from the main menu.
-    var simHeld: Bool { hud.overlay.pausesSim || (cameFromMenu && (hud.overlay == .environment || hud.overlay == .help)) }
+    var simHeld: Bool { hud.overlay.pausesSim || ((cameFromMenu || lobbyReturn) && (hud.overlay == .environment || hud.overlay == .help)) }
     var fixedView: (eye: V3, target: V3)? = nil     // debug: absolute camera, heights above the pilot's ground
     var closeup: V3? = nil          // debug: fixed camera offset from the aircraft, in wingspans
     var flapSetting: Float = 0
@@ -345,10 +351,14 @@ final class Game {
         flapSetting = 0; gearUp = false; hold = false
         lastY = aircraft.pos.y; climb = 0
         stationTime = 0; flownTime = 0
+        launchGrace = 6
     }
 
     func selectAircraft(_ i: Int) {
         guard i >= 0 && i < AircraftLibrary.all.count else { return }
+        if together && sessionRunning && !isHost && i != aircraftIndex {
+            say("Wings can be changed when the host stops the session", 3); return
+        }
         aircraftIndex = i
         aircraft = Aircraft(AircraftLibrary.all[i])
         flightMode = min(aircraft.spec.defaultMode, max(aircraft.spec.modes.count - 1, 0))

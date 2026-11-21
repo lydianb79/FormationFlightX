@@ -2,9 +2,11 @@
 
 # FormationFlightX
 
-A formation flight trainer for RC flying wings on macOS, written in Swift and rendered with Metal. Up to three pilots fly together, on one network or over the internet, with no server. Created by Rock FPV.
+A formation flight trainer for RC flying wings on macOS, written in Swift and rendered with Metal. Up to five pilots fly together, on one network or over the internet, with no server. Created by Rock FPV.
 
 ![FormationFlightX splash screen](Resources/Splash.jpg)
+
+The look is its own: an evening-sky theme, a menu down the left edge with the flying site in view, and its own icon and splash.
 
 FormationFlightX is built on [FlightCore OSX](https://github.com/lydianb79/FlightCoreOSX): the flight physics, the eleven flying wings, the twenty 3D flying sites, the weather, the sound and the renderer come from there unchanged. What is new is everything about flying together.
 
@@ -26,10 +28,10 @@ Run the app bundle rather than the bare binary when you want multiplayer: macOS 
 
 There is no server, no account and no host. Every copy of the app announces itself on the local network with Bonjour and looks for the others; each pilot then sends their wing's position straight to the others over UDP, sixty times a second. Macs on the same Wi-Fi or cable network find each other by themselves, and so do Macs with Wi-Fi on but no shared network, over Apple's peer-to-peer Wi-Fi.
 
-- **Three pilots at most.** A fourth copy on the network is ignored by the first three.
+- **Five pilots at most.** Each copy flies with the first four others it meets and ignores any more.
 - **Groups.** Pilots with the same group name (Formation panel) fly together, so two formations can share one network. An empty group flies with anyone.
-- **The lead decides.** The flying site, weather, time of day, formation and spacing of the lead apply to everyone, within half a second.
-- **Who leads.** Until someone claims it, the pilot whose copy has the lowest network number leads. Press **U** (or **Take the Lead**) to claim the lead; press it again to hand it back.
+- **The host runs the session** (see below): where it flies, the weather and daylight, and when it starts and stops.
+- **The lead calls the formation.** Formation and spacing are the lead's. Until someone claims the lead, the pilot whose copy has the lowest network number leads. Press **U** (or **Take the Lead**) to claim it; press it again to hand it back.
 - **All copies need the same version.** This version's messages are not understood by earlier builds.
 - **Mid-air collisions** end the flight for both wings. You are put back behind your slot a few seconds later.
 - A pilot who opens a menu stops being shown to the others until they fly again.
@@ -51,15 +53,35 @@ Who hosts has nothing to do with who leads: any pilot can take the lead. Pilots 
 
 Anyone who knows the address can connect while hosting is on. Set a group name to keep strangers out of the formation, and switch hosting off afterwards; that also closes the port on the router.
 
+## Sessions
+
+Whenever pilots fly together, one of them is the **host**: the pilot who switched on **Host a session** in the Formation panel, or, if nobody did, the one whose copy has the lowest network number. The lobby shows who it is.
+
+- **Start Session:** everyone is put at the launch point and flies. The host's own **Take off** does the same when no session is running.
+- **Restart:** the same again, at any time: everyone back to the launch point.
+- **Stop:** everyone comes back to the lobby and stays there until the next start.
+- **Changing the session:** the host chooses the flying site, the weather and the daylight (Lobby ▸ Site and Weather, or the usual menus), with the session stopped or running. Changing the site while it runs restarts everyone at the new site.
+- **Wings:** every pilot can change their wing while the session is stopped. While it runs, only the host can.
+
+Other pilots cannot fly while the session is stopped; their **Take off** button waits for the host. A pilot who joins while a session is running goes straight into it. If the host leaves, the next pilot in line becomes host and the session carries on as it was.
+
+Before joining a host, enter your **pilot name**: it is at the top of the lobby and in the Formation panel, and **Connect** stays off while it is empty.
+
+For the first six seconds after a launch, wings pass through each other, so that five pilots starting side by side can sort themselves out.
+
 ## Lobby, chat and voice
 
 The **Lobby** (main menu, the speech-bubble button in the top bar, or **Return** in flight) is where the pilots meet before and between flights.
 
 - **Pilots:** everyone in the formation, with their number, whether they are in the lobby, in the menus or flying, and a waveform beside whoever is speaking.
 - **Chat:** write to the other pilots. In flight, what the others write appears for ten seconds under the formation box, and the speech bubble fills in when there is something unread.
-- **Everyone Take Off:** the lead can bring every pilot who is waiting in the lobby into the air at once.
+- **Session:** whether it is running, who hosts, and for the host the buttons to start, restart and stop it.
 - **Voice:** off, push to talk, or open mic.
-  - *Push to talk:* hold the button in the lobby, or **B** in flight. "ON AIR" shows in the formation box while you are sending.
+  - *Push to talk:* hold the button in the lobby, or your talk control. "ON AIR" shows in the formation box while you are sending.
+    - Keyboard: **B** in flight, or any key you choose.
+    - Gamepad: left shoulder button, or any of twelve buttons you choose; works in the lobby too.
+    - USB transmitter or joystick: assign "Push to talk" to a switch or button.
+    - All three are set in Controller Setup (⌘, or **Change…** in the lobby).
   - *Open mic:* sends whenever you speak. Wear headphones, or the others hear themselves through your speakers; there is no echo cancellation.
   - The slider sets how loud the others are.
 
@@ -84,7 +106,7 @@ Measured over 150 seconds of racetrack with each of the eleven wings (`--formtes
 - **On station** counts the share of your flying time spent inside the slot. The lead sees how far each wingman is off their slot instead.
 - **J** puts you in the air a little behind your slot at the lead's speed, so you can practise the last part of a join-up again and again. **Space** starts with a hand launch from the pilots' position.
 
-Formations: vic, echelon right, echelon left, line astern, line abreast. Spacing: tight, normal or loose, which is 1.5, 2.5 or 5 wingspans of the lead's wing between neighbours.
+Formations for up to five: vic, echelon right, echelon left, line astern, line abreast. In a vic and line abreast, numbers 2 and 4 fly on the lead's right and 3 and 5 on the left. Spacing: tight, normal or loose, which is 1.5, 2.5 or 5 wingspans of the lead's wing between neighbours.
 
 ## Keys
 
@@ -93,7 +115,7 @@ Formations: vic, echelon right, echelon left, line astern, line abreast. Spacing
 | ← → ↑ ↓ | Roll and pitch (↓ pulls up) |
 | W S, X | Throttle up and down, throttle cut |
 | Return | Lobby: chat and voice |
-| B (hold) | Talk, with voice on push to talk |
+| B (hold) | Talk, with voice on push to talk (the key can be changed) |
 | J | Join up behind your slot |
 | U | Take the lead / hand it back |
 | O, I | Next formation, next spacing (lead only) |
@@ -120,6 +142,8 @@ Command-line checks: `--voicetest` sends speech and chat through the coder and t
 ## Not yet done
 
 - Tested with copies on one Mac only: local discovery with two copies, and a host with two joiners (local discovery switched off, so everything went by way of the host). Separate Macs, peer-to-peer Wi-Fi and a real internet path with its delay have not been tried, and the router on the test network did not open the port by itself, so the automatic port opening has only been seen to fail politely.
+- The session controls and the five-pilot limit were tested with copies on one Mac: a host and one guest through start, stop, restart, a change of site and daylight, and the wing lock; and a host with five joiners, of whom each flew with four others. With more than five copies, who ignores whom is not coordinated.
+- Push to talk on a gamepad or a USB transmitter could not be tried here: no controller was connected. The keyboard key and the setup window were built but only the logic was exercised.
 - Voice has been tested without a microphone: a generated tone went through the coder, the network (direct and by way of the host) and the decoder and came out at the right level, and the players started. Capture from a real microphone, how it sounds, and the delay have not been checked by ear.
 - No echo cancellation or noise suppression, and no per-pilot mute.
 - Positions are predicted forward to cover network delay; this suits a local network, and has not been tuned for the 50 to 150 ms of an internet path.

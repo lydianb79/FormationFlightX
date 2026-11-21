@@ -1162,6 +1162,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--host") { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [unowned self] in self.game.net.setHosting(true) } }
         if let h = arg("--join") { game.net.join(h) }
         if let v = Float(arg("--voicevolume") ?? "") { game.voice.volume = v }
+        if let script = arg("--script") {
+            // test hook: "6:start,12:stop,14:wing2,15:site3" does those things at those seconds
+            for step in script.split(separator: ",") {
+                let p = step.split(separator: ":")
+                guard p.count == 2, let t = Double(p[0]) else { continue }
+                let what = String(p[1])
+                DispatchQueue.main.asyncAfter(deadline: .now() + t) { [unowned self] in
+                    let g = self.game!
+                    if what == "start" { g.startSession() } else if what == "stop" { g.stopSession() } else if what == "fly" { g.takeOff() }
+                    else if what.hasPrefix("wing"), let i = Int(what.dropFirst(4)) { g.selectAircraft(i) }
+                    else if what.hasPrefix("site"), let i = Int(what.dropFirst(4)) { g.chooseSite(i) }
+                    else if what.hasPrefix("tod"), let i = Int(what.dropFirst(3)) { g.timeOfDay = i }
+                }
+            }
+        }
         if let text = arg("--say") { DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [unowned self] in self.game.sendChat(text) } }
         if CommandLine.arguments.contains("--tone") {
             // test hook: "speak" a tone instead of using the microphone
@@ -1230,7 +1245,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.titleVisibility = .hidden
         window.styleMask.insert(.fullSizeContentView)
         window.appearance = NSAppearance(named: .darkAqua)
-        window.backgroundColor = NSColor(srgbRed: 0.76, green: 0.13, blue: 0.1, alpha: 1)
+        window.backgroundColor = NSColor(srgbRed: 0.035, green: 0.07, blue: 0.125, alpha: 1)
         window.minSize = NSSize(width: 1000, height: 640)
         window.center()
         window.collectionBehavior = [.fullScreenNone]
@@ -1285,6 +1300,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let g = self.game!, now = CACurrentMediaTime()
                 var line = "NET \(g.pilotName) [port \(g.net.port)\(g.net.hosting ? " hosting at \(g.net.publicAddress ?? g.net.hostingProblem ?? "…")" : "")\(g.net.joined.map { " joined \($0.target) \($0.answering ? "ok" : "silent")" } ?? "") guests \(g.net.guestCount)] lead \(g.name(of: g.leadID)) site \(g.siteIndex)"
                 for w in g.wingmen { line += String(format: " | %@ %@ %.0f m away%@", w.name, w.present(now) ? "flying" : "absent", distance(w.aircraft.pos, g.aircraft.pos), w.ai != nil ? " (computer)" : "") }
+                line += " | session \(g.sessionRunning ? "RUN" : "stop") #\(g.sessionCount) host \(g.name(of: g.hostID)) | me: \(g.hud.overlay) wing \(g.aircraftIndex) tod \(g.timeOfDay)"
                 if let e = g.slotError { line += String(format: " | slot error %.1f m", length(e)) }
                 for w in g.remotePilots { line += " | \(w.name) \(Game.placeNames[Int(min(w.hello.place, 2))].lowercased())\(g.voice.speaking(w.id) ? ", SPEAKING" : "")" }
                 if let c = g.chat.last { line += " | chat: \(c.system ? "" : c.name + ": ")\(c.text)" }
@@ -1325,7 +1341,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             if e.modifierFlags.contains(.command) || e.modifierFlags.contains(.control) { return e }
             if e.type == .keyDown {
-                if !e.isARepeat { self.game.input.keys.insert(e.keyCode); self.game.keyDown(e.keyCode) }
+                // the push-to-talk key does nothing else, whatever it was before
+                if !e.isARepeat { self.game.input.keys.insert(e.keyCode); if e.keyCode != self.game.input.talkKey { self.game.keyDown(e.keyCode) } }
                 else if e.keyCode == 24 || e.keyCode == 27 { self.game.keyDown(e.keyCode) }          // trim keys repeat while held
             } else {
                 self.game.input.keys.remove(e.keyCode)
@@ -1447,6 +1464,8 @@ final class SetupModel: ObservableObject {
     @Published var calibrating = false
     @Published var s: InputSettings { didSet { input.settings = s } }
     @Published var listening: String? = nil         // action waiting for a switch or button to be moved
+    @Published var listeningKey = false             // waiting for the key that will be push to talk
+    private var keyMonitor: Any?
     private var seenAxes: [Float] = [], seenButtons: [Bool] = []
     func listen(_ id: String) {
         if listening == id { listening = nil; return }
@@ -1465,6 +1484,12 @@ final class SetupModel: ObservableObject {
     init(input: InputManager) {
         self.input = input
         s = input.settings
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+            guard let m = self, m.listeningKey else { return e }
+            m.listeningKey = false
+            if e.keyCode != 53 { m.s.talkKey = e.keyCode; m.s.talkKeyName = InputManager.keyName(e) }      // Esc cancels
+            return nil
+        }
         timer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             guard let m = self else { return }
             m.values = (0..<4).map { m.input.channel($0) }
@@ -1535,6 +1560,23 @@ struct SetupView: View {
             pct("Stick deadband", $model.s.deadband, 0...0.15)
             Toggle("Reverse the pitch stick on multirotors", isOn: Binding(get: { model.s.multiPitchReverse ?? false }, set: { model.s.multiPitchReverse = $0 }))
             Text("Each aircraft comes with a low rate and expo of its own, and every flight starts on low rates. Press L, or use an assigned switch, to change between low and high.")
+                .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+            Text("Push to talk").font(.headline)
+            HStack {
+                Text("Keyboard key").frame(width: 165, alignment: .leading)
+                Text(model.listeningKey ? "press a key… (Esc cancels)" : (model.s.talkKeyName ?? "B")).foregroundColor(model.listeningKey ? .orange : .primary).frame(width: 190, alignment: .leading)
+                Button(model.listeningKey ? "Cancel" : "Change…") { model.listeningKey.toggle() }
+                Button("Reset") { model.s.talkKey = nil; model.s.talkKeyName = nil }.disabled(model.s.talkKey == nil)
+            }.font(.system(size: 12))
+            HStack {
+                Text("Gamepad button").frame(width: 165, alignment: .leading)
+                Picker("", selection: Binding(get: { model.s.talkPad ?? 5 }, set: { model.s.talkPad = $0 })) {
+                    ForEach(InputManager.padButtons.indices, id: \.self) { Text(InputManager.padButtons[$0]).tag($0) }
+                }.labelsHidden().frame(width: 190)
+            }.font(.system(size: 12))
+            Text("Held to talk while voice is on Push to talk. The key works in flight; a gamepad button also works in the lobby. On a USB transmitter, assign “Push to talk” to a switch or button in the list below. The chosen key no longer does what it did before.")
                 .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
 
             Divider()

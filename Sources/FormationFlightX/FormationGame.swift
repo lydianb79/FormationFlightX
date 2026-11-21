@@ -84,16 +84,85 @@ extension Game {
         return true
     }
 
-    /// The lead chooses where the formation flies; everyone else follows.
+    /// The host chooses where the session flies; everyone else follows.
     func chooseSite(_ i: Int) {
-        if !isLead, let w = wingmen.first(where: { $0.id == leadID }), w.ai == nil {
-            say("The flying site is chosen by the lead (\(w.name))", 3); return
-        }
+        if together && !isHost { say("The flying site is chosen by the host (\(name(of: hostID)))", 3); return }
         selectSite(i)
     }
 
     /// How far the outermost wingman sits to the side of the lead.
-    var formationReach: Float { spacingMetres * max(abs(formation.offset(1).x), abs(formation.offset(2).x)) }
+    var formationReach: Float { spacingMetres * (1...max(order.count - 1, 2)).map { abs(formation.offset($0).x) }.max()! }
+
+    // MARK: Session
+
+    /// Flying with other pilots, as opposed to alone or with the computer.
+    var together: Bool { !remotePilots.isEmpty }
+    /// The pilot who runs the session: whoever has switched hosting on, or failing that the lowest number.
+    var hostID: UInt32 {
+        var hosts = remotePilots.filter { $0.hello.hosting }.map { $0.id }
+        if net.hosting { hosts.append(net.id) }
+        return hosts.min() ?? ([net.id] + remotePilots.map { $0.id }).min()!
+    }
+    var isHost: Bool { hostID == net.id }
+
+    /// Host: start the session, or start it again. Everyone goes back to the launch point and flies.
+    func startSession() {
+        guard isHost else { return }
+        let again = sessionRunning
+        sessionRunning = true; sessionCount &+= 1; sessionSeen = sessionCount
+        helloAcc = 1
+        cameFromMenu = false; lobbyReturn = false; hud.overlay = .none
+        resetAircraft()
+        for w in wingmen where w.ai != nil { place(w) }
+        if together { note(again ? "\(pilotName) restarted the session" : "\(pilotName) started the session") }
+    }
+
+    /// Host: stop the session. Everyone comes back to the lobby, where wings can be changed.
+    func stopSession() {
+        guard isHost, sessionRunning else { return }
+        sessionRunning = false
+        helloAcc = 1
+        cameFromMenu = false; hud.overlay = .lobby
+        if together { note("\(pilotName) stopped the session") }
+    }
+
+    /// Leave the menus and fly, if the session allows it.
+    func takeOff() {
+        lobbyReturn = false
+        if !together { cameFromMenu = false; hud.overlay = .none }
+        else if sessionRunning { cameFromMenu = false; hud.overlay = .none }
+        else if isHost { startSession() }
+        else { cameFromMenu = false; hud.overlay = .lobby; say("Waiting for \(name(of: hostID)) to start the session", 3) }
+    }
+
+    /// Open a browser or panel from the lobby and come back to the lobby afterwards.
+    func fromLobby(_ o: Overlay) { cameFromMenu = false; lobbyReturn = true; hud.overlay = o }
+
+    private func followSession() {
+        let o = hud.overlay
+        if lobbyReturn && (o == .menu || o == .none) { lobbyReturn = false; hud.overlay = .lobby }
+        guard together else { sessionRunning = !simHeld; return }       // alone, flying is the session
+        if !isHost, let w = wingmen.first(where: { $0.id == hostID }), CACurrentMediaTime() - w.lastHello < 3 {
+            let h = w.hello
+            let was = sessionRunning
+            sessionRunning = h.running; sessionCount = h.session
+            if h.running && h.session != sessionSeen {
+                // a start or restart: fly, unless busy in a browser
+                sessionSeen = h.session
+                if o == .none || o == .lobby || o == .menu {
+                    cameFromMenu = false; hud.overlay = .none
+                    resetAircraft()
+                    say("\(w.name) \(was ? "restarted" : "started") the session", 3)
+                }
+                note("\(w.name) \(was ? "restarted" : "started") the session")
+            } else if was && !h.running {
+                note("\(w.name) stopped the session")
+                say("\(w.name) stopped the session", 3)
+            }
+        }
+        // while the session is stopped nobody flies
+        if !sessionRunning && hud.overlay == .none { cameFromMenu = false; hud.overlay = .lobby }
+    }
 
     /// The autopilot for this pilot's own wing flies whatever part the pilot has: as the lead a wide racetrack
     /// the others can follow, as a wingman the slot.
@@ -129,25 +198,11 @@ extension Game {
         transmit(NetChat(id: net.id, seq: chatSeq, kind: 0, text: line))
     }
 
-    /// The lead calls everyone who is waiting in the lobby into the air.
-    func callTakeOff() {
-        guard isLead else { return }
-        chatSeq &+= 1
-        transmit(NetChat(id: net.id, seq: chatSeq, kind: 1, text: ""))
-        note("\(pilotName) called the take-off")
-        cameFromMenu = false; hud.overlay = .none
-    }
-
     private func received(_ c: NetChat) {
         guard let w = wingmen.first(where: { $0.id == c.id && $0.ai == nil }) else { return }     // only from pilots in this formation
         guard chatSeen.insert(UInt64(c.id) << 32 | UInt64(c.seq)).inserted else { return }
         if chatSeen.count > 4000 { chatSeen.removeAll() }
-        if c.kind == 1 {
-            guard c.id == leadID else { return }
-            note("\(w.name) called the take-off")
-            if hud.overlay == .lobby { cameFromMenu = false; hud.overlay = .none; resetAircraft(); say("\(w.name) called the take-off", 3) }
-            return
-        }
+        guard c.kind == 0 else { return }
         guard !c.text.isEmpty else { return }
         chatCount += 1
         chat.append(ChatLine(id: chatCount, name: w.name, text: c.text, time: CACurrentMediaTime()))
@@ -181,7 +236,7 @@ extension Game {
                 guard h.group == group else { continue }
                 var w = wingmen.first { $0.id == h.id && $0.ai == nil }
                 if w == nil {
-                    guard remotePilots.count < 2 else { continue }         // three fly together, no more
+                    guard remotePilots.count < Formation.maxPilots - 1 else { continue }         // five fly together, no more
                     let n = Wingman(id: h.id, name: h.name, specIndex: 0)
                     wingmen.append(n); w = n
                     say("\(h.name.isEmpty ? "A pilot" : h.name) joined the formation", 4)
@@ -225,16 +280,21 @@ extension Game {
             // computer wingmen that suddenly have a new lead, or the computer taking over, start from a sensible place
             for w in wingmen where w.ai != nil && (w.id == leadID || before == w.id) { if w.aircraft.crashed || w.aircraft.onGround { place(w) } }
         }
-        // the lead's choices apply to everyone
-        if !isLead, let w = wingmen.first(where: { $0.id == leadID }), w.ai == nil, now - w.lastHello < 3 {
+        // the host's choices apply to everyone: where, and in what weather and light
+        if !isHost, let w = wingmen.first(where: { $0.id == hostID }), now - w.lastHello < 3 {
             let h = w.hello
             if Int(h.site) != siteIndex, Int(h.site) < SiteSpec.all.count { selectSite(Int(h.site)) }
-            if let f = FormationKind(rawValue: Int(h.formation)), f != formation { formation = f; say("Formation: \(f.name)", 3) }
-            if Int(h.spacing) != spacing, Int(h.spacing) < Formation.spacingNames.count { spacing = Int(h.spacing); say("Spacing: " + Formation.spacingNames[spacing]) }
             if Int(h.timeOfDay) < Game.timeNames.count { timeOfDay = Int(h.timeOfDay) }
             env.windSpeed = h.windSpeed; env.windFrom = h.windFrom; env.turbulence = h.turbulence; env.gustiness = h.gustiness
             env.thermalStrength = h.thermals; env.cloud = h.cloud; env.haze = h.haze
         }
+        // the lead calls the formation
+        if !isLead, let w = wingmen.first(where: { $0.id == leadID }), w.ai == nil, now - w.lastHello < 3 {
+            let h = w.hello
+            if let f = FormationKind(rawValue: Int(h.formation)), f != formation { formation = f; say("Formation: \(f.name)", 3) }
+            if Int(h.spacing) != spacing, Int(h.spacing) < Formation.spacingNames.count { spacing = Int(h.spacing); say("Spacing: " + Formation.spacingNames[spacing]) }
+        }
+        followSession()
     }
 
     /// Put a computer partner where it can start flying: the lead onto the racetrack, a wingman into its slot,
@@ -291,7 +351,9 @@ extension Game {
         for w in wingmen where w.ai == nil { w.extrapolate(now: now, dt: realDt) }
 
         // touching another aircraft ends the flight for both
-        if running && !aircraft.crashed {
+        // (not in the first seconds after a launch: everyone starts side by side and has to sort themselves out)
+        if running { launchGrace = max(launchGrace - sdt, 0) }
+        if running && !aircraft.crashed && launchGrace <= 0 {
             for w in wingmen where w.present(now) && !w.aircraft.crashed {
                 let d = w.aircraft.pos - aircraft.pos
                 let reach = aircraft.spec.span + w.aircraft.spec.span
@@ -340,7 +402,8 @@ extension Game {
             voice.onFrame = { seq, payload in net.broadcast(NetCodec.encode(NetVoice(id: net.id, seq: seq, payload: payload))) }
         }
         voice.setActive(net.running)
-        voice.talkHeld = lobbyTalk || (hud.overlay == .none && input.keys.contains(11))
+        // the keyboard key only counts in flight (elsewhere it is typing); a controller's button counts everywhere
+        voice.talkHeld = lobbyTalk || input.talkOnDevice || (hud.overlay == .none && input.keys.contains(input.talkKey))
 
         // tell the others
         guard net.running else { chatOut = []; return }
@@ -358,6 +421,7 @@ extension Game {
             h.windSpeed = env.windSpeed; h.windFrom = env.windFrom; h.turbulence = env.turbulence; h.gustiness = env.gustiness
             h.thermals = env.thermalStrength; h.cloud = env.cloud; h.haze = env.haze
             h.name = pilotName; h.group = group; h.place = place
+            h.hosting = net.hosting; h.running = sessionRunning; h.session = sessionCount
             net.broadcast(NetCodec.encode(h))
         }
         sendAcc += realDt
@@ -409,7 +473,7 @@ extension Game {
         if net.running && voice.mode != .off {
             if voice.micProblem != nil { s.mic = "Microphone unavailable" }
             else if voice.sending { s.mic = "ON AIR" }
-            else { s.mic = voice.mode == .open ? "Mic open" : "Hold B to talk" }
+            else { s.mic = voice.mode == .open ? "Mic open" : "Hold \(input.talkHint) to talk" }
         }
         if net.running {
             if !remotePilots.isEmpty { s.net = "\(remotePilots.count + 1) pilots connected" }

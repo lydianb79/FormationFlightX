@@ -245,7 +245,7 @@ final class VoiceChat {
         guard active || VoiceChat.offline else { return nil }
         let v: Voice
         if let have = voices[id] { v = have } else {
-            guard voices.count < 4 else { return nil }
+            guard voices.count < Formation.maxPilots - 1 else { return nil }
             v = Voice(); voices[id] = v
             if !VoiceChat.offline {
                 playEngine.attach(v.player)

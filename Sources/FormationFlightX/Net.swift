@@ -30,6 +30,9 @@ struct NetHello {
     var name = ""
     var group = ""
     var place: UInt8 = 0            // 0 in the menus, 1 in the lobby, 2 flying
+    var hosting = false             // this pilot runs the session
+    var running = false             // from the host: the session is under way
+    var session: UInt32 = 0         // from the host: counts starts and restarts
 }
 
 /// A line of chat, or the lead calling everyone in the lobby into the air. Sent several times, because
@@ -81,7 +84,7 @@ private struct Reader {
 }
 
 enum NetCodec {
-    static let magic: UInt8 = 0xF7, version: UInt8 = 2
+    static let magic: UInt8 = 0xF7, version: UInt8 = 3
     static let maxSize = 1200, maxChat = 240
 
     static func encode(_ c: NetChat) -> Data {
@@ -113,6 +116,7 @@ enum NetCodec {
         w.u32(h.leadEpoch); w.u16(h.site); w.u8(h.formation); w.u8(h.spacing); w.u8(h.timeOfDay)
         for v in [h.windSpeed, h.windFrom, h.turbulence, h.gustiness, h.thermals, h.cloud, h.haze] { w.f(v) }
         w.str(h.name); w.str(h.group); w.u8(h.place)
+        w.u8((h.hosting ? 1 : 0) | (h.running ? 2 : 0)); w.u32(h.session)
         return w.d
     }
 
@@ -144,6 +148,7 @@ enum NetCodec {
             h.leadEpoch = r.u32(); h.site = r.u16(); h.formation = r.u8(); h.spacing = r.u8(); h.timeOfDay = r.u8()
             h.windSpeed = r.f(); h.windFrom = r.f(); h.turbulence = r.f(); h.gustiness = r.f(); h.thermals = r.f(); h.cloud = r.f(); h.haze = r.f()
             h.name = r.str(); h.group = r.str(); h.place = min(r.u8(), 2)
+            let fl = r.u8(); h.hosting = fl & 1 != 0; h.running = fl & 2 != 0; h.session = r.u32()
             guard r.ok, [h.windSpeed, h.windFrom, h.turbulence, h.gustiness, h.thermals, h.cloud, h.haze].allSatisfy({ $0.isFinite }) else { return nil }
             h.windSpeed = clampf(h.windSpeed, 0, 20); h.windFrom = clampf(h.windFrom, 0, 360); h.turbulence = clampf(h.turbulence, 0, 1)
             h.gustiness = clampf(h.gustiness, 0, 1); h.thermals = clampf(h.thermals, 0, 2); h.cloud = clampf(h.cloud, 0, 1); h.haze = clampf(h.haze, 0, 1)

@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import GameController
 import IOKit
 import IOKit.hid
@@ -102,6 +103,10 @@ struct InputSettings: Codable {
     var multiPitchReverse: Bool? = nil      // reverse the pitch stick on multirotors only
     var ownRates: Bool? = nil               // true: use the low rate and expo above for every aircraft instead of each aircraft's own
     var bindings: [String: ControlBinding]? = nil       // actions assigned to switches and buttons
+    // push to talk: a keyboard key (key code and what to call it) and a gamepad button; a transmitter switch is a binding
+    var talkKey: UInt16? = nil
+    var talkKeyName: String? = nil
+    var talkPad: Int? = nil
 
     static let axisNames = ["X", "Y", "Z", "Rx", "Ry", "Rz", "Slider", "Dial", "Wheel"]
     static let channelNames = ["Aileron", "Elevator", "Throttle", "Rudder"]
@@ -123,31 +128,69 @@ struct ControlAction {
 
 final class InputManager {
     static let actions: [ControlAction] = [
+        ControlAction(id: "talk", title: "Push to talk", states: -1, key: 0),
         ControlAction(id: "rates", title: "Rates: low / high", states: 2, key: 37),
-        ControlAction(id: "mode", title: "Flight mode", states: 2, key: 3),
-        ControlAction(id: "rotor", title: "Rotor speed (helicopters)", states: 3, key: 34),
-        ControlAction(id: "hold", title: "Throttle hold (helicopters)", states: 2, key: 32),
-        ControlAction(id: "flaps", title: "Flaps: up / half / full", states: 3, key: 14),
-        ControlAction(id: "gear", title: "Landing gear", states: 2, key: 5),
         ControlAction(id: "smoke", title: "Smoke", states: 2, key: 16),
+        ControlAction(id: "join", title: "Join up on the lead", states: 0, key: 38),
+        ControlAction(id: "lead", title: "Take the lead / hand it back", states: 0, key: 32),
+        ControlAction(id: "formation", title: "Next formation", states: 0, key: 31),
+        ControlAction(id: "spacing", title: "Next spacing", states: 0, key: 34),
         ControlAction(id: "trimUp", title: "Pitch trim: nose up", states: 0, key: 24),
         ControlAction(id: "trimDown", title: "Pitch trim: nose down", states: 0, key: 27),
-        ControlAction(id: "brake", title: "Wheel brakes", states: -1, key: 12),
-        ControlAction(id: "reset", title: "Reset aircraft", states: 0, key: 49),
+        ControlAction(id: "reset", title: "Start again (hand launch)", states: 0, key: 49),
         ControlAction(id: "camera", title: "Camera", states: 0, key: 8),
         ControlAction(id: "zoom", title: "Zoom", states: 0, key: 6),
-        ControlAction(id: "pause", title: "Pause", states: 0, key: 35),
-        ControlAction(id: "slow", title: "Slow motion", states: 0, key: 17),
-        ControlAction(id: "next", title: "Next aircraft", states: 0, key: 30),
-        ControlAction(id: "prev", title: "Previous aircraft", states: 0, key: 33),
-        ControlAction(id: "site", title: "Next flying site", states: 0, key: 45),
-        ControlAction(id: "demo", title: "Demo pilot", states: 0, key: 40),
-        ControlAction(id: "balloons", title: "Balloon challenge", states: 0, key: 11),
-        ControlAction(id: "windDown", title: "Less wind", states: 0, key: 43),
-        ControlAction(id: "windUp", title: "More wind", states: 0, key: 47),
+        ControlAction(id: "lobby", title: "Lobby", states: 0, key: 36),
+        ControlAction(id: "demo", title: "Autopilot for your own wing", states: 0, key: 40),
         ControlAction(id: "hud", title: "Hide / show display", states: 0, key: 9),
         ControlAction(id: "mute", title: "Mute sound", states: 0, key: 46),
     ]
+
+    // MARK: Push to talk
+
+    static let padButtons = ["None", "A", "B", "X", "Y", "Left shoulder", "Right shoulder", "Left stick click", "Right stick click", "D-pad up", "D-pad down", "D-pad left", "D-pad right"]
+    /// The keyboard key that is held to talk (B unless the pilot chose another).
+    var talkKey: UInt16 { settings.talkKey ?? 11 }
+    var talkKeyName: String { settings.talkKeyName ?? "B" }
+    var talkPad: Int { min(max(settings.talkPad ?? 5, 0), InputManager.padButtons.count - 1) }
+
+    /// Push to talk held on a controller: the assigned switch or button of a USB transmitter, or the chosen gamepad button.
+    var talkOnDevice: Bool {
+        if hid.connected, let b = settings.bindings?["talk"], value(of: b) > 0.3 { return true }
+        guard let gp = GCController.controllers().compactMap({ $0.extendedGamepad }).first else { return false }
+        switch talkPad {
+        case 1: return gp.buttonA.isPressed
+        case 2: return gp.buttonB.isPressed
+        case 3: return gp.buttonX.isPressed
+        case 4: return gp.buttonY.isPressed
+        case 5: return gp.leftShoulder.isPressed
+        case 6: return gp.rightShoulder.isPressed
+        case 7: return gp.leftThumbstickButton?.isPressed ?? false
+        case 8: return gp.rightThumbstickButton?.isPressed ?? false
+        case 9: return gp.dpad.up.isPressed
+        case 10: return gp.dpad.down.isPressed
+        case 11: return gp.dpad.left.isPressed
+        case 12: return gp.dpad.right.isPressed
+        default: return false
+        }
+    }
+
+    /// What to hold to talk, on whatever the pilot is flying with.
+    var talkHint: String {
+        if hid.connected, let b = settings.bindings?["talk"] { return InputManager.label(b).lowercased() + " or the \(talkKeyName) key" }
+        if GCController.controllers().contains(where: { $0.extendedGamepad != nil }), talkPad > 0 { return InputManager.padButtons[talkPad].lowercased() + " or the \(talkKeyName) key" }
+        return "the \(talkKeyName) key"
+    }
+
+    /// A name for a key, for the setup window.
+    static func keyName(_ e: NSEvent) -> String {
+        let special: [UInt16: String] = [49: "Space", 36: "Return", 48: "Tab", 51: "Delete", 53: "Esc", 123: "←", 124: "→", 125: "↓", 126: "↑", 76: "Enter",
+                                        122: "F1", 120: "F2", 99: "F3", 118: "F4", 96: "F5", 97: "F6", 98: "F7", 100: "F8", 101: "F9", 109: "F10", 103: "F11", 111: "F12"]
+        if let n = special[e.keyCode] { return n }
+        let c = (e.charactersIgnoringModifiers ?? "").uppercased()
+        return c.isEmpty || c.unicodeScalars.first!.value < 33 ? "Key \(e.keyCode)" : c
+    }
+
     /// Where an assigned switch or button is: -1...1 for an axis, -1 or 1 for a button.
     func value(of b: ControlBinding) -> Float {
         if b.axis { return b.index >= 0 && b.index < hid.axes.count ? hid.axes[b.index] : 0 }

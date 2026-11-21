@@ -3,19 +3,21 @@ import AppKit
 
 // MARK: - Theme
 
-/// Colours from the splash artwork: signal red, warm cream and near-black ink.
+/// The look of FormationFlightX: evening sky. Deep blue panels, cool white type, a bright sky blue for what can
+/// be pressed and amber for what needs attention.
 enum Theme {
-    static let red = Color(red: 0.76, green: 0.13, blue: 0.10)
-    static let deepRed = Color(red: 0.52, green: 0.07, blue: 0.05)
-    static let cream = Color(red: 0.965, green: 0.93, blue: 0.875)
-    static let ink = Color(red: 0.11, green: 0.075, blue: 0.07)
-    static let accent = red
+    static let brand = Color(red: 0.10, green: 0.60, blue: 0.92)
+    static let brandDeep = Color(red: 0.04, green: 0.27, blue: 0.52)
+    static let amber = Color(red: 1.0, green: 0.72, blue: 0.22)
+    static let paper = Color(red: 0.93, green: 0.95, blue: 0.98)
+    static let ink = Color(red: 0.035, green: 0.07, blue: 0.125)
+    static let accent = brand
     static let panel = ink.opacity(0.95)
     static let glass = ink.opacity(0.74)
-    static let card = cream.opacity(0.06)
-    static let stroke = cream.opacity(0.15)
-    static let dim = cream.opacity(0.66)
-    static let faint = cream.opacity(0.42)
+    static let card = paper.opacity(0.06)
+    static let stroke = paper.opacity(0.14)
+    static let dim = paper.opacity(0.66)
+    static let faint = paper.opacity(0.42)
 }
 
 private struct GlassBox: ViewModifier {
@@ -34,19 +36,19 @@ private extension View {
 private struct PrimaryButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13.5, weight: .heavy)).tracking(1.2).textCase(.uppercase)
-            .foregroundColor(Theme.cream)
-            .padding(.horizontal, 22).padding(.vertical, 11)
-            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Theme.red.opacity(configuration.isPressed ? 0.75 : 1)))
+            .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+            .foregroundColor(.white)
+            .padding(.horizontal, 20).padding(.vertical, 10)
+            .background(Capsule().fill(LinearGradient(colors: [Theme.brand, Theme.brand.opacity(0.78)], startPoint: .top, endPoint: .bottom)).opacity(configuration.isPressed ? 0.75 : 1))
     }
 }
 private struct QuietButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .medium))
-            .foregroundColor(Theme.cream.opacity(0.9))
+            .foregroundColor(Theme.paper.opacity(0.9))
             .padding(.horizontal, 14).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.cream.opacity(configuration.isPressed ? 0.16 : 0.08)))
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.paper.opacity(configuration.isPressed ? 0.16 : 0.08)))
             .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Theme.stroke, lineWidth: 1))
     }
 }
@@ -56,7 +58,7 @@ private struct Difficulty: View {
     var body: some View {
         HStack(spacing: 3) {
             ForEach(1...5, id: \.self) { i in
-                Circle().fill(i <= level ? (level >= 4 ? Theme.red : Theme.cream) : Theme.cream.opacity(0.16)).frame(width: 7, height: 7)
+                Circle().fill(i <= level ? (level >= 4 ? Theme.brand : Theme.paper) : Theme.paper.opacity(0.16)).frame(width: 7, height: 7)
             }
             Text(["", "Beginner", "Easy", "Intermediate", "Advanced", "Expert"][min(max(level, 1), 5)])
                 .font(.system(size: 11, weight: .medium)).foregroundColor(Theme.dim).padding(.leading, 4)
@@ -67,9 +69,9 @@ private struct Difficulty: View {
 private struct Tag: View {
     var text: String
     var body: some View {
-        Text(text).font(.system(size: 10.5, weight: .semibold)).foregroundColor(Theme.cream.opacity(0.85))
+        Text(text).font(.system(size: 10.5, weight: .semibold)).foregroundColor(Theme.paper.opacity(0.85))
             .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(Capsule().fill(Theme.cream.opacity(0.1)))
+            .background(Capsule().fill(Theme.paper.opacity(0.1)))
     }
 }
 
@@ -77,11 +79,11 @@ private func specRow(_ k: String, _ v: String) -> some View {
     HStack {
         Text(k).foregroundColor(Theme.dim)
         Spacer()
-        Text(v).monospacedDigit().foregroundColor(Theme.cream)
+        Text(v).monospacedDigit().foregroundColor(Theme.paper)
     }
     .font(.system(size: 12.5))
     .padding(.vertical, 5)
-    .overlay(Rectangle().fill(Theme.cream.opacity(0.07)).frame(height: 1), alignment: .bottom)
+    .overlay(Rectangle().fill(Theme.paper.opacity(0.07)).frame(height: 1), alignment: .bottom)
 }
 
 /// Preview image on a soft studio backdrop.
@@ -89,7 +91,7 @@ private struct Backdrop<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {
         ZStack {
-            RadialGradient(colors: [Color(red: 0.6, green: 0.55, blue: 0.5), Color(red: 0.17, green: 0.12, blue: 0.11)], center: .init(x: 0.5, y: 0.42), startRadius: 4, endRadius: 260)
+            RadialGradient(colors: [Color(red: 0.42, green: 0.58, blue: 0.74), Color(red: 0.06, green: 0.12, blue: 0.21)], center: .init(x: 0.5, y: 0.42), startRadius: 4, endRadius: 260)
             content
         }
     }
@@ -102,8 +104,8 @@ private struct StickView: View {
     var body: some View {
         VStack(spacing: 5) {
             ZStack {
-                Rectangle().fill(Theme.cream.opacity(0.14)).frame(width: 1)
-                Rectangle().fill(Theme.cream.opacity(0.14)).frame(height: 1)
+                Rectangle().fill(Theme.paper.opacity(0.14)).frame(width: 1)
+                Rectangle().fill(Theme.paper.opacity(0.14)).frame(height: 1)
                 Circle().fill(Theme.accent).frame(width: 12, height: 12)
                     .shadow(color: Theme.accent.opacity(0.7), radius: 5)
                     .offset(x: CGFloat(x) * 34, y: CGFloat(-y) * 34)
@@ -121,7 +123,7 @@ private struct Metric: View {
         VStack(spacing: 1) {
             Text(label).font(.system(size: 9.5, weight: .semibold)).tracking(0.9).foregroundColor(Theme.faint)
             HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(value).font(.system(size: 19, weight: .semibold, design: .default)).monospacedDigit().foregroundColor(Theme.cream)
+                Text(value).font(.system(size: 19, weight: .semibold, design: .default)).monospacedDigit().foregroundColor(Theme.paper)
                 Text(unit).font(.system(size: 10.5, weight: .medium)).foregroundColor(Theme.dim)
             }
         }
@@ -134,9 +136,9 @@ private struct BarButton: View {
     var action: () -> Void
     var body: some View {
         Button(action: action) {
-            Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.cream.opacity(0.9))
+            Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.paper.opacity(0.9))
                 .frame(width: 32, height: 28)
-                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Theme.cream.opacity(0.08)))
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Theme.paper.opacity(0.08)))
         }
         .buttonStyle(.plain).focusable(false).help(help)
     }
@@ -150,7 +152,7 @@ private struct Chip: View {
             HStack(spacing: 8) {
                 Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.accent)
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(title).font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.cream).lineLimit(1)
+                    Text(title).font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.paper).lineLimit(1)
                     Text(subtitle).font(.system(size: 10.5)).foregroundColor(Theme.dim).lineLimit(1)
                 }
                 Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundColor(Theme.faint)
@@ -176,7 +178,7 @@ struct HUDView: View {
                         Chip(icon: "map", title: s.site, subtitle: s.time) { m.overlay = .sites }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 1) {
-                            Text(s.camera).font(.system(size: 11, weight: .medium)).foregroundColor(Theme.cream.opacity(0.85))
+                            Text(s.camera).font(.system(size: 11, weight: .medium)).foregroundColor(Theme.paper.opacity(0.85))
                             Text("\(s.input) · \(s.rates) · \(s.fps) fps").font(.system(size: 10)).monospacedDigit().foregroundColor(Theme.dim)
                         }
                         .padding(.trailing, 4).allowsHitTesting(false)
@@ -198,7 +200,7 @@ struct HUDView: View {
                             // what the others wrote, for a few seconds
                             ForEach(s.chat) { line in
                                 (Text(line.system ? "" : line.name + "  ").font(.system(size: 11.5, weight: .bold)) + Text(line.text).font(.system(size: 11.5)))
-                                    .foregroundColor(Theme.cream.opacity(line.system ? 0.7 : 1)).lineLimit(2).frame(maxWidth: 320, alignment: .leading)
+                                    .foregroundColor(Theme.paper.opacity(line.system ? 0.7 : 1)).lineLimit(2).frame(maxWidth: 320, alignment: .leading)
                                     .padding(.horizontal, 9).padding(.vertical, 5).glass(8)
                             }
                         }
@@ -207,7 +209,7 @@ struct HUDView: View {
                     .padding(.horizontal, 12).padding(.top, 8)
 
                     if !s.score.isEmpty {
-                        Text(s.score).font(.system(size: 14, weight: .bold, design: .default)).monospacedDigit().foregroundColor(Theme.cream)
+                        Text(s.score).font(.system(size: 14, weight: .bold, design: .default)).monospacedDigit().foregroundColor(Theme.paper)
                             .padding(.horizontal, 14).padding(.vertical, 6).glass(9).padding(.top, 8).allowsHitTesting(false)
                     }
                     Spacer()
@@ -217,7 +219,7 @@ struct HUDView: View {
                         Spacer()
                         VStack(spacing: 7) {
                             if !s.config.isEmpty {
-                                Text(s.config).font(.system(size: 11.5, weight: .semibold)).monospacedDigit().foregroundColor(Theme.cream)
+                                Text(s.config).font(.system(size: 11.5, weight: .semibold)).monospacedDigit().foregroundColor(Theme.paper)
                                     .padding(.horizontal, 12).padding(.vertical, 4).glass(8)
                             }
                             HStack(spacing: 6) {
@@ -267,7 +269,7 @@ struct HUDView: View {
             .animation(.easeInOut(duration: 0.35), value: m.overlay == .splash)
         }
         .preferredColorScheme(.dark)
-        .tint(Theme.red)
+        .tint(Theme.brand)
     }
 }
 
@@ -283,15 +285,15 @@ private struct Sheet<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {
         ZStack {
-            Color.black.opacity(0.55).ignoresSafeArea().onTapGesture { m.overlay = back }
+            Theme.ink.opacity(0.5).ignoresSafeArea().onTapGesture { m.overlay = back }
             VStack(spacing: 0) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(title.uppercased()).font(.system(size: 22, weight: .black)).tracking(0.5).foregroundColor(Theme.cream)
+                    Text(title).font(.system(size: 23, weight: .bold, design: .rounded)).foregroundColor(Theme.paper)
                     Text(subtitle).font(.system(size: 12.5)).foregroundColor(Theme.dim).padding(.leading, 6)
                     Spacer()
                     Button { m.overlay = back } label: {
-                        Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundColor(Theme.cream.opacity(0.8))
-                            .frame(width: 26, height: 26).background(Circle().fill(Theme.cream.opacity(0.1)))
+                        Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundColor(Theme.paper.opacity(0.8))
+                            .frame(width: 26, height: 26).background(Circle().fill(Theme.paper.opacity(0.1)))
                     }
                     .buttonStyle(.plain).keyboardShortcut(.cancelAction)
                 }
@@ -300,7 +302,9 @@ private struct Sheet<Content: View>: View {
                 content
             }
             .frame(maxWidth: width, maxHeight: height)
-            .glass(16, fill: Theme.panel)
+            .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(LinearGradient(colors: [Color(red: 0.06, green: 0.12, blue: 0.21), Theme.ink], startPoint: .top, endPoint: .bottom)).opacity(0.97))
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.stroke, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .shadow(color: .black.opacity(0.5), radius: 40, y: 16)
             .padding(28)
         }
@@ -340,7 +344,7 @@ struct AircraftBrowser: View {
                             }
                             .foregroundColor(category == c ? .white : Theme.dim)
                             .padding(.horizontal, 10).padding(.vertical, 7)
-                            .background(RoundedRectangle(cornerRadius: 7).fill(category == c ? Theme.red.opacity(0.85) : Color.clear))
+                            .background(RoundedRectangle(cornerRadius: 7).fill(category == c ? Theme.brand.opacity(0.85) : Color.clear))
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain).focusable(false)
@@ -357,7 +361,7 @@ struct AircraftBrowser: View {
                         TextField("Search aircraft", text: $search).textFieldStyle(.plain).font(.system(size: 13))
                     }
                     .padding(.horizontal, 10).padding(.vertical, 7)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Theme.cream.opacity(0.07)))
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Theme.paper.opacity(0.07)))
                     .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 8)
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 190), spacing: 10)], spacing: 10) {
@@ -369,14 +373,14 @@ struct AircraftBrowser: View {
                                     }
                                     .frame(height: 98).clipped()
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(spec.name).font(.system(size: 12.5, weight: .semibold)).foregroundColor(Theme.cream).lineLimit(1)
+                                        Text(spec.name).font(.system(size: 12.5, weight: .semibold)).foregroundColor(Theme.paper).lineLimit(1)
                                         Text(spec.category).font(.system(size: 10.5)).foregroundColor(Theme.dim).lineLimit(1)
                                     }
                                     .padding(.horizontal, 9).padding(.vertical, 7)
                                 }
                                 .background(Theme.card)
                                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(selected == i ? Theme.cream : Theme.stroke, lineWidth: selected == i ? 2 : 1))
+                                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(selected == i ? Theme.paper : Theme.stroke, lineWidth: selected == i ? 2 : 1))
                                 .contentShape(Rectangle())
                                 .onTapGesture(count: 2) { fly(i) }
                                 .onTapGesture { selected = i }
@@ -395,9 +399,9 @@ struct AircraftBrowser: View {
                         if let img = m.thumbnail(spec) { Image(nsImage: img).resizable().scaledToFit().padding(6) }
                     }
                     .frame(height: 205).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    Text(spec.name).font(.system(size: 20, weight: .bold)).foregroundColor(Theme.cream).padding(.top, 14)
+                    Text(spec.name).font(.system(size: 20, weight: .bold)).foregroundColor(Theme.paper).padding(.top, 14)
                     HStack(spacing: 8) { Tag(text: spec.category); Difficulty(level: spec.difficulty) }.padding(.top, 6)
-                    Text(spec.blurb).font(.system(size: 13)).foregroundColor(Theme.cream.opacity(0.82)).fixedSize(horizontal: false, vertical: true).padding(.top, 10)
+                    Text(spec.blurb).font(.system(size: 13)).foregroundColor(Theme.paper.opacity(0.82)).fixedSize(horizontal: false, vertical: true).padding(.top, 10)
                     VStack(spacing: 0) {
                         specRow(spec.sizeLabel, String(format: "%.2f m", spec.span))
                         specRow("Power", spec.powerPlant)
@@ -458,7 +462,7 @@ struct SiteBrowser: View {
             }
             .foregroundColor(filter == f ? .white : Theme.dim)
             .padding(.horizontal, 10).padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 7).fill(filter == f ? Theme.red.opacity(0.85) : Color.clear))
+            .background(RoundedRectangle(cornerRadius: 7).fill(filter == f ? Theme.brand.opacity(0.85) : Color.clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain).focusable(false)
@@ -468,9 +472,9 @@ struct SiteBrowser: View {
     }
     private func badge(_ site: SiteSpec) -> some View {
         Text(site.panorama != nil ? "360° PHOTO" : "3D").font(.system(size: 9, weight: .heavy)).tracking(0.5)
-            .foregroundColor(site.panorama != nil ? Theme.ink : Theme.cream)
+            .foregroundColor(site.panorama != nil ? Theme.ink : Theme.paper)
             .padding(.horizontal, 6).padding(.vertical, 3)
-            .background(Capsule().fill(site.panorama != nil ? Theme.cream : Theme.red))
+            .background(Capsule().fill(site.panorama != nil ? Theme.paper : Theme.brand))
     }
 
     var body: some View {
@@ -501,7 +505,7 @@ struct SiteBrowser: View {
                         TextField("Search sites", text: $search).textFieldStyle(.plain).font(.system(size: 13))
                     }
                     .padding(.horizontal, 10).padding(.vertical, 7)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Theme.cream.opacity(0.07)))
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Theme.paper.opacity(0.07)))
                     .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 8)
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 172, maximum: 230), spacing: 10)], spacing: 10) {
@@ -515,14 +519,14 @@ struct SiteBrowser: View {
                                     }
                                     .frame(height: 104).clipped()
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(site.displayName).font(.system(size: 12.5, weight: .semibold)).foregroundColor(Theme.cream).lineLimit(1)
+                                        Text(site.displayName).font(.system(size: 12.5, weight: .semibold)).foregroundColor(Theme.paper).lineLimit(1)
                                         Text(site.category).font(.system(size: 10.5)).foregroundColor(Theme.dim).lineLimit(1)
                                     }
                                     .padding(.horizontal, 9).padding(.vertical, 7)
                                 }
                                 .background(Theme.card)
                                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(selected == i ? Theme.cream : Theme.stroke, lineWidth: selected == i ? 2 : 1))
+                                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(selected == i ? Theme.paper : Theme.stroke, lineWidth: selected == i ? 2 : 1))
                                 .contentShape(Rectangle())
                                 .onTapGesture(count: 2) { fly(i) }
                                 .onTapGesture { selected = i }
@@ -542,9 +546,9 @@ struct SiteBrowser: View {
                         if let img = m.sitePreview(site) { Image(nsImage: img).resizable().scaledToFill() }
                     }
                     .frame(width: 300, height: 188).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    Text(site.displayName).font(.system(size: 20, weight: .bold)).foregroundColor(Theme.cream).padding(.top, 14)
+                    Text(site.displayName).font(.system(size: 20, weight: .bold)).foregroundColor(Theme.paper).padding(.top, 14)
                     HStack(spacing: 8) { Tag(text: site.kindLabel); Tag(text: site.category); Difficulty(level: site.difficulty) }.padding(.top, 6)
-                    Text(site.summary).font(.system(size: 13)).foregroundColor(Theme.cream.opacity(0.82)).fixedSize(horizontal: false, vertical: true).padding(.top, 10)
+                    Text(site.summary).font(.system(size: 13)).foregroundColor(Theme.paper.opacity(0.82)).fixedSize(horizontal: false, vertical: true).padding(.top, 10)
                     VStack(spacing: 0) {
                         specRow("Surface", site.surfaceLabel)
                         specRow("Typical wind", site.windSpeed < 0.5 ? "Calm" : String(format: "%.0f m/s from %.0f°", site.windSpeed, site.windFrom))
@@ -578,7 +582,7 @@ struct SplashView: View {
     var body: some View {
         GeometryReader { g in
             ZStack {
-                Theme.red
+                Theme.ink
                 if let img = Self.image {
                     // the artwork rushes toward the viewer and settles, then keeps drifting very slowly
                     Image(nsImage: img).resizable().scaledToFill().frame(width: g.size.width, height: g.size.height)
@@ -588,11 +592,11 @@ struct SplashView: View {
                         .scaleEffect(1 + 0.035 * progress)
                         .clipped()
                 } else {
-                    Text("FORMATION FLIGHT X").font(.system(size: 90, weight: .black)).foregroundColor(Theme.cream)
+                    Text("FORMATION FLIGHT X").font(.system(size: 90, weight: .black)).foregroundColor(Theme.paper)
                         .scaleEffect(arrived ? 1 : 1.3).opacity(arrived ? 1 : 0)
                 }
                 // a slanted band of light sweeps across, like sun glinting off a wing
-                LinearGradient(colors: [.clear, Theme.cream.opacity(0.0), Theme.cream.opacity(0.42), Theme.cream.opacity(0.0), .clear], startPoint: .leading, endPoint: .trailing)
+                LinearGradient(colors: [.clear, Theme.paper.opacity(0.0), Theme.paper.opacity(0.42), Theme.paper.opacity(0.0), .clear], startPoint: .leading, endPoint: .trailing)
                     .frame(width: g.size.width * 0.55, height: g.size.height * 2.2)
                     .rotationEffect(.degrees(24))
                     .offset(x: sweep ? g.size.width * 1.1 : -g.size.width * 1.1)
@@ -604,12 +608,12 @@ struct SplashView: View {
                 VStack(spacing: 12) {
                     Spacer()
                     Text("PRESS ANY KEY").font(.system(size: 11, weight: .heavy)).tracking(3)
-                        .foregroundColor(Theme.cream.opacity(pulse ? 0.95 : 0.4))
+                        .foregroundColor(Theme.paper.opacity(pulse ? 0.95 : 0.4))
                         .opacity(arrived ? 1 : 0)
                     // how long until it moves on by itself
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Theme.cream.opacity(0.18))
-                        Capsule().fill(Theme.cream.opacity(0.85)).frame(width: 220 * progress)
+                        Capsule().fill(Theme.paper.opacity(0.18))
+                        Capsule().fill(Theme.paper.opacity(0.85)).frame(width: 220 * progress)
                     }
                     .frame(width: 220, height: 3).opacity(arrived ? 1 : 0)
                     .padding(.bottom, 22)
@@ -636,19 +640,12 @@ struct SplashView: View {
 
 // MARK: - Main menu
 
-private struct CreamButton: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundColor(Theme.ink)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.cream.opacity(configuration.isPressed ? 0.8 : 1)))
-    }
-}
 private struct InkButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12.5, weight: .semibold)).foregroundColor(Theme.cream)
-            .padding(.horizontal, 13).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.ink.opacity(configuration.isPressed ? 0.5 : 0.32)))
+            .font(.system(size: 12, weight: .medium, design: .rounded)).foregroundColor(Theme.paper.opacity(0.9))
+            .padding(.horizontal, 11).padding(.vertical, 7)
+            .background(Capsule().fill(Theme.paper.opacity(configuration.isPressed ? 0.2 : 0.09)))
     }
 }
 
@@ -656,124 +653,111 @@ struct MainMenu: View {
     @ObservedObject var m: HUDModel
     private static let logo: NSImage? = resourceURL("RockFPV.png").flatMap { NSImage(contentsOf: $0) }
 
-    private func tile(_ label: String, _ title: String, _ sub: String, image: NSImage?, studio: Bool, action: @escaping () -> Void) -> some View {
+    /// One choice: a picture, what it is, and what is chosen.
+    private func row<P: View>(_ label: String, _ title: String, _ sub: String, badge: String? = nil, @ViewBuilder picture: () -> P, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 0) {
-                ZStack {
-                    if studio { Backdrop { if let i = image { Image(nsImage: i).resizable().scaledToFit().padding(6) } } }
-                    else { Color.black.opacity(0.3); if let i = image { Image(nsImage: i).resizable().scaledToFill() } }
+            HStack(spacing: 13) {
+                picture().frame(width: 118, height: 70).clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label).font(.system(size: 10, weight: .semibold, design: .rounded)).tracking(1.4).foregroundColor(Theme.brand)
+                    Text(title).font(.system(size: 15.5, weight: .semibold, design: .rounded)).foregroundColor(Theme.paper).lineLimit(1)
+                    Text(sub).font(.system(size: 11.5)).foregroundColor(Theme.dim).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(width: 272, height: 152).clipped()
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(label).font(.system(size: 9.5, weight: .heavy)).tracking(1.6).foregroundColor(Theme.faint)
-                        Text(title).font(.system(size: 14.5, weight: .bold)).foregroundColor(Theme.cream).lineLimit(1)
-                        Text(sub).font(.system(size: 11)).foregroundColor(Theme.dim).lineLimit(1)
-                    }
-                    Spacer()
-                    Text("CHANGE").font(.system(size: 10, weight: .heavy)).tracking(1.2).foregroundColor(Theme.cream)
-                        .padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Theme.red))
+                Spacer(minLength: 0)
+                if let b = badge {
+                    Text(b).font(.system(size: 11, weight: .bold, design: .rounded)).foregroundColor(Theme.ink)
+                        .padding(.horizontal, 7).padding(.vertical, 2).background(Capsule().fill(Theme.amber))
                 }
-                .padding(.horizontal, 12).padding(.vertical, 9)
+                Image(systemName: "chevron.right").font(.system(size: 11, weight: .bold)).foregroundColor(Theme.faint)
             }
-            .frame(width: 272)
-            .background(Theme.ink)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(9)
+            .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(Theme.paper.opacity(0.055)))
+            .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(Theme.stroke, lineWidth: 1))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain).focusable(false)
     }
+    private func symbol(_ name: String) -> some View {
+        ZStack {
+            LinearGradient(colors: [Theme.brandDeep, Theme.brand.opacity(0.7)], startPoint: .bottomLeading, endPoint: .topTrailing)
+            Image(systemName: name).font(.system(size: 26, weight: .semibold)).foregroundColor(.white.opacity(0.92))
+        }
+    }
 
     var body: some View {
-        let spec = m.game.aircraft.spec, site = m.game.site
-        ZStack {
-            Theme.ink.opacity(0.55).ignoresSafeArea()
+        let g = m.game!
+        let spec = g.aircraft.spec, site = g.site
+        let waiting = g.together && !g.sessionRunning && !g.isHost
+        HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
-                Text("FLYING-WING FORMATION TRAINER").font(.system(size: 10.5, weight: .heavy)).tracking(3).foregroundColor(Theme.cream.opacity(0.85))
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text("FORMATION FLIGHT").foregroundColor(Theme.cream)
-                    Text("X").foregroundColor(Theme.ink)
-                }
-                .font(.system(size: 50, weight: .black)).tracking(-1.5).padding(.top, 2).padding(.bottom, 16)
-                HStack(spacing: 14) {
-                    tile("WING", spec.name, String(format: "%.2f m span · %.0f g", spec.span, spec.mass * 1000), image: m.thumbnail(spec), studio: true) { m.game.cameFromMenu = true; m.overlay = .aircraft }
-                    tile("FLYING SITE", site.displayName, site.kindLabel, image: m.sitePreview(site), studio: false) { m.game.cameFromMenu = true; m.overlay = .sites }
-                }
-                Button { m.game.cameFromMenu = true; m.overlay = .formation } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "person.3.fill").font(.system(size: 17, weight: .bold)).foregroundColor(Theme.cream).frame(width: 30)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("FORMATION").font(.system(size: 9.5, weight: .heavy)).tracking(1.6).foregroundColor(Theme.faint)
-                            Text("\(m.game.formation.name) · \(Formation.spacingNames[m.game.spacing]) spacing").font(.system(size: 14.5, weight: .bold)).foregroundColor(Theme.cream)
-                            Text(m.s.mates.isEmpty ? (m.s.net.isEmpty ? "Flying alone" : m.s.net) : "With " + m.s.mates.map { $0.name }.joined(separator: " and ") + (m.s.net.isEmpty ? "" : " · " + m.s.net))
-                                .font(.system(size: 11)).foregroundColor(Theme.dim).lineLimit(1)
-                        }
-                        Spacer()
-                        Text("CHANGE").font(.system(size: 10, weight: .heavy)).tracking(1.2).foregroundColor(Theme.cream)
-                            .padding(.horizontal, 8).padding(.vertical, 4).background(Capsule().fill(Theme.red))
+                // wordmark
+                HStack(spacing: 12) {
+                    FormationGlyph(kind: .vic, count: 5, tint: Theme.brand).frame(width: 58, height: 44)
+                    VStack(alignment: .leading, spacing: 0) {
+                        (Text("FormationFlight").foregroundColor(Theme.paper) + Text("X").foregroundColor(Theme.brand))
+                            .font(.system(size: 29, weight: .bold, design: .rounded))
+                        Text("Fly wings together").font(.system(size: 12, weight: .medium, design: .rounded)).foregroundColor(Theme.dim)
                     }
-                    .padding(.horizontal, 12).padding(.vertical, 10)
-                    .background(Theme.ink).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                .buttonStyle(.plain).focusable(false).padding(.top, 14)
-                HStack(spacing: 10) {
-                    Button { m.game.cameFromMenu = true; m.overlay = .lobby } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "bubble.left.and.bubble.right.fill")
-                            Text("LOBBY").tracking(2)
-                            if m.s.unread > 0 {
-                                Text("\(m.s.unread)").font(.system(size: 11, weight: .heavy)).foregroundColor(Theme.cream)
-                                    .padding(.horizontal, 6).padding(.vertical, 1).background(Capsule().fill(Theme.red))
-                            }
-                        }
-                        .font(.system(size: 15, weight: .black)).foregroundColor(Theme.cream).padding(.horizontal, 20).padding(.vertical, 14)
-                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.ink))
-                    }
-                    .buttonStyle(.plain).focusable(false)
-                    Button { m.game.cameFromMenu = false; m.overlay = .none } label: {
-                        HStack(spacing: 10) { Image(systemName: "play.fill"); Text("CLEARED FOR TAKE-OFF").tracking(2) }
-                            .font(.system(size: 15, weight: .black)).frame(maxWidth: .infinity).padding(.vertical, 14)
-                    }
-                    .buttonStyle(CreamButton()).keyboardShortcut(.defaultAction)
+                .padding(.bottom, 22)
+
+                VStack(spacing: 9) {
+                    row("YOUR WING", spec.name, String(format: "%.2f m span · %.0f g", spec.span, spec.mass * 1000),
+                        picture: { ZStack { Backdrop { EmptyView() }; if let i = m.thumbnail(spec) { Image(nsImage: i).resizable().scaledToFit().padding(3) } } }) { g.cameFromMenu = true; m.overlay = .aircraft }
+                    row("FLYING SITE", site.displayName, g.together && !g.isHost ? "Chosen by the host, \(g.name(of: g.hostID))" : site.kindLabel,
+                        picture: { ZStack { Color.black.opacity(0.3); if let i = m.sitePreview(site) { Image(nsImage: i).resizable().scaledToFill() } } }) { g.cameFromMenu = true; m.overlay = .sites }
+                    row("FORMATION", "\(g.formation.name) · \(Formation.spacingNames[g.spacing].lowercased())", m.s.mates.isEmpty ? "Flying alone" : "With " + m.s.mates.map { $0.name }.joined(separator: ", "),
+                        picture: { ZStack { LinearGradient(colors: [Theme.brandDeep, Theme.brand.opacity(0.7)], startPoint: .bottomLeading, endPoint: .topTrailing); FormationGlyph(kind: g.formation, count: max(g.order.count, 3)).padding(10) } }) { g.cameFromMenu = true; m.overlay = .formation }
+                    row("LOBBY", g.together ? (g.sessionRunning ? "Session running" : "Session stopped") : "Meet other pilots",
+                        g.together ? "\(g.remotePilots.count + 1) pilots · chat and voice" : (m.s.net.isEmpty ? "Host or join, chat and voice" : m.s.net), badge: m.s.unread > 0 ? "\(m.s.unread)" : nil,
+                        picture: { symbol("bubble.left.and.bubble.right.fill") }) { g.cameFromMenu = true; m.overlay = .lobby }
                 }
-                .padding(.top, 16)
-                HStack(spacing: 8) {
-                    Button { m.game.cameFromMenu = true; m.overlay = .environment } label: { Label("Weather", systemImage: "wind") }.buttonStyle(InkButton())
+
+                Spacer(minLength: 16)
+
+                Button { g.takeOff() } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: waiting ? "hourglass" : "paperplane.fill")
+                        Text(waiting ? "Waiting for the host" : (g.together && g.isHost && !g.sessionRunning ? "Start the session" : "Take off"))
+                    }
+                    .font(.system(size: 17, weight: .bold, design: .rounded)).foregroundColor(.white).frame(maxWidth: .infinity).padding(.vertical, 15)
+                    .background(Capsule().fill(LinearGradient(colors: [Theme.brand, Theme.brandDeep], startPoint: .topLeading, endPoint: .bottomTrailing)))
+                    .opacity(waiting ? 0.55 : 1)
+                }
+                .buttonStyle(.plain).focusable(false).keyboardShortcut(.defaultAction)
+
+                HStack(spacing: 6) {
+                    Button { g.cameFromMenu = true; m.overlay = .environment } label: { Label("Weather", systemImage: "cloud.sun") }.buttonStyle(InkButton())
                     Button { m.openControllerSetup?() } label: { Label("Controller", systemImage: "gamecontroller") }.buttonStyle(InkButton())
-                    Button { m.game.cameFromMenu = true; m.overlay = .help } label: { Label("Controls", systemImage: "keyboard") }.buttonStyle(InkButton())
-                    Button { m.game.musicEnabled.toggle(); m.objectWillChange.send() } label: { Label("Music", systemImage: m.game.musicEnabled ? "music.note" : "speaker.slash") }.buttonStyle(InkButton())
-                        .help(m.game.musicEnabled ? "Turn the menu music off" : "Turn the menu music on")
-                    Spacer()
+                    Button { g.cameFromMenu = true; m.overlay = .help } label: { Label("Keys", systemImage: "keyboard") }.buttonStyle(InkButton())
+                    Button { g.musicEnabled.toggle(); m.objectWillChange.send() } label: { Image(systemName: g.musicEnabled ? "music.note" : "speaker.slash") }.buttonStyle(InkButton())
+                        .help(g.musicEnabled ? "Turn the menu music off" : "Turn the menu music on")
+                    Spacer(minLength: 0)
                     Button { NSApp.terminate(nil) } label: { Text("Quit") }.buttonStyle(InkButton())
                 }
                 .padding(.top, 12)
-                Rectangle().fill(Theme.cream.opacity(0.5)).frame(height: 1.5).padding(.top, 16)
-                HStack(spacing: 10) {
-                    if let logo = Self.logo { Image(nsImage: logo).resizable().frame(width: 34, height: 34) }
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("CREATED BY").font(.system(size: 8.5, weight: .heavy)).tracking(2).foregroundColor(Theme.cream.opacity(0.8))
-                        Text("ROCK FPV").font(.system(size: 15, weight: .black)).foregroundColor(Theme.cream)
-                    }
+
+                HStack(spacing: 9) {
+                    if let logo = Self.logo { Image(nsImage: logo).resizable().frame(width: 26, height: 26).clipShape(Circle()) }
+                    Text("by Rock FPV").font(.system(size: 11.5, weight: .medium, design: .rounded)).foregroundColor(Theme.dim)
                     Spacer()
-                    Text("GRAPHICS").font(.system(size: 9.5, weight: .heavy)).tracking(1.6).foregroundColor(Theme.cream.opacity(0.8))
-                    Picker("", selection: Binding(get: { m.game.quality }, set: { m.game.quality = $0; m.objectWillChange.send() })) {
+                    Text("Graphics").font(.system(size: 11.5, weight: .medium, design: .rounded)).foregroundColor(Theme.dim)
+                    Picker("", selection: Binding(get: { g.quality }, set: { g.quality = $0; m.objectWillChange.send() })) {
                         ForEach(0..<3, id: \.self) { Text(Game.qualityNames[$0]).tag($0) }
                     }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 200)
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 170)
                 }
-                .padding(.top, 12)
+                .padding(.top, 14)
             }
-            .padding(28)
-            .frame(width: 614)
-            .background(
-                ZStack {
-                    Theme.red
-                    Circle().fill(Theme.deepRed.opacity(0.45)).frame(width: 620, height: 620).offset(x: 250, y: -40)
-                    Circle().fill(Theme.deepRed.opacity(0.45)).frame(width: 400, height: 400).offset(x: 250, y: -40)
-                }
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .shadow(color: .black.opacity(0.55), radius: 40, y: 16)
+            .padding(.horizontal, 24).padding(.top, m.fullscreen ? 30 : 46).padding(.bottom, 22)
+            .frame(width: 440).frame(maxHeight: .infinity)
+            .background(LinearGradient(colors: [Color(red: 0.06, green: 0.13, blue: 0.23), Theme.ink], startPoint: .top, endPoint: .bottom).opacity(0.94))
+            .overlay(Rectangle().fill(Theme.stroke).frame(width: 1), alignment: .trailing)
+            // the scene stays in view on the right
+            LinearGradient(colors: [Theme.ink.opacity(0.45), Theme.ink.opacity(0.0)], startPoint: .leading, endPoint: .trailing).frame(maxWidth: 260)
+            Spacer(minLength: 0)
         }
+        .ignoresSafeArea()
     }
 }
 
@@ -788,7 +772,7 @@ struct EnvironmentPanel: View {
     private func row(_ title: String, _ value: String, _ b: Binding<Float>, _ range: ClosedRange<Float>) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                Text(title).font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.cream.opacity(0.9))
+                Text(title).font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.paper.opacity(0.9))
                 Spacer()
                 Text(value).font(.system(size: 12.5)).monospacedDigit().foregroundColor(Theme.dim)
             }
@@ -797,12 +781,12 @@ struct EnvironmentPanel: View {
     }
 
     private func section(_ t: String) -> some View {
-        Text(t).font(.system(size: 9.5, weight: .heavy)).tracking(1.5).foregroundColor(Theme.cream.opacity(0.55)).padding(.top, 3)
+        Text(t).font(.system(size: 9.5, weight: .heavy)).tracking(1.5).foregroundColor(Theme.paper.opacity(0.55)).padding(.top, 3)
     }
     private func level(_ v: Float, _ names: [String]) -> String { names[min(Int(v * Float(names.count)), names.count - 1)] }
     private func pick(_ title: String, _ names: [String], _ sel: Binding<Int>) -> some View {
         HStack {
-            Text(title).font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.cream.opacity(0.9))
+            Text(title).font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.paper.opacity(0.9))
             Spacer()
             Picker("", selection: sel) { ForEach(names.indices, id: \.self) { Text(names[$0]).tag($0) } }
                 .pickerStyle(.menu).labelsHidden().fixedSize()
@@ -819,13 +803,16 @@ struct EnvironmentPanel: View {
             VStack {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Text("Weather").font(.system(size: 17, weight: .bold)).foregroundColor(Theme.cream)
+                        Text("Weather").font(.system(size: 17, weight: .bold)).foregroundColor(Theme.paper)
                         Spacer()
                         Button { m.overlay = m.game.cameFromMenu ? .menu : .none } label: {
-                            Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundColor(Theme.cream.opacity(0.8))
-                                .frame(width: 24, height: 24).background(Circle().fill(Theme.cream.opacity(0.1)))
+                            Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundColor(Theme.paper.opacity(0.8))
+                                .frame(width: 24, height: 24).background(Circle().fill(Theme.paper.opacity(0.1)))
                         }
                         .buttonStyle(.plain).keyboardShortcut(.cancelAction)
+                    }
+                    if m.game.together && !m.game.isHost {
+                        Text("Weather and daylight are set by the host, \(m.game.name(of: m.game.hostID)).").font(.system(size: 11.5)).foregroundColor(Theme.amber).fixedSize(horizontal: false, vertical: true)
                     }
                     Menu {
                         ForEach(Array(Environment.presets.enumerated()), id: \.offset) { i, n in
@@ -833,7 +820,7 @@ struct EnvironmentPanel: View {
                         }
                     } label: { Label("Choose a preset", systemImage: "cloud.sun").frame(maxWidth: .infinity) }
                     .menuStyle(.borderlessButton).padding(.vertical, 5).padding(.horizontal, 8)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(Theme.cream.opacity(0.1)))
+                    .background(RoundedRectangle(cornerRadius: 7).fill(Theme.paper.opacity(0.1)))
                     section("WIND")
                     row("Wind speed", String(format: "%.0f m/s  (%.0f km/h)", env.windSpeed, env.windSpeed * 3.6), bind({ env.windSpeed }, { env.windSpeed = $0.rounded() }), 0...15)
                     row("Wind from", String(format: "%@  %.0f°", dirs[Int((env.windFrom + 22.5) / 45) % 8], env.windFrom), bind({ env.windFrom }, { env.windFrom = ($0 / 5).rounded() * 5 }), 0...355)
@@ -876,20 +863,20 @@ struct HelpView: View {
                        ("G", "Computer partners on / off"), ("Y", "Smoke"), ("[  ]", "Previous / next wing"), ("Tab", "Wing browser")]),
         ("View and simulation", [("C", "Camera: chase, onboard, pilot"), ("Z", "Zoom mode"), ("V", "Hide / show display"), ("P", "Pause"),
                                  ("T", "Slow motion"), (",  .", "Less / more wind"), ("N", "Next flying site"),
-                                 ("K", "Autopilot for your own wing"), ("Return", "Lobby: chat and voice"), ("B", "Hold to talk (push to talk)"), ("M", "Mute sound"), ("Esc", "Main menu")]),
+                                 ("K", "Autopilot for your own wing"), ("Return", "Lobby: chat and voice"), ("B", "Hold to talk (can be changed in Controller Setup)"), ("M", "Mute sound"), ("Esc", "Main menu")]),
     ]
     var body: some View {
         Sheet(m: m, title: "Controls", subtitle: "Keyboard", back: m.game.cameFromMenu ? .menu : .none, width: 940, height: 520) {
             HStack(alignment: .top, spacing: 26) {
                 ForEach(groups, id: \.0) { g in
                     VStack(alignment: .leading, spacing: 7) {
-                        Text(g.0.uppercased()).font(.system(size: 10.5, weight: .semibold)).tracking(1.5).foregroundColor(Theme.cream.opacity(0.6)).padding(.bottom, 3)
+                        Text(g.0.uppercased()).font(.system(size: 10.5, weight: .semibold)).tracking(1.5).foregroundColor(Theme.paper.opacity(0.6)).padding(.bottom, 3)
                         ForEach(g.1, id: \.0) { k in
                             HStack(spacing: 10) {
-                                Text(k.0).font(.system(size: 11.5, weight: .semibold, design: .monospaced)).foregroundColor(Theme.cream)
+                                Text(k.0).font(.system(size: 11.5, weight: .semibold, design: .monospaced)).foregroundColor(Theme.paper)
                                     .frame(minWidth: 46).padding(.vertical, 3).padding(.horizontal, 5)
-                                    .background(RoundedRectangle(cornerRadius: 5).fill(Theme.cream.opacity(0.1)))
-                                Text(k.1).font(.system(size: 12.5)).foregroundColor(Theme.cream.opacity(0.85))
+                                    .background(RoundedRectangle(cornerRadius: 5).fill(Theme.paper.opacity(0.1)))
+                                Text(k.1).font(.system(size: 12.5)).foregroundColor(Theme.paper.opacity(0.85))
                                 Spacer(minLength: 0)
                             }
                         }
@@ -917,18 +904,18 @@ private struct SlotScope: View {
         func clampP(_ v: Float) -> CGFloat { min(max(CGFloat(v) / range, -1), 1) * size / 2 }
         return HStack(spacing: 7) {
             ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.cream.opacity(0.06))
-                Rectangle().fill(Theme.cream.opacity(0.18)).frame(width: 1, height: size)
-                Rectangle().fill(Theme.cream.opacity(0.18)).frame(width: size, height: 1)
+                RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Theme.paper.opacity(0.06))
+                Rectangle().fill(Theme.paper.opacity(0.18)).frame(width: 1, height: size)
+                Rectangle().fill(Theme.paper.opacity(0.18)).frame(width: size, height: 1)
                 // the slot, drawn to scale, and this aircraft at the centre
                 Circle().stroke(col, lineWidth: 1.6).frame(width: CGFloat(tol) / range * size, height: CGFloat(tol) / range * size)
                     .offset(x: clampP(e.x), y: -clampP(e.z))
-                Image(systemName: "triangle.fill").font(.system(size: 9)).foregroundColor(Theme.cream)
+                Image(systemName: "triangle.fill").font(.system(size: 9)).foregroundColor(Theme.paper)
             }
             .frame(width: size, height: size).clipped()
             ZStack {
-                Capsule().fill(Theme.cream.opacity(0.08)).frame(width: 6, height: size)
-                Rectangle().fill(Theme.cream.opacity(0.3)).frame(width: 12, height: 1)
+                Capsule().fill(Theme.paper.opacity(0.08)).frame(width: 6, height: size)
+                Rectangle().fill(Theme.paper.opacity(0.3)).frame(width: 12, height: 1)
                 Capsule().fill(col).frame(width: 12, height: 4).offset(y: -clampP(e.y))
             }
             .frame(width: 12, height: size)
@@ -944,15 +931,15 @@ private struct FormationBox: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 7) {
-                        Text(s.role).font(.system(size: 11, weight: .heavy)).tracking(1.2).foregroundColor(Theme.cream)
-                            .padding(.horizontal, 8).padding(.vertical, 3).background(Capsule().fill(Theme.red))
-                        if !s.formation.isEmpty { Text(s.formation).font(.system(size: 11.5, weight: .semibold)).foregroundColor(Theme.cream) }
+                        Text(s.role).font(.system(size: 11, weight: .heavy)).tracking(1.2).foregroundColor(Theme.paper)
+                            .padding(.horizontal, 8).padding(.vertical, 3).background(Capsule().fill(Theme.brand))
+                        if !s.formation.isEmpty { Text(s.formation).font(.system(size: 11.5, weight: .semibold)).foregroundColor(Theme.paper) }
                     }
                     ForEach(s.mates) { mt in
                         HStack(spacing: 6) {
                             Text("\(mt.number)").font(.system(size: 10.5, weight: .heavy)).foregroundColor(Theme.ink)
-                                .frame(width: 16, height: 16).background(Circle().fill(Theme.cream.opacity(mt.number == 1 ? 1 : 0.7)))
-                            Text(mt.name).font(.system(size: 11.5, weight: .semibold)).foregroundColor(Theme.cream).lineLimit(1)
+                                .frame(width: 16, height: 16).background(Circle().fill(Theme.paper.opacity(mt.number == 1 ? 1 : 0.7)))
+                            Text(mt.name).font(.system(size: 11.5, weight: .semibold)).foregroundColor(Theme.paper).lineLimit(1)
                             if mt.talking { Image(systemName: "waveform").font(.system(size: 10, weight: .bold)).foregroundColor(Color(red: 0.3, green: 0.95, blue: 0.45)) }
                             Text(mt.detail).font(.system(size: 11)).monospacedDigit()
                                 .foregroundColor(mt.good ? Color(red: 0.3, green: 0.95, blue: 0.45) : Theme.dim).lineLimit(1)
@@ -960,16 +947,16 @@ private struct FormationBox: View {
                     }
                     if !s.station.isEmpty {
                         Text(s.station).font(.system(size: 11.5, weight: .semibold)).monospacedDigit()
-                            .foregroundColor(s.onStation ? Color(red: 0.3, green: 0.95, blue: 0.45) : Theme.cream.opacity(0.9))
+                            .foregroundColor(s.onStation ? Color(red: 0.3, green: 0.95, blue: 0.45) : Theme.paper.opacity(0.9))
                     }
                     if !s.mic.isEmpty {
                         HStack(spacing: 5) {
                             Image(systemName: s.micLive ? "mic.fill" : "mic").font(.system(size: 10, weight: .bold))
                             Text(s.mic).font(.system(size: 10.5, weight: s.micLive ? .heavy : .medium))
                         }
-                        .foregroundColor(s.micLive ? Theme.red : Theme.dim)
+                        .foregroundColor(s.micLive ? Theme.brand : Theme.dim)
                         .padding(.horizontal, s.micLive ? 7 : 0).padding(.vertical, s.micLive ? 2 : 0)
-                        .background(Capsule().fill(s.micLive ? Theme.cream : Color.clear))
+                        .background(Capsule().fill(s.micLive ? Theme.paper : Color.clear))
                     }
                     if !s.net.isEmpty { Text(s.net).font(.system(size: 10)).foregroundColor(Theme.faint).lineLimit(2).frame(maxWidth: 260, alignment: .leading) }
                 }
@@ -987,23 +974,23 @@ struct FormationPanel: View {
     @ObservedObject var m: HUDModel
 
     private func heading(_ t: String) -> some View {
-        Text(t).font(.system(size: 9.5, weight: .heavy)).tracking(1.5).foregroundColor(Theme.cream.opacity(0.55))
+        Text(t).font(.system(size: 9.5, weight: .heavy)).tracking(1.5).foregroundColor(Theme.paper.opacity(0.55))
     }
     private func field(_ title: String, _ text: Binding<String>, _ prompt: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.system(size: 12, weight: .medium)).foregroundColor(Theme.cream.opacity(0.9))
-            TextField(prompt, text: text).textFieldStyle(.plain).font(.system(size: 13.5)).foregroundColor(Theme.cream)
+            Text(title).font(.system(size: 12, weight: .medium)).foregroundColor(Theme.paper.opacity(0.9))
+            TextField(prompt, text: text).textFieldStyle(.plain).font(.system(size: 13.5)).foregroundColor(Theme.paper)
                 .padding(.horizontal, 9).padding(.vertical, 7)
-                .background(RoundedRectangle(cornerRadius: 7).fill(Theme.cream.opacity(0.08)))
+                .background(RoundedRectangle(cornerRadius: 7).fill(Theme.paper.opacity(0.08)))
                 .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.stroke, lineWidth: 1))
         }
     }
     private func person(_ number: Int, _ name: String, _ detail: String, me: Bool) -> some View {
         HStack(spacing: 10) {
-            Text("\(number)").font(.system(size: 13, weight: .heavy)).foregroundColor(number == 1 ? Theme.cream : Theme.ink)
-                .frame(width: 26, height: 26).background(Circle().fill(number == 1 ? Theme.red : Theme.cream.opacity(0.8)))
+            Text("\(number)").font(.system(size: 13, weight: .heavy)).foregroundColor(number == 1 ? Theme.paper : Theme.ink)
+                .frame(width: 26, height: 26).background(Circle().fill(number == 1 ? Theme.brand : Theme.paper.opacity(0.8)))
             VStack(alignment: .leading, spacing: 1) {
-                Text(name + (me ? "  (you)" : "")).font(.system(size: 13.5, weight: .semibold)).foregroundColor(Theme.cream)
+                Text(name + (me ? "  (you)" : "")).font(.system(size: 13.5, weight: .semibold)).foregroundColor(Theme.paper)
                 Text(detail).font(.system(size: 11)).foregroundColor(Theme.dim)
             }
             Spacer()
@@ -1016,7 +1003,7 @@ struct FormationPanel: View {
     var body: some View {
         let g = m.game!
         let leading = g.isLead
-        Sheet(m: m, title: "Formation", subtitle: "Up to three pilots, on your network or over the internet, with no server", back: g.cameFromMenu ? .menu : .none, width: 940, height: 680) {
+        Sheet(m: m, title: "Formation", subtitle: "Up to five pilots, on your network or over the internet, with no server", back: g.cameFromMenu ? .menu : .none, width: 940, height: 680) {
             HStack(alignment: .top, spacing: 0) {
                 // the shape
                 VStack(alignment: .leading, spacing: 8) {
@@ -1024,15 +1011,15 @@ struct FormationPanel: View {
                     ForEach(FormationKind.allCases, id: \.rawValue) { k in
                         Button { if leading { g.formation = k; m.objectWillChange.send() } } label: {
                             HStack(spacing: 10) {
-                                FormationGlyph(kind: k).frame(width: 46, height: 38)
+                                FormationGlyph(kind: k, count: max(g.order.count, 3)).frame(width: 46, height: 38)
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Text(k.name).font(.system(size: 13.5, weight: .semibold)).foregroundColor(Theme.cream)
+                                    Text(k.name).font(.system(size: 13.5, weight: .semibold)).foregroundColor(Theme.paper)
                                     Text(k.blurb).font(.system(size: 11)).foregroundColor(Theme.dim).lineLimit(2).fixedSize(horizontal: false, vertical: true)
                                 }
                                 Spacer(minLength: 0)
                             }
                             .padding(.horizontal, 9).padding(.vertical, 6)
-                            .background(RoundedRectangle(cornerRadius: 9).fill(g.formation == k ? Theme.red.opacity(0.85) : Theme.card))
+                            .background(RoundedRectangle(cornerRadius: 9).fill(g.formation == k ? Theme.brand.opacity(0.85) : Theme.card))
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain).focusable(false)
@@ -1045,7 +1032,7 @@ struct FormationPanel: View {
                     Text(String(format: "%.1f m between neighbours (%.1f wingspans of the lead's wing)", g.spacingMetres, Formation.spacingSpans[g.spacing]))
                         .font(.system(size: 11)).foregroundColor(Theme.dim)
                     if !leading {
-                        Text("Formation, spacing, flying site and weather are set by the lead, \(g.name(of: g.leadID)).")
+                        Text("Formation and spacing are called by the lead, \(g.name(of: g.leadID)).")
                             .font(.system(size: 11)).foregroundColor(Theme.faint).fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
@@ -1074,29 +1061,29 @@ struct FormationPanel: View {
                     Text("Pilots with the same group name fly together. Leave it empty to fly with anyone.")
                         .font(.system(size: 11)).foregroundColor(Theme.faint).fixedSize(horizontal: false, vertical: true)
                     Toggle(isOn: Binding(get: { g.multiplayer }, set: { g.multiplayer = $0; m.objectWillChange.send() })) {
-                        Text("Fly with other pilots").font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.cream.opacity(0.9))
+                        Text("Fly with other pilots").font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.paper.opacity(0.9))
                     }
                     .toggleStyle(.switch).controlSize(.small)
                     Toggle(isOn: Binding(get: { g.aiPartners }, set: { g.aiPartners = $0; m.objectWillChange.send() })) {
-                        Text("Computer partners while I am alone").font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.cream.opacity(0.9))
+                        Text("Computer partners while I am alone").font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.paper.opacity(0.9))
                     }
                     .toggleStyle(.switch).controlSize(.small)
                     if !m.s.net.isEmpty {
                         HStack(spacing: 7) {
-                            Image(systemName: g.remotePilots.isEmpty ? "dot.radiowaves.left.and.right" : "checkmark.circle.fill").foregroundColor(Theme.red)
+                            Image(systemName: g.remotePilots.isEmpty ? "dot.radiowaves.left.and.right" : "checkmark.circle.fill").foregroundColor(Theme.brand)
                             Text(m.s.net).font(.system(size: 11.5)).foregroundColor(Theme.dim).fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     if g.multiplayer {
                         heading("OVER THE INTERNET").padding(.top, 6)
                         Toggle(isOn: Binding(get: { g.net.hosting }, set: { g.net.setHosting($0); m.objectWillChange.send() })) {
-                            Text("Host: let pilots elsewhere connect to me").font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.cream.opacity(0.9))
+                            Text("Host a session (others connect to me)").font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.paper.opacity(0.9))
                         }
                         .toggleStyle(.switch).controlSize(.small)
                         if g.net.hosting {
                             if let a = g.net.publicAddress {
                                 HStack(spacing: 8) {
-                                    Text(a).font(.system(size: 13.5, weight: .semibold, design: .monospaced)).foregroundColor(Theme.cream).textSelection(.enabled)
+                                    Text(a).font(.system(size: 13.5, weight: .semibold, design: .monospaced)).foregroundColor(Theme.paper).textSelection(.enabled)
                                     Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(a, forType: .string) }.buttonStyle(QuietButton())
                                     Spacer(minLength: 0)
                                 }
@@ -1113,11 +1100,14 @@ struct FormationPanel: View {
                                     if g.net.joined == nil { g.net.join(g.hostAddress) } else { g.net.leave() }
                                     m.objectWillChange.send()
                                 }
-                                .buttonStyle(QuietButton()).disabled(g.net.joined == nil && g.hostAddress.trimmingCharacters(in: .whitespaces).isEmpty)
+                                .buttonStyle(QuietButton()).disabled(g.net.joined == nil && (g.hostAddress.trimmingCharacters(in: .whitespaces).isEmpty || g.pilotName.trimmingCharacters(in: .whitespaces).isEmpty))
+                            }
+                            if g.net.joined == nil && g.pilotName.trimmingCharacters(in: .whitespaces).isEmpty {
+                                Text("Enter your pilot name above before you connect.").font(.system(size: 11)).foregroundColor(Theme.amber)
                             }
                             if let j = g.net.joined {
                                 Text(j.answering ? "Connected to \(j.target)." : "No answer from \(j.target) yet. The host has to switch on hosting, and the address must be the one their app shows.")
-                                    .font(.system(size: 11)).foregroundColor(j.answering ? Theme.cream.opacity(0.85) : Theme.dim).fixedSize(horizontal: false, vertical: true)
+                                    .font(.system(size: 11)).foregroundColor(j.answering ? Theme.paper.opacity(0.85) : Theme.dim).fixedSize(horizontal: false, vertical: true)
                             }
                         }
                     }
@@ -1129,25 +1119,29 @@ struct FormationPanel: View {
     }
 }
 
-/// Three little wings in the shape of a formation, seen from above with the lead at the top.
-private struct FormationGlyph: View {
+/// Little wings in the shape of a formation, seen from above with the lead at the top.
+struct FormationGlyph: View {
     var kind: FormationKind
+    var count = 3
+    var tint = Theme.paper
     var body: some View {
         GeometryReader { g in
-            let u = min(g.size.width / 5.2, g.size.height / 4.6)
-            let pts: [V3] = [V3(0, 0, 0), kind.offset(1), kind.offset(2)]
-            let cx = pts.map { $0.x }.reduce(0, +) / 3, cz = pts.map { $0.z }.reduce(0, +) / 3
+            let n = min(max(count, 2), Formation.maxPilots)
+            let pts: [V3] = [V3(0, 0, 0)] + (1..<n).map { kind.offset($0) }
+            let xs = pts.map { $0.x }, zs = pts.map { $0.z }
+            let w = max(xs.max()! - xs.min()!, 0.01), h = max(zs.max()! - zs.min()!, 0.01)
+            let u = min(g.size.width / CGFloat(w + 1.3), g.size.height / CGFloat(h + 1.3))
+            let cx = (xs.max()! + xs.min()!) / 2, cz = (zs.max()! + zs.min()!) / 2
             ZStack {
-                ForEach(0..<3, id: \.self) { i in
-                    Image(systemName: "triangle.fill").font(.system(size: u * 0.95))
-                        .foregroundColor(i == 0 ? Theme.cream : Theme.cream.opacity(0.6))
-                        .position(x: g.size.width / 2 + CGFloat(pts[i].x - cx) * u * 1.15, y: g.size.height / 2 + CGFloat(pts[i].z - cz) * u * 1.15)
+                ForEach(0..<n, id: \.self) { i in
+                    Image(systemName: "triangle.fill").font(.system(size: max(u * 0.72, 5)))
+                        .foregroundColor(i == 0 ? tint : tint.opacity(0.6))
+                        .position(x: g.size.width / 2 + CGFloat(pts[i].x - cx) * u, y: g.size.height / 2 + CGFloat(pts[i].z - cz) * u)
                 }
             }
         }
     }
 }
-
 
 // MARK: - Lobby
 
@@ -1159,14 +1153,14 @@ struct LobbyView: View {
     private static let green = Color(red: 0.3, green: 0.95, blue: 0.45)
 
     private func heading(_ t: String) -> some View {
-        Text(t).font(.system(size: 9.5, weight: .heavy)).tracking(1.5).foregroundColor(Theme.cream.opacity(0.55))
+        Text(t).font(.system(size: 9.5, weight: .heavy)).tracking(1.5).foregroundColor(Theme.paper.opacity(0.55))
     }
     private func person(_ number: Int, _ name: String, _ where_: String, talking: Bool, me: Bool) -> some View {
         HStack(spacing: 10) {
-            Text("\(number)").font(.system(size: 13, weight: .heavy)).foregroundColor(number == 1 ? Theme.cream : Theme.ink)
-                .frame(width: 26, height: 26).background(Circle().fill(number == 1 ? Theme.red : Theme.cream.opacity(0.8)))
+            Text("\(number)").font(.system(size: 13, weight: .heavy)).foregroundColor(number == 1 ? Theme.paper : Theme.ink)
+                .frame(width: 26, height: 26).background(Circle().fill(number == 1 ? Theme.brand : Theme.paper.opacity(0.8)))
             VStack(alignment: .leading, spacing: 1) {
-                Text(name + (me ? "  (you)" : "")).font(.system(size: 13.5, weight: .semibold)).foregroundColor(Theme.cream).lineLimit(1)
+                Text(name + (me ? "  (you)" : "")).font(.system(size: 13.5, weight: .semibold)).foregroundColor(Theme.paper).lineLimit(1)
                 Text((number == 1 ? "Lead · " : "") + where_).font(.system(size: 11)).foregroundColor(Theme.dim)
             }
             Spacer(minLength: 0)
@@ -1182,14 +1176,20 @@ struct LobbyView: View {
         let v = g.voice
         let others = g.remotePilots
         Sheet(m: m, title: "Lobby", subtitle: others.isEmpty ? (m.s.net.isEmpty ? "Nobody else is here" : m.s.net) : "\(others.count + 1) pilots",
-              back: g.cameFromMenu ? .menu : .none, width: 980, height: 660) {
+              back: g.cameFromMenu ? .menu : .none, width: 1000, height: 720) {
             HStack(alignment: .top, spacing: 0) {
                 VStack(alignment: .leading, spacing: 9) {
-                    heading("PILOTS")
+                    heading("YOUR PILOT NAME")
+                    TextField("Your name", text: Binding(get: { g.pilotName }, set: { g.pilotName = String($0.prefix(24)); m.objectWillChange.send() }))
+                        .textFieldStyle(.plain).font(.system(size: 13.5, weight: .semibold)).foregroundColor(Theme.paper)
+                        .padding(.horizontal, 10).padding(.vertical, 7)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.paper.opacity(0.08)))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(g.pilotName.trimmingCharacters(in: .whitespaces).isEmpty ? Theme.amber : Theme.stroke, lineWidth: 1))
+                    heading("PILOTS").padding(.top, 6)
                     ForEach(Array(g.order.enumerated()), id: \.element) { k, id in
-                        if id == g.net.id { person(k + 1, g.pilotName, "In the lobby", talking: v.sending, me: true) }
+                        if id == g.net.id { person(k + 1, g.pilotName.isEmpty ? "(no name)" : g.pilotName, (g.together && g.isHost ? "Host · " : "") + "In the lobby", talking: v.sending, me: true) }
                         else if let w = others.first(where: { $0.id == id }) {
-                            person(k + 1, w.name, Game.placeNames[Int(min(w.hello.place, 2))], talking: v.speaking(id), me: false)
+                            person(k + 1, w.name, (id == g.hostID ? "Host · " : "") + w.aircraft.spec.name + " · " + Game.placeNames[Int(min(w.hello.place, 2))].lowercased(), talking: v.speaking(id), me: false)
                         }
                     }
                     if others.isEmpty {
@@ -1206,27 +1206,31 @@ struct LobbyView: View {
                         Text("Voice needs the network: switch on “Fly with other pilots” in the Formation panel.")
                             .font(.system(size: 11)).foregroundColor(Theme.dim).fixedSize(horizontal: false, vertical: true)
                     } else if let p = v.micProblem {
-                        Text(p).font(.system(size: 11)).foregroundColor(Theme.cream.opacity(0.9)).fixedSize(horizontal: false, vertical: true)
+                        Text(p).font(.system(size: 11)).foregroundColor(Theme.paper.opacity(0.9)).fixedSize(horizontal: false, vertical: true)
                     } else if v.mode != .off {
                         HStack(spacing: 8) {
                             Image(systemName: v.sending ? "mic.fill" : "mic").foregroundColor(v.sending ? Self.green : Theme.dim).frame(width: 16)
                             GeometryReader { geo in
                                 ZStack(alignment: .leading) {
-                                    Capsule().fill(Theme.cream.opacity(0.1))
-                                    Capsule().fill(v.sending ? Self.green : Theme.cream.opacity(0.45)).frame(width: geo.size.width * CGFloat(min(v.micLevel, 1)))
+                                    Capsule().fill(Theme.paper.opacity(0.1))
+                                    Capsule().fill(v.sending ? Self.green : Theme.paper.opacity(0.45)).frame(width: geo.size.width * CGFloat(min(v.micLevel, 1)))
                                 }
                             }
                             .frame(height: 6)
                         }
                         if v.mode == .pushToTalk {
                             Text(g.lobbyTalk ? "TALKING" : "HOLD TO TALK").font(.system(size: 12.5, weight: .heavy)).tracking(1.2)
-                                .foregroundColor(g.lobbyTalk ? Theme.ink : Theme.cream).frame(maxWidth: .infinity).padding(.vertical, 10)
-                                .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(g.lobbyTalk ? Self.green : Theme.red))
+                                .foregroundColor(g.lobbyTalk ? Theme.ink : Theme.paper).frame(maxWidth: .infinity).padding(.vertical, 10)
+                                .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(g.lobbyTalk ? Self.green : Theme.brand))
                                 .contentShape(Rectangle())
                                 .gesture(DragGesture(minimumDistance: 0)
                                     .onChanged { _ in if !g.lobbyTalk { g.lobbyTalk = true; m.objectWillChange.send() } }
                                     .onEnded { _ in g.lobbyTalk = false; m.objectWillChange.send() })
-                            Text("In flight, hold B to talk.").font(.system(size: 11)).foregroundColor(Theme.faint)
+                            HStack(spacing: 6) {
+                                Text("Anywhere: hold \(g.input.talkHint).").font(.system(size: 11)).foregroundColor(Theme.faint).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 0)
+                                Button("Change…") { m.openControllerSetup?() }.buttonStyle(.plain).font(.system(size: 11, weight: .semibold)).foregroundColor(Theme.brand)
+                            }
                         } else {
                             Text("The microphone sends whenever you speak. Wear headphones, or the others will hear themselves through your speakers.")
                                 .font(.system(size: 11)).foregroundColor(Theme.faint).fixedSize(horizontal: false, vertical: true)
@@ -1238,14 +1242,45 @@ struct LobbyView: View {
                     }
                     .help("How loud the other pilots are")
                     Spacer(minLength: 0)
-                    if g.isLead && !others.isEmpty {
-                        Button { g.callTakeOff() } label: { Text("Everyone Take Off").frame(maxWidth: .infinity) }.buttonStyle(PrimaryButton())
-                            .help("Brings every pilot who is in the lobby into the air")
+                    // the session
+                    if g.together {
+                        heading("SESSION")
+                        HStack(spacing: 7) {
+                            Circle().fill(g.sessionRunning ? Self.green : Theme.amber).frame(width: 8, height: 8)
+                            Text(g.sessionRunning ? "Running" : "Stopped").font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.paper)
+                            Text(g.isHost ? "· you are the host" : "· host: \(g.name(of: g.hostID))").font(.system(size: 11.5)).foregroundColor(Theme.dim).lineLimit(1)
+                        }
                     }
-                    Button { g.cameFromMenu = false; m.overlay = .none } label: { Text(g.isLead && !others.isEmpty ? "Take Off Alone" : "Take Off").frame(maxWidth: .infinity) }
-                        .buttonStyle(QuietButton())
+                    let locked = g.together && g.sessionRunning && !g.isHost
+                    HStack(spacing: 7) {
+                        Button { g.fromLobby(.aircraft) } label: { Label("Wing", systemImage: "airplane").frame(maxWidth: .infinity) }.buttonStyle(QuietButton()).disabled(locked)
+                        if !g.together || g.isHost {
+                            Button { g.fromLobby(.sites) } label: { Label("Site", systemImage: "map").frame(maxWidth: .infinity) }.buttonStyle(QuietButton())
+                            Button { g.fromLobby(.environment) } label: { Label("Weather", systemImage: "cloud.sun").lineLimit(1).fixedSize().frame(maxWidth: .infinity) }.buttonStyle(QuietButton())
+                        }
+                    }
+                    Text(g.aircraft.spec.name + " · " + g.site.displayName + " · " + Game.timeNames[g.timeOfDay]).font(.system(size: 11)).foregroundColor(Theme.dim).lineLimit(1)
+                    if locked {
+                        Text("You can change your wing when the host stops the session.").font(.system(size: 11)).foregroundColor(Theme.faint).fixedSize(horizontal: false, vertical: true)
+                    }
+                    if g.together && g.isHost {
+                        HStack(spacing: 7) {
+                            Button { g.startSession() } label: { Text(g.sessionRunning ? "Restart" : "Start Session").frame(maxWidth: .infinity) }.buttonStyle(PrimaryButton())
+                                .help(g.sessionRunning ? "Everyone goes back to the launch point" : "Everyone takes off")
+                            if g.sessionRunning {
+                                Button { g.stopSession() } label: { Text("Stop").frame(maxWidth: .infinity) }.buttonStyle(QuietButton())
+                                    .help("Everyone comes back to the lobby; wings, site and weather can be changed")
+                            }
+                        }
+                        if g.sessionRunning { Button { g.takeOff() } label: { Text("Back to Flying").frame(maxWidth: .infinity) }.buttonStyle(QuietButton()) }
+                    } else if g.together {
+                        Button { g.takeOff() } label: { Text(g.sessionRunning ? "Fly" : "Waiting for the host to start…").frame(maxWidth: .infinity) }
+                            .buttonStyle(PrimaryButton()).disabled(!g.sessionRunning).opacity(g.sessionRunning ? 1 : 0.5)
+                    } else {
+                        Button { g.takeOff() } label: { Text("Take Off").frame(maxWidth: .infinity) }.buttonStyle(PrimaryButton())
+                    }
                 }
-                .padding(20).frame(width: 330)
+                .padding(20).frame(width: 360)
                 Rectangle().fill(Theme.stroke).frame(width: 1)
                 // chat
                 VStack(spacing: 0) {
@@ -1253,9 +1288,9 @@ struct LobbyView: View {
                     Rectangle().fill(Theme.stroke).frame(height: 1)
                     HStack(spacing: 8) {
                         TextField(others.isEmpty ? "Nobody is here to read it yet" : "Write to the other pilots", text: $draft)
-                            .textFieldStyle(.plain).font(.system(size: 13.5)).foregroundColor(Theme.cream).focused($typing)
+                            .textFieldStyle(.plain).font(.system(size: 13.5)).foregroundColor(Theme.paper).focused($typing)
                             .padding(.horizontal, 11).padding(.vertical, 9)
-                            .background(RoundedRectangle(cornerRadius: 9).fill(Theme.cream.opacity(0.08)))
+                            .background(RoundedRectangle(cornerRadius: 9).fill(Theme.paper.opacity(0.08)))
                             .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.stroke, lineWidth: 1))
                             .onSubmit { send() }
                             .onChange(of: draft) { t in if t.count > NetCodec.maxChat { draft = String(t.prefix(NetCodec.maxChat)) } }
@@ -1289,11 +1324,11 @@ private struct ChatLog: View {
                             HStack {
                                 if line.mine { Spacer(minLength: 60) }
                                 VStack(alignment: .leading, spacing: 2) {
-                                    if !line.mine { Text(line.name).font(.system(size: 10.5, weight: .heavy)).foregroundColor(Theme.cream.opacity(0.7)) }
-                                    Text(line.text).font(.system(size: 13.5)).foregroundColor(Theme.cream).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                                    if !line.mine { Text(line.name).font(.system(size: 10.5, weight: .heavy)).foregroundColor(Theme.paper.opacity(0.7)) }
+                                    Text(line.text).font(.system(size: 13.5)).foregroundColor(Theme.paper).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                                 }
                                 .padding(.horizontal, 11).padding(.vertical, 7)
-                                .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(line.mine ? Theme.red.opacity(0.85) : Theme.cream.opacity(0.09)))
+                                .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(line.mine ? Theme.brand.opacity(0.85) : Theme.paper.opacity(0.09)))
                                 if !line.mine { Spacer(minLength: 60) }
                             }
                         }

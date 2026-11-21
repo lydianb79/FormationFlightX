@@ -1,60 +1,72 @@
-// Draws the FormationFlightX app icon and splash artwork: three flying wings in a vic.
+// Draws the FormationFlightX app icon and splash artwork: flying wings in formation in an evening sky.
 // Usage: swift Tools/make_icon.swift <icon.png> <splash.jpg>
+import AppKit
 import CoreGraphics
 import CoreText
-import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
 let cs = CGColorSpace(name: CGColorSpace.sRGB)!
 func col(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> CGColor { CGColor(colorSpace: cs, components: [r, g, b, a])! }
-let red = col(0.76, 0.13, 0.10), ring1 = col(0.70, 0.10, 0.08), ring2 = col(0.66, 0.09, 0.07)
-let shadow = col(0.42, 0.05, 0.04, 0.55), cream = col(0.965, 0.93, 0.875), ink = col(0.11, 0.075, 0.07)
+let navy = col(0.035, 0.07, 0.125), deep = col(0.04, 0.2, 0.42), azure = col(0.10, 0.60, 0.92), glow = col(1.0, 0.78, 0.45)
+let white = col(0.96, 0.975, 1.0), amber = col(1.0, 0.72, 0.22)
 
 func context(_ w: Int, _ h: Int) -> CGContext {
     CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
 }
 
-/// A swept flying wing seen from above, nose toward +y, about 2 units in span, centred on the origin.
-func wing(_ ctx: CGContext, fill: CGColor?, stripe: Bool) {
-    let p = CGMutablePath()
-    p.move(to: CGPoint(x: 0, y: 0.52))
-    p.addLine(to: CGPoint(x: 0.96, y: -0.28)); p.addLine(to: CGPoint(x: 1.0, y: -0.50)); p.addLine(to: CGPoint(x: 0.80, y: -0.50))
-    p.addLine(to: CGPoint(x: 0.16, y: -0.20)); p.addLine(to: CGPoint(x: 0, y: -0.30)); p.addLine(to: CGPoint(x: -0.16, y: -0.20))
-    p.addLine(to: CGPoint(x: -0.80, y: -0.50)); p.addLine(to: CGPoint(x: -1.0, y: -0.50)); p.addLine(to: CGPoint(x: -0.96, y: -0.28))
-    p.closeSubpath()
-    ctx.addPath(p); ctx.setFillColor(fill ?? cream); ctx.fillPath()
-    guard fill == nil else { return }
-    if stripe {
-        ctx.saveGState(); ctx.addPath(p); ctx.clip()
-        ctx.setFillColor(red)
-        for x in [CGFloat(-0.74), 0.64] { ctx.fill(CGRect(x: x, y: -0.6, width: 0.10, height: 1.2)) }
-        ctx.restoreGState()
-    }
-    // centre pod
-    let pod = CGPath(roundedRect: CGRect(x: -0.085, y: -0.26, width: 0.17, height: 0.74), cornerWidth: 0.085, cornerHeight: 0.085, transform: nil)
-    ctx.addPath(pod); ctx.setFillColor(ink); ctx.fillPath()
+/// Evening sky: dark overhead, bright blue lower down, a warm band at the horizon.
+func sky(_ ctx: CGContext, _ r: CGRect) {
+    let g = CGGradient(colorsSpace: cs, colors: [navy, deep, azure, glow] as CFArray, locations: [0, 0.38, 0.8, 1])!
+    ctx.drawLinearGradient(g, start: CGPoint(x: r.midX, y: r.maxY), end: CGPoint(x: r.midX + r.width * 0.12, y: r.minY), options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
 }
 
-/// Three wings in a vic, each `s` points in half-span, around a centre.
-func vic(_ ctx: CGContext, center c: CGPoint, s: CGFloat, tilt: CGFloat) {
-    let places: [(CGFloat, CGFloat)] = [(0, 0.95), (1.25, -0.35), (-1.25, -0.35)]
-    for pass in 0..<2 {
-        for (i, pl) in places.enumerated() {
-            ctx.saveGState()
-            ctx.translateBy(x: c.x, y: c.y); ctx.rotate(by: tilt)
-            ctx.translateBy(x: pl.0 * s + (pass == 0 ? 0.10 * s : 0), y: pl.1 * s - (pass == 0 ? 0.16 * s : 0))
-            ctx.scaleBy(x: s, y: s)
-            wing(ctx, fill: pass == 0 ? shadow : nil, stripe: i == 0)
-            ctx.restoreGState()
-        }
+/// A swept flying wing seen from above, nose toward +y, 2 units in span, centred on the origin.
+func wingPath() -> CGPath {
+    let p = CGMutablePath()
+    p.move(to: CGPoint(x: 0, y: 0.50))
+    p.addQuadCurve(to: CGPoint(x: 0.97, y: -0.30), control: CGPoint(x: 0.42, y: 0.22))
+    p.addLine(to: CGPoint(x: 1.0, y: -0.52)); p.addLine(to: CGPoint(x: 0.82, y: -0.50))
+    p.addQuadCurve(to: CGPoint(x: 0, y: -0.20), control: CGPoint(x: 0.34, y: -0.22))
+    p.addQuadCurve(to: CGPoint(x: -0.82, y: -0.50), control: CGPoint(x: -0.34, y: -0.22))
+    p.addLine(to: CGPoint(x: -1.0, y: -0.52)); p.addLine(to: CGPoint(x: -0.97, y: -0.30))
+    p.addQuadCurve(to: CGPoint(x: 0, y: 0.50), control: CGPoint(x: -0.42, y: 0.22))
+    p.closeSubpath()
+    return p
+}
+
+/// One wing with the two vapour trails it leaves from its tips.
+func wing(_ ctx: CGContext, at c: CGPoint, size s: CGFloat, heading: CGFloat, lead: Bool, trail: CGFloat) {
+    ctx.saveGState()
+    ctx.translateBy(x: c.x, y: c.y); ctx.rotate(by: heading); ctx.scaleBy(x: s, y: s)
+    for x in [CGFloat(-0.9), 0.9] {
+        let g = CGGradient(colorsSpace: cs, colors: [col(1, 1, 1, 0.55), col(1, 1, 1, 0)] as CFArray, locations: [0, 1])!
+        ctx.saveGState()
+        ctx.addRect(CGRect(x: x - 0.035, y: -0.45 - trail, width: 0.07, height: trail)); ctx.clip()
+        ctx.drawLinearGradient(g, start: CGPoint(x: x, y: -0.45), end: CGPoint(x: x, y: -0.45 - trail), options: [])
+        ctx.restoreGState()
+    }
+    ctx.setShadow(offset: CGSize(width: 0, height: -0.05 * s), blur: 0.12 * s, color: col(0, 0.05, 0.15, 0.45))
+    ctx.addPath(wingPath()); ctx.setFillColor(lead ? amber : white); ctx.fillPath()
+    ctx.setShadow(offset: .zero, blur: 0, color: nil)
+    ctx.addPath(CGPath(ellipseIn: CGRect(x: -0.075, y: -0.16, width: 0.15, height: 0.5), transform: nil)); ctx.setFillColor(navy); ctx.fillPath()
+    ctx.restoreGState()
+}
+
+/// A vic of `n` wings, the lead at `c`, flying along `heading` (0 = up the page).
+func formation(_ ctx: CGContext, lead c: CGPoint, size s: CGFloat, heading: CGFloat, count n: Int, trail: CGFloat) {
+    let fwd = CGPoint(x: -sin(heading), y: cos(heading)), right = CGPoint(x: cos(heading), y: sin(heading))
+    for i in stride(from: n - 1, through: 0, by: -1) {
+        let row = CGFloat((i + 1) / 2), side: CGFloat = i % 2 == 1 ? 1 : -1
+        let p = CGPoint(x: c.x + (right.x * side * row * 2.35 - fwd.x * row * 1.75) * s, y: c.y + (right.y * side * row * 2.35 - fwd.y * row * 1.75) * s)
+        wing(ctx, at: p, size: s, heading: heading, lead: i == 0, trail: trail)
     }
 }
 
 func save(_ ctx: CGContext, _ path: String, jpeg: Bool) {
     let type = (jpeg ? UTType.jpeg : UTType.png).identifier as CFString
     let dst = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, type, 1, nil)!
-    CGImageDestinationAddImage(dst, ctx.makeImage()!, [kCGImageDestinationLossyCompressionQuality: 0.92] as CFDictionary)
+    CGImageDestinationAddImage(dst, ctx.makeImage()!, [kCGImageDestinationLossyCompressionQuality: 0.93] as CFDictionary)
     CGImageDestinationFinalize(dst)
 }
 
@@ -64,15 +76,15 @@ guard args.count > 2 else { print("usage: make_icon <icon.png> <splash.jpg>"); e
 // ---- icon: macOS shape, 824pt rounded square on a 1024 canvas
 do {
     let ctx = context(1024, 1024)
-    let shape = CGPath(roundedRect: CGRect(x: 100, y: 100, width: 824, height: 824), cornerWidth: 186, cornerHeight: 186, transform: nil)
+    let tile = CGRect(x: 100, y: 100, width: 824, height: 824)
+    let shape = CGPath(roundedRect: tile, cornerWidth: 186, cornerHeight: 186, transform: nil)
     ctx.saveGState()
     ctx.setShadow(offset: CGSize(width: 0, height: -12), blur: 28, color: col(0, 0, 0, 0.35))
-    ctx.addPath(shape); ctx.setFillColor(red); ctx.fillPath()
+    ctx.addPath(shape); ctx.setFillColor(navy); ctx.fillPath()
     ctx.restoreGState()
     ctx.saveGState(); ctx.addPath(shape); ctx.clip()
-    let c = CGPoint(x: 560, y: 480)
-    for (r, colr) in [(CGFloat(470), ring1), (330, ring2)] { ctx.setFillColor(colr); ctx.fillEllipse(in: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)) }
-    vic(ctx, center: CGPoint(x: 512, y: 512), s: 138, tilt: -0.42)
+    sky(ctx, tile)
+    formation(ctx, lead: CGPoint(x: 650, y: 640), size: 100, heading: -0.55, count: 3, trail: 3.6)
     ctx.restoreGState()
     save(ctx, args[1], jpeg: false)
 }
@@ -81,26 +93,20 @@ do {
 do {
     let W = 2560, H = 1600
     let ctx = context(W, H)
-    ctx.setFillColor(red); ctx.fill(CGRect(x: 0, y: 0, width: W, height: H))
-    let c = CGPoint(x: 1780, y: 860)
-    for (r, colr) in [(CGFloat(1150), ring1), (780, ring2)] { ctx.setFillColor(colr); ctx.fillEllipse(in: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)) }
-    vic(ctx, center: CGPoint(x: 1960, y: 860), s: 215, tilt: -0.5)
-    func text(_ s: String, size: CGFloat, weight: CGFloat, color: CGColor, at p: CGPoint, tracking: CGFloat = 0) -> CGFloat {
-        let font = CTFontCreateUIFontForLanguage(.system, size, nil)!
-        let desc = CTFontDescriptorCreateCopyWithAttributes(CTFontCopyFontDescriptor(font), [kCTFontTraitsAttribute: [kCTFontWeightTrait: weight]] as CFDictionary)
-        let f = CTFontCreateWithFontDescriptor(desc, size, nil)
-        let a = NSAttributedString(string: s, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): f,
-                                                           NSAttributedString.Key(kCTForegroundColorAttributeName as String): color,
-                                                           NSAttributedString.Key(kCTKernAttributeName as String): tracking])
+    sky(ctx, CGRect(x: 0, y: 0, width: W, height: H))
+    formation(ctx, lead: CGPoint(x: 1820, y: 1120), size: 120, heading: -0.62, count: 5, trail: 5.5)
+    func text(_ s: String, size: CGFloat, weight: NSFont.Weight, color: CGColor, at p: CGPoint, tracking: CGFloat = 0) -> CGFloat {
+        var font = NSFont.systemFont(ofSize: size, weight: weight)
+        if let d = font.fontDescriptor.withDesign(.rounded), let f = NSFont(descriptor: d, size: size) { font = f }
+        let a = NSAttributedString(string: s, attributes: [.font: font, NSAttributedString.Key(kCTForegroundColorAttributeName as String): color, .kern: tracking])
         let line = CTLineCreateWithAttributedString(a)
         ctx.textPosition = p
         CTLineDraw(line, ctx)
         return CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
     }
-    _ = text("FLYING-WING FORMATION TRAINER", size: 40, weight: 0.6, color: cream, at: CGPoint(x: 170, y: 1010), tracking: 12)
-    _ = text("FORMATION", size: 250, weight: 0.9, color: cream, at: CGPoint(x: 160, y: 740), tracking: -8)
-    let w = text("FLIGHT", size: 250, weight: 0.9, color: cream, at: CGPoint(x: 160, y: 510), tracking: -8)
-    _ = text("X", size: 250, weight: 0.9, color: ink, at: CGPoint(x: 160 + w + 30, y: 510))
-    _ = text("CREATED BY ROCK FPV", size: 34, weight: 0.6, color: cream, at: CGPoint(x: 170, y: 400), tracking: 8)
+    let w = text("FormationFlight", size: 190, weight: .bold, color: white, at: CGPoint(x: 150, y: 330))
+    _ = text("X", size: 190, weight: .bold, color: amber, at: CGPoint(x: 150 + w + 6, y: 330))
+    _ = text("Fly wings together", size: 62, weight: .medium, color: col(1, 1, 1, 0.82), at: CGPoint(x: 158, y: 232))
+    _ = text("by Rock FPV", size: 38, weight: .medium, color: col(1, 1, 1, 0.6), at: CGPoint(x: 160, y: 150))
     save(ctx, args[2], jpeg: true)
 }
