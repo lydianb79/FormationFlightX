@@ -30,6 +30,7 @@ There is no server, no account and no host. Every copy of the app announces itse
 - **Groups.** Pilots with the same group name (Formation panel) fly together, so two formations can share one network. An empty group flies with anyone.
 - **The lead decides.** The flying site, weather, time of day, formation and spacing of the lead apply to everyone, within half a second.
 - **Who leads.** Until someone claims it, the pilot whose copy has the lowest network number leads. Press **U** (or **Take the Lead**) to claim the lead; press it again to hand it back.
+- **All copies need the same version.** This version's messages are not understood by earlier builds.
 - **Mid-air collisions** end the flight for both wings. You are put back behind your slot a few seconds later.
 - A pilot who opens a menu stops being shown to the others until they fly again.
 
@@ -49,6 +50,22 @@ If the router does not open the port by itself, the panel says so: forward UDP p
 Who hosts has nothing to do with who leads: any pilot can take the lead. Pilots on the host's own network join in by themselves and fly with the online ones. Everyone's traffic to an online pilot goes by way of the host, so the host's connection sets the delay.
 
 Anyone who knows the address can connect while hosting is on. Set a group name to keep strangers out of the formation, and switch hosting off afterwards; that also closes the port on the router.
+
+## Lobby, chat and voice
+
+The **Lobby** (main menu, the speech-bubble button in the top bar, or **Return** in flight) is where the pilots meet before and between flights.
+
+- **Pilots:** everyone in the formation, with their number, whether they are in the lobby, in the menus or flying, and a waveform beside whoever is speaking.
+- **Chat:** write to the other pilots. In flight, what the others write appears for ten seconds under the formation box, and the speech bubble fills in when there is something unread.
+- **Everyone Take Off:** the lead can bring every pilot who is waiting in the lobby into the air at once.
+- **Voice:** off, push to talk, or open mic.
+  - *Push to talk:* hold the button in the lobby, or **B** in flight. "ON AIR" shows in the formation box while you are sending.
+  - *Open mic:* sends whenever you speak. Wear headphones, or the others hear themselves through your speakers; there is no echo cancellation.
+  - The slider sets how loud the others are.
+
+Voice is off until you choose a mode; the first time, macOS asks for permission to use the microphone. Speech is coded with Opus at about 3 KB per second and travels the same way as everything else, so it works on a local network and through an online host alike. Chat lines are sent five times over half a second, because single messages can be lost on the way.
+
+Opening the lobby holds your own wing, as every menu does; the others see you as "in the lobby". To talk while flying, use voice.
 
 ## Flying alone
 
@@ -75,6 +92,8 @@ Formations: vic, echelon right, echelon left, line astern, line abreast. Spacing
 |---|---|
 | ← → ↑ ↓ | Roll and pitch (↓ pulls up) |
 | W S, X | Throttle up and down, throttle cut |
+| Return | Lobby: chat and voice |
+| B (hold) | Talk, with voice on push to talk |
 | J | Join up behind your slot |
 | U | Take the lead / hand it back |
 | O, I | Next formation, next spacing (lead only) |
@@ -90,16 +109,19 @@ Formations: vic, echelon right, echelon left, line astern, line abreast. Spacing
 
 | File | |
 |---|---|
-| `Net.swift` | Bonjour discovery, UDP transport and the two message types |
+| `Net.swift` | Bonjour discovery, hosting and joining, UDP transport and the message types |
+| `Voice.swift` | Microphone capture, Opus coding, playback of the other pilots |
 | `Formation.swift` | Formation shapes and slots, smoothing of network pilots, the computer pilot |
-| `FormationGame.swift` | Roster, lead, slots, collisions, what is sent and shown |
+| `FormationGame.swift` | Roster, lead, slots, collisions, chat, what is sent and shown |
 | everything else | FlightCore OSX, limited to flying wings and 3D sites |
 
-Command-line checks: `--formtest` flies the computer partners with every wing and prints how well they hold formation; `--formtrace <wing> <0|1>` prints one flight in detail; `--net --netlog --name <name>` runs a windowed copy that logs who it sees; add `--host`, or `--join <address>`, and `--nobonjour` to try the online path on one Mac.
+Command-line checks: `--voicetest` sends speech and chat through the coder and the message format with no audio hardware; `--formtest` flies the computer partners with every wing and prints how well they hold formation; `--formtrace <wing> <0|1>` prints one flight in detail; `--net --netlog --name <name>` runs a windowed copy that logs who it sees; add `--host`, or `--join <address>`, and `--nobonjour` to try the online path on one Mac.
 
 ## Not yet done
 
 - Tested with copies on one Mac only: local discovery with two copies, and a host with two joiners (local discovery switched off, so everything went by way of the host). Separate Macs, peer-to-peer Wi-Fi and a real internet path with its delay have not been tried, and the router on the test network did not open the port by itself, so the automatic port opening has only been seen to fail politely.
+- Voice has been tested without a microphone: a generated tone went through the coder, the network (direct and by way of the host) and the decoder and came out at the right level, and the players started. Capture from a real microphone, how it sounds, and the delay have not been checked by ear.
+- No echo cancellation or noise suppression, and no per-pilot mute.
 - Positions are predicted forward to cover network delay; this suits a local network, and has not been tuned for the 50 to 150 ms of an internet path.
 - The other wings make no sound, cast no shadow on the ground beyond 14 m from yours, and do not break apart when they crash.
 - No wake turbulence behind another wing.

@@ -105,6 +105,60 @@ extension Game {
         return ownPilot.lead(aircraft, terrain: terrain, reach: formationReach, dt: dt * timeScale)
     }
 
+    // MARK: Lobby
+
+    /// A note from the app in the chat.
+    func note(_ text: String) {
+        chatCount += 1
+        chat.append(ChatLine(id: chatCount, name: "", text: text, system: true, time: CACurrentMediaTime()))
+        if chat.count > 200 { chat.removeFirst(chat.count - 200) }
+    }
+
+    private func transmit(_ c: NetChat) {
+        // datagrams can be lost, so each line goes out five times; receivers drop the repeats
+        chatOut.append((NetCodec.encode(c), 5, 0))
+    }
+
+    func sendChat(_ raw: String) {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        chatCount += 1; chatSeq &+= 1
+        var line = String(text.prefix(NetCodec.maxChat))
+        while line.utf8.count > NetCodec.maxChat { line.removeLast() }
+        chat.append(ChatLine(id: chatCount, name: pilotName, text: line, mine: true, time: CACurrentMediaTime()))
+        transmit(NetChat(id: net.id, seq: chatSeq, kind: 0, text: line))
+    }
+
+    /// The lead calls everyone who is waiting in the lobby into the air.
+    func callTakeOff() {
+        guard isLead else { return }
+        chatSeq &+= 1
+        transmit(NetChat(id: net.id, seq: chatSeq, kind: 1, text: ""))
+        note("\(pilotName) called the take-off")
+        cameFromMenu = false; hud.overlay = .none
+    }
+
+    private func received(_ c: NetChat) {
+        guard let w = wingmen.first(where: { $0.id == c.id && $0.ai == nil }) else { return }     // only from pilots in this formation
+        guard chatSeen.insert(UInt64(c.id) << 32 | UInt64(c.seq)).inserted else { return }
+        if chatSeen.count > 4000 { chatSeen.removeAll() }
+        if c.kind == 1 {
+            guard c.id == leadID else { return }
+            note("\(w.name) called the take-off")
+            if hud.overlay == .lobby { cameFromMenu = false; hud.overlay = .none; resetAircraft(); say("\(w.name) called the take-off", 3) }
+            return
+        }
+        guard !c.text.isEmpty else { return }
+        chatCount += 1
+        chat.append(ChatLine(id: chatCount, name: w.name, text: c.text, time: CACurrentMediaTime()))
+        if chat.count > 200 { chat.removeFirst(chat.count - 200) }
+        if hud.overlay != .lobby { unreadChat += 1 }
+    }
+
+    /// Where this pilot is, as the others see it: 0 in the menus, 1 in the lobby, 2 flying.
+    var place: UInt8 { hud.overlay == .lobby ? 1 : (simHeld ? 0 : 2) }
+    static let placeNames = ["In the menus", "In the lobby", "Flying"]
+
     // MARK: Roster
 
     func computeOrder() {
@@ -131,14 +185,22 @@ extension Game {
                     let n = Wingman(id: h.id, name: h.name, specIndex: 0)
                     wingmen.append(n); w = n
                     say("\(h.name.isEmpty ? "A pilot" : h.name) joined the formation", 4)
+                    note("\(h.name.isEmpty ? "A pilot" : h.name) joined")
                 }
                 w?.name = h.name.isEmpty ? "Pilot" : h.name; w?.hello = h; w?.leadEpoch = h.leadEpoch; w?.lastHello = t
             case .state(let s):
                 wingmen.first { $0.id == s.id && $0.ai == nil }?.receive(s, at: t)
+            case .chat(let c): received(c)
+            case .voice(let v):
+                if wingmen.contains(where: { $0.id == v.id && $0.ai == nil }) { voice.receive(from: v.id, seq: v.seq, payload: v.payload) }
             }
         }
-        for w in wingmen where w.ai == nil && now - w.lastHello > 5 { say("\(w.name) left the formation", 4) }
-        wingmen.removeAll { $0.ai == nil && now - $0.lastHello > 5 }
+        for w in wingmen where w.ai == nil && now - w.lastHello > 5 { say("\(w.name) left the formation", 4); note("\(w.name) left") }
+        if wingmen.contains(where: { $0.ai == nil && now - $0.lastHello > 5 }) {
+            wingmen.removeAll { $0.ai == nil && now - $0.lastHello > 5 }
+            voice.keep(only: Set(remotePilots.map { $0.id }))
+        }
+        if hud.overlay == .lobby { unreadChat = 0 }
 
         let wantAI = aiPartners && remotePilots.isEmpty
         if !wantAI { wingmen.removeAll { $0.ai != nil } }
@@ -272,8 +334,21 @@ extension Game {
             }
         }
 
+        // voice: on while the network is; push to talk is the B key in flight and a button in the lobby
+        if voice.onFrame == nil {
+            let net = self.net
+            voice.onFrame = { seq, payload in net.broadcast(NetCodec.encode(NetVoice(id: net.id, seq: seq, payload: payload))) }
+        }
+        voice.setActive(net.running)
+        voice.talkHeld = lobbyTalk || (hud.overlay == .none && input.keys.contains(11))
+
         // tell the others
-        guard net.running else { return }
+        guard net.running else { chatOut = []; return }
+        for i in chatOut.indices where chatOut[i].next <= now {
+            net.broadcast(chatOut[i].data)
+            chatOut[i].left -= 1; chatOut[i].next = now + 0.12
+        }
+        chatOut.removeAll { $0.left <= 0 }
         helloAcc += realDt
         if helloAcc >= 0.5 {
             helloAcc = 0
@@ -282,7 +357,7 @@ extension Game {
             h.formation = UInt8(formation.rawValue); h.spacing = UInt8(spacing); h.timeOfDay = UInt8(timeOfDay)
             h.windSpeed = env.windSpeed; h.windFrom = env.windFrom; h.turbulence = env.turbulence; h.gustiness = env.gustiness
             h.thermals = env.thermalStrength; h.cloud = env.cloud; h.haze = env.haze
-            h.name = pilotName; h.group = group
+            h.name = pilotName; h.group = group; h.place = place
             net.broadcast(NetCodec.encode(h))
         }
         sendAcc += realDt
@@ -325,7 +400,16 @@ extension Game {
                     detail += String(format: " · %.1f m off slot", e)
                 }
             }
-            s.mates.append(Mate(id: id, number: k + 1, name: w.name, detail: detail, good: good))
+            s.mates.append(Mate(id: id, number: k + 1, name: w.name, detail: detail, good: good, talking: voice.speaking(id)))
+        }
+        s.talking = remotePilots.filter { voice.speaking($0.id) }.map { $0.name }
+        s.unread = unreadChat
+        s.chat = chat.suffix(4).filter { !$0.mine && now - $0.time < 10 }
+        s.micLive = voice.sending
+        if net.running && voice.mode != .off {
+            if voice.micProblem != nil { s.mic = "Microphone unavailable" }
+            else if voice.sending { s.mic = "ON AIR" }
+            else { s.mic = voice.mode == .open ? "Mic open" : "Hold B to talk" }
         }
         if net.running {
             if !remotePilots.isEmpty { s.net = "\(remotePilots.count + 1) pilots connected" }

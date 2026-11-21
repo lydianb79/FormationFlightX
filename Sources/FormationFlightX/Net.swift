@@ -29,9 +29,26 @@ struct NetHello {
     var windSpeed: Float = 0, windFrom: Float = 0, turbulence: Float = 0, gustiness: Float = 0, thermals: Float = 0, cloud: Float = 0, haze: Float = 0
     var name = ""
     var group = ""
+    var place: UInt8 = 0            // 0 in the menus, 1 in the lobby, 2 flying
 }
 
-enum NetMessage { case state(NetState), hello(NetHello) }
+/// A line of chat, or the lead calling everyone in the lobby into the air. Sent several times, because
+/// datagrams can be lost; `seq` lets the receivers recognise the repeats.
+struct NetChat {
+    var id: UInt32 = 0
+    var seq: UInt32 = 0
+    var kind: UInt8 = 0             // 0 text, 1 "everyone take off"
+    var text = ""
+}
+
+/// One 20 ms frame of speech, Opus-coded.
+struct NetVoice {
+    var id: UInt32 = 0
+    var seq: UInt16 = 0
+    var payload = Data()
+}
+
+enum NetMessage { case state(NetState), hello(NetHello), chat(NetChat), voice(NetVoice) }
 
 private struct Writer {
     var d = Data()
@@ -41,7 +58,12 @@ private struct Writer {
     mutating func f(_ v: Float) { u32(v.bitPattern) }
     mutating func f64(_ v: Double) { withUnsafeBytes(of: v.bitPattern.littleEndian) { d.append(contentsOf: $0) } }
     mutating func v3(_ v: V3) { f(v.x); f(v.y); f(v.z) }
-    mutating func str(_ s: String) { let b = Array(s.utf8.prefix(40)); u8(UInt8(b.count)); d.append(contentsOf: b) }
+    mutating func str(_ s: String, max: Int = 40) {
+        // cut at a character boundary, so a long line never ends in half a letter
+        var t = s
+        while t.utf8.count > max { t.removeLast() }
+        u8(UInt8(t.utf8.count)); d.append(contentsOf: Array(t.utf8))
+    }
 }
 
 private struct Reader {
@@ -59,7 +81,22 @@ private struct Reader {
 }
 
 enum NetCodec {
-    static let magic: UInt8 = 0xF7, version: UInt8 = 1
+    static let magic: UInt8 = 0xF7, version: UInt8 = 2
+    static let maxSize = 1200, maxChat = 240
+
+    static func encode(_ c: NetChat) -> Data {
+        var w = Writer()
+        w.u8(magic); w.u8(version); w.u8(3); w.u32(c.id)
+        w.u32(c.seq); w.u8(c.kind); w.str(c.text, max: maxChat)
+        return w.d
+    }
+
+    static func encode(_ v: NetVoice) -> Data {
+        var w = Writer()
+        w.u8(magic); w.u8(version); w.u8(4); w.u32(v.id)
+        w.u16(v.seq); w.d.append(v.payload)
+        return w.d
+    }
 
     static func encode(_ s: NetState) -> Data {
         var w = Writer()
@@ -75,13 +112,13 @@ enum NetCodec {
         w.u8(magic); w.u8(version); w.u8(2); w.u32(h.id)
         w.u32(h.leadEpoch); w.u16(h.site); w.u8(h.formation); w.u8(h.spacing); w.u8(h.timeOfDay)
         for v in [h.windSpeed, h.windFrom, h.turbulence, h.gustiness, h.thermals, h.cloud, h.haze] { w.f(v) }
-        w.str(h.name); w.str(h.group)
+        w.str(h.name); w.str(h.group); w.u8(h.place)
         return w.d
     }
 
     /// Nil for anything that is not a well-formed message of this version: the network is not trusted.
     static func decode(_ data: Data) -> NetMessage? {
-        guard data.count >= 7, data.count < 512 else { return nil }
+        guard data.count >= 7, data.count <= maxSize else { return nil }
         var r = Reader(data)
         guard r.u8() == magic, r.u8() == version else { return nil }
         let type = r.u8(), id = r.u32()
@@ -106,11 +143,24 @@ enum NetCodec {
             var h = NetHello(); h.id = id
             h.leadEpoch = r.u32(); h.site = r.u16(); h.formation = r.u8(); h.spacing = r.u8(); h.timeOfDay = r.u8()
             h.windSpeed = r.f(); h.windFrom = r.f(); h.turbulence = r.f(); h.gustiness = r.f(); h.thermals = r.f(); h.cloud = r.f(); h.haze = r.f()
-            h.name = r.str(); h.group = r.str()
+            h.name = r.str(); h.group = r.str(); h.place = min(r.u8(), 2)
             guard r.ok, [h.windSpeed, h.windFrom, h.turbulence, h.gustiness, h.thermals, h.cloud, h.haze].allSatisfy({ $0.isFinite }) else { return nil }
             h.windSpeed = clampf(h.windSpeed, 0, 20); h.windFrom = clampf(h.windFrom, 0, 360); h.turbulence = clampf(h.turbulence, 0, 1)
             h.gustiness = clampf(h.gustiness, 0, 1); h.thermals = clampf(h.thermals, 0, 2); h.cloud = clampf(h.cloud, 0, 1); h.haze = clampf(h.haze, 0, 1)
             return .hello(h)
+        case 3:
+            var c = NetChat(); c.id = id
+            c.seq = r.u32(); c.kind = r.u8(); c.text = r.str()
+            guard r.ok, c.kind <= 1 else { return nil }
+            // no control characters: the text is shown as it comes
+            c.text = String(c.text.unicodeScalars.filter { $0.value >= 32 && $0.value != 127 }.map(Character.init))
+            return .chat(c)
+        case 4:
+            var v = NetVoice(); v.id = id
+            v.seq = r.u16()
+            guard r.ok, data.count - r.i > 0, data.count - r.i <= 400 else { return nil }
+            v.payload = data.subdata(in: data.startIndex + r.i..<data.endIndex)
+            return .voice(v)
         default: return nil
         }
     }
@@ -325,13 +375,13 @@ final class FormationNet {
     private func receive(_ c: NWConnection, flow: ObjectIdentifier?) {
         c.receiveMessage { [weak self, weak c] data, _, _, error in
             guard let s = self, let c = c else { return }
-            if let d = data, d.count >= 7, d.count < 512, d[d.startIndex] == NetCodec.magic {
+            if let d = data, d.count >= 7, d.count <= NetCodec.maxSize, d[d.startIndex] == NetCodec.magic {
                 let now = CACurrentMediaTime()
                 let b = d.startIndex
                 let sender = UInt32(d[b + 3]) | UInt32(d[b + 4]) << 8 | UInt32(d[b + 5]) << 16 | UInt32(d[b + 6]) << 24
                 if sender != s.id {
                     s.lock.lock()
-                    if s.inbox.count < 600 { s.inbox.append((d, now)) }
+                    if s.inbox.count < 900 { s.inbox.append((d, now)) }
                     if flow == nil { s.hostSeen = now }
                     s.lock.unlock()
                     if let key = flow {
@@ -375,6 +425,8 @@ final class FormationNet {
             switch m {
             case .state(let s): return s.id == id ? nil : (m, t)
             case .hello(let h): return h.id == id ? nil : (m, t)
+            case .chat(let c): return c.id == id ? nil : (m, t)
+            case .voice(let v): return v.id == id ? nil : (m, t)
             }
         }
     }

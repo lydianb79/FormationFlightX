@@ -181,6 +181,7 @@ struct HUDView: View {
                         }
                         .padding(.trailing, 4).allowsHitTesting(false)
                         HStack(spacing: 5) {
+                            BarButton(icon: s.unread > 0 ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right", help: "Lobby: chat and voice (Return)") { m.game.cameFromMenu = false; m.overlay = m.overlay == .lobby ? .none : .lobby }
                             BarButton(icon: "person.3.fill", help: "Formation and pilots") { m.game.cameFromMenu = false; m.overlay = m.overlay == .formation ? .none : .formation }
                             BarButton(icon: "wind", help: "Wind, weather and time of day") { m.game.cameFromMenu = false; m.overlay = m.overlay == .environment ? .none : .environment }
                             BarButton(icon: "gamecontroller", help: "Controller setup") { m.openControllerSetup?() }
@@ -192,7 +193,15 @@ struct HUDView: View {
                     .padding(.leading, m.fullscreen ? 12 : 84).padding(.trailing, 12).padding(.top, 9)
 
                     HStack(alignment: .top) {
-                        FormationBox(s: s) { m.game.cameFromMenu = false; m.overlay = .formation }
+                        VStack(alignment: .leading, spacing: 6) {
+                            FormationBox(s: s) { m.game.cameFromMenu = false; m.overlay = .formation }
+                            // what the others wrote, for a few seconds
+                            ForEach(s.chat) { line in
+                                (Text(line.system ? "" : line.name + "  ").font(.system(size: 11.5, weight: .bold)) + Text(line.text).font(.system(size: 11.5)))
+                                    .foregroundColor(Theme.cream.opacity(line.system ? 0.7 : 1)).lineLimit(2).frame(maxWidth: 320, alignment: .leading)
+                                    .padding(.horizontal, 9).padding(.vertical, 5).glass(8)
+                            }
+                        }
                         Spacer()
                     }
                     .padding(.horizontal, 12).padding(.top, 8)
@@ -250,6 +259,7 @@ struct HUDView: View {
                 case .environment: EnvironmentPanel(m: m)
                 case .help: HelpView(m: m)
                 case .formation: FormationPanel(m: m)
+                case .lobby: LobbyView(m: m)
                 case .splash: SplashView(m: m).transition(.asymmetric(insertion: .identity, removal: .scale(scale: 1.35).combined(with: .opacity)))
                 case .none: EmptyView()
                 }
@@ -705,11 +715,27 @@ struct MainMenu: View {
                     .background(Theme.ink).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain).focusable(false).padding(.top, 14)
-                Button { m.game.cameFromMenu = false; m.overlay = .none } label: {
-                    HStack(spacing: 10) { Image(systemName: "play.fill"); Text("CLEARED FOR TAKE-OFF").tracking(2) }
-                        .font(.system(size: 15, weight: .black)).frame(maxWidth: .infinity).padding(.vertical, 14)
+                HStack(spacing: 10) {
+                    Button { m.game.cameFromMenu = true; m.overlay = .lobby } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "bubble.left.and.bubble.right.fill")
+                            Text("LOBBY").tracking(2)
+                            if m.s.unread > 0 {
+                                Text("\(m.s.unread)").font(.system(size: 11, weight: .heavy)).foregroundColor(Theme.cream)
+                                    .padding(.horizontal, 6).padding(.vertical, 1).background(Capsule().fill(Theme.red))
+                            }
+                        }
+                        .font(.system(size: 15, weight: .black)).foregroundColor(Theme.cream).padding(.horizontal, 20).padding(.vertical, 14)
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.ink))
+                    }
+                    .buttonStyle(.plain).focusable(false)
+                    Button { m.game.cameFromMenu = false; m.overlay = .none } label: {
+                        HStack(spacing: 10) { Image(systemName: "play.fill"); Text("CLEARED FOR TAKE-OFF").tracking(2) }
+                            .font(.system(size: 15, weight: .black)).frame(maxWidth: .infinity).padding(.vertical, 14)
+                    }
+                    .buttonStyle(CreamButton()).keyboardShortcut(.defaultAction)
                 }
-                .buttonStyle(CreamButton()).keyboardShortcut(.defaultAction).padding(.top, 16)
+                .padding(.top, 16)
                 HStack(spacing: 8) {
                     Button { m.game.cameFromMenu = true; m.overlay = .environment } label: { Label("Weather", systemImage: "wind") }.buttonStyle(InkButton())
                     Button { m.openControllerSetup?() } label: { Label("Controller", systemImage: "gamecontroller") }.buttonStyle(InkButton())
@@ -849,8 +875,8 @@ struct HelpView: View {
         ("Formation", [("J", "Join up: start in the air behind your slot"), ("U", "Take the lead / hand it back"), ("O", "Next formation (lead only)"), ("I", "Spacing: tight, normal, loose (lead only)"),
                        ("G", "Computer partners on / off"), ("Y", "Smoke"), ("[  ]", "Previous / next wing"), ("Tab", "Wing browser")]),
         ("View and simulation", [("C", "Camera: chase, onboard, pilot"), ("Z", "Zoom mode"), ("V", "Hide / show display"), ("P", "Pause"),
-                                 ("T", "Slow motion"), (",  .", "Less / more wind"), ("N", "Next flying site"), ("B", "Balloon Burst challenge"),
-                                 ("K", "Autopilot for your own wing"), ("M", "Mute sound"), ("Esc", "Main menu")]),
+                                 ("T", "Slow motion"), (",  .", "Less / more wind"), ("N", "Next flying site"),
+                                 ("K", "Autopilot for your own wing"), ("Return", "Lobby: chat and voice"), ("B", "Hold to talk (push to talk)"), ("M", "Mute sound"), ("Esc", "Main menu")]),
     ]
     var body: some View {
         Sheet(m: m, title: "Controls", subtitle: "Keyboard", back: m.game.cameFromMenu ? .menu : .none, width: 940, height: 520) {
@@ -927,6 +953,7 @@ private struct FormationBox: View {
                             Text("\(mt.number)").font(.system(size: 10.5, weight: .heavy)).foregroundColor(Theme.ink)
                                 .frame(width: 16, height: 16).background(Circle().fill(Theme.cream.opacity(mt.number == 1 ? 1 : 0.7)))
                             Text(mt.name).font(.system(size: 11.5, weight: .semibold)).foregroundColor(Theme.cream).lineLimit(1)
+                            if mt.talking { Image(systemName: "waveform").font(.system(size: 10, weight: .bold)).foregroundColor(Color(red: 0.3, green: 0.95, blue: 0.45)) }
                             Text(mt.detail).font(.system(size: 11)).monospacedDigit()
                                 .foregroundColor(mt.good ? Color(red: 0.3, green: 0.95, blue: 0.45) : Theme.dim).lineLimit(1)
                         }
@@ -934,6 +961,15 @@ private struct FormationBox: View {
                     if !s.station.isEmpty {
                         Text(s.station).font(.system(size: 11.5, weight: .semibold)).monospacedDigit()
                             .foregroundColor(s.onStation ? Color(red: 0.3, green: 0.95, blue: 0.45) : Theme.cream.opacity(0.9))
+                    }
+                    if !s.mic.isEmpty {
+                        HStack(spacing: 5) {
+                            Image(systemName: s.micLive ? "mic.fill" : "mic").font(.system(size: 10, weight: .bold))
+                            Text(s.mic).font(.system(size: 10.5, weight: s.micLive ? .heavy : .medium))
+                        }
+                        .foregroundColor(s.micLive ? Theme.red : Theme.dim)
+                        .padding(.horizontal, s.micLive ? 7 : 0).padding(.vertical, s.micLive ? 2 : 0)
+                        .background(Capsule().fill(s.micLive ? Theme.cream : Color.clear))
                     }
                     if !s.net.isEmpty { Text(s.net).font(.system(size: 10)).foregroundColor(Theme.faint).lineLimit(2).frame(maxWidth: 260, alignment: .leading) }
                 }
@@ -1108,6 +1144,166 @@ private struct FormationGlyph: View {
                         .position(x: g.size.width / 2 + CGFloat(pts[i].x - cx) * u * 1.15, y: g.size.height / 2 + CGFloat(pts[i].z - cz) * u * 1.15)
                 }
             }
+        }
+    }
+}
+
+
+// MARK: - Lobby
+
+/// Where the pilots meet before and between flights: who is there, chat, and the microphone.
+struct LobbyView: View {
+    @ObservedObject var m: HUDModel
+    @State private var draft = ""
+    @FocusState private var typing: Bool
+    private static let green = Color(red: 0.3, green: 0.95, blue: 0.45)
+
+    private func heading(_ t: String) -> some View {
+        Text(t).font(.system(size: 9.5, weight: .heavy)).tracking(1.5).foregroundColor(Theme.cream.opacity(0.55))
+    }
+    private func person(_ number: Int, _ name: String, _ where_: String, talking: Bool, me: Bool) -> some View {
+        HStack(spacing: 10) {
+            Text("\(number)").font(.system(size: 13, weight: .heavy)).foregroundColor(number == 1 ? Theme.cream : Theme.ink)
+                .frame(width: 26, height: 26).background(Circle().fill(number == 1 ? Theme.red : Theme.cream.opacity(0.8)))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name + (me ? "  (you)" : "")).font(.system(size: 13.5, weight: .semibold)).foregroundColor(Theme.cream).lineLimit(1)
+                Text((number == 1 ? "Lead · " : "") + where_).font(.system(size: 11)).foregroundColor(Theme.dim)
+            }
+            Spacer(minLength: 0)
+            if talking { Image(systemName: "waveform").font(.system(size: 14, weight: .bold)).foregroundColor(Self.green) }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 9).fill(Theme.card))
+    }
+    private func send() { m.game.sendChat(draft); draft = ""; typing = true }
+
+    var body: some View {
+        let g = m.game!
+        let v = g.voice
+        let others = g.remotePilots
+        Sheet(m: m, title: "Lobby", subtitle: others.isEmpty ? (m.s.net.isEmpty ? "Nobody else is here" : m.s.net) : "\(others.count + 1) pilots",
+              back: g.cameFromMenu ? .menu : .none, width: 980, height: 660) {
+            HStack(alignment: .top, spacing: 0) {
+                VStack(alignment: .leading, spacing: 9) {
+                    heading("PILOTS")
+                    ForEach(Array(g.order.enumerated()), id: \.element) { k, id in
+                        if id == g.net.id { person(k + 1, g.pilotName, "In the lobby", talking: v.sending, me: true) }
+                        else if let w = others.first(where: { $0.id == id }) {
+                            person(k + 1, w.name, Game.placeNames[Int(min(w.hello.place, 2))], talking: v.speaking(id), me: false)
+                        }
+                    }
+                    if others.isEmpty {
+                        Text("Other pilots appear here when they are on your network, or when you host or join a formation over the internet.")
+                            .font(.system(size: 11)).foregroundColor(Theme.faint).fixedSize(horizontal: false, vertical: true)
+                        Button { m.overlay = .formation } label: { Text("Host or Join…").frame(maxWidth: .infinity) }.buttonStyle(QuietButton())
+                    }
+                    heading("VOICE").padding(.top, 8)
+                    Picker("", selection: Binding(get: { v.mode.rawValue }, set: { v.mode = VoiceChat.Mode(rawValue: $0) ?? .off; m.objectWillChange.send() })) {
+                        ForEach(VoiceChat.Mode.allCases, id: \.rawValue) { Text($0.name).tag($0.rawValue) }
+                    }
+                    .pickerStyle(.segmented).labelsHidden()
+                    if !g.net.running {
+                        Text("Voice needs the network: switch on “Fly with other pilots” in the Formation panel.")
+                            .font(.system(size: 11)).foregroundColor(Theme.dim).fixedSize(horizontal: false, vertical: true)
+                    } else if let p = v.micProblem {
+                        Text(p).font(.system(size: 11)).foregroundColor(Theme.cream.opacity(0.9)).fixedSize(horizontal: false, vertical: true)
+                    } else if v.mode != .off {
+                        HStack(spacing: 8) {
+                            Image(systemName: v.sending ? "mic.fill" : "mic").foregroundColor(v.sending ? Self.green : Theme.dim).frame(width: 16)
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Capsule().fill(Theme.cream.opacity(0.1))
+                                    Capsule().fill(v.sending ? Self.green : Theme.cream.opacity(0.45)).frame(width: geo.size.width * CGFloat(min(v.micLevel, 1)))
+                                }
+                            }
+                            .frame(height: 6)
+                        }
+                        if v.mode == .pushToTalk {
+                            Text(g.lobbyTalk ? "TALKING" : "HOLD TO TALK").font(.system(size: 12.5, weight: .heavy)).tracking(1.2)
+                                .foregroundColor(g.lobbyTalk ? Theme.ink : Theme.cream).frame(maxWidth: .infinity).padding(.vertical, 10)
+                                .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(g.lobbyTalk ? Self.green : Theme.red))
+                                .contentShape(Rectangle())
+                                .gesture(DragGesture(minimumDistance: 0)
+                                    .onChanged { _ in if !g.lobbyTalk { g.lobbyTalk = true; m.objectWillChange.send() } }
+                                    .onEnded { _ in g.lobbyTalk = false; m.objectWillChange.send() })
+                            Text("In flight, hold B to talk.").font(.system(size: 11)).foregroundColor(Theme.faint)
+                        } else {
+                            Text("The microphone sends whenever you speak. Wear headphones, or the others will hear themselves through your speakers.")
+                                .font(.system(size: 11)).foregroundColor(Theme.faint).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        Image(systemName: "speaker.wave.2").foregroundColor(Theme.dim).frame(width: 16)
+                        Slider(value: Binding(get: { v.volume }, set: { v.volume = $0; m.objectWillChange.send() }), in: 0...1.5).controlSize(.small)
+                    }
+                    .help("How loud the other pilots are")
+                    Spacer(minLength: 0)
+                    if g.isLead && !others.isEmpty {
+                        Button { g.callTakeOff() } label: { Text("Everyone Take Off").frame(maxWidth: .infinity) }.buttonStyle(PrimaryButton())
+                            .help("Brings every pilot who is in the lobby into the air")
+                    }
+                    Button { g.cameFromMenu = false; m.overlay = .none } label: { Text(g.isLead && !others.isEmpty ? "Take Off Alone" : "Take Off").frame(maxWidth: .infinity) }
+                        .buttonStyle(QuietButton())
+                }
+                .padding(20).frame(width: 330)
+                Rectangle().fill(Theme.stroke).frame(width: 1)
+                // chat
+                VStack(spacing: 0) {
+                    ChatLog(lines: g.chat)
+                    Rectangle().fill(Theme.stroke).frame(height: 1)
+                    HStack(spacing: 8) {
+                        TextField(others.isEmpty ? "Nobody is here to read it yet" : "Write to the other pilots", text: $draft)
+                            .textFieldStyle(.plain).font(.system(size: 13.5)).foregroundColor(Theme.cream).focused($typing)
+                            .padding(.horizontal, 11).padding(.vertical, 9)
+                            .background(RoundedRectangle(cornerRadius: 9).fill(Theme.cream.opacity(0.08)))
+                            .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.stroke, lineWidth: 1))
+                            .onSubmit { send() }
+                            .onChange(of: draft) { t in if t.count > NetCodec.maxChat { draft = String(t.prefix(NetCodec.maxChat)) } }
+                        Button("Send") { send() }.buttonStyle(PrimaryButton()).disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                    .padding(14)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .onAppear { typing = true }
+        }
+    }
+}
+
+
+/// The chat so far, newest at the bottom. A view of its own that takes the lines as a value, so that it is
+/// redrawn exactly when they change.
+private struct ChatLog: View {
+    var lines: [ChatLine]
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 7) {
+                    if lines.isEmpty {
+                        Text("Nothing has been said yet.").font(.system(size: 12.5)).foregroundColor(Theme.faint).padding(.top, 6)
+                    }
+                    ForEach(lines) { line in
+                        if line.system {
+                            Text(line.text).font(.system(size: 11.5)).foregroundColor(Theme.faint).frame(maxWidth: .infinity, alignment: .center)
+                        } else {
+                            HStack {
+                                if line.mine { Spacer(minLength: 60) }
+                                VStack(alignment: .leading, spacing: 2) {
+                                    if !line.mine { Text(line.name).font(.system(size: 10.5, weight: .heavy)).foregroundColor(Theme.cream.opacity(0.7)) }
+                                    Text(line.text).font(.system(size: 13.5)).foregroundColor(Theme.cream).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                                }
+                                .padding(.horizontal, 11).padding(.vertical, 7)
+                                .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(line.mine ? Theme.red.opacity(0.85) : Theme.cream.opacity(0.09)))
+                                if !line.mine { Spacer(minLength: 60) }
+                            }
+                        }
+                    }
+                    Color.clear.frame(height: 1).id("end")
+                }
+                .padding(18)
+            }
+            .onChange(of: lines.last?.id) { _ in DispatchQueue.main.async { proxy.scrollTo("end", anchor: .bottom) } }
+            .onAppear { proxy.scrollTo("end", anchor: .bottom) }
         }
     }
 }

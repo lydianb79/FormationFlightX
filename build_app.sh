@@ -43,6 +43,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>NSPrincipalClass</key><string>NSApplication</string>
     <key>GCSupportsControllerUserInteraction</key><true/>
     <key>NSLocalNetworkUsageDescription</key><string>FormationFlightX finds the other pilots on your local network so that you can fly in formation together.</string>
+    <key>NSMicrophoneUsageDescription</key><string>FormationFlightX uses the microphone so that you can talk to the other pilots while you fly together.</string>
     <key>NSBonjourServices</key><array><string>_formflightx._udp</string></array>
 </dict>
 </plist>

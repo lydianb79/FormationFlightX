@@ -13,18 +13,26 @@ struct HUDState {
     // formation
     var role = "", formation = "", station = "", net = ""
     var mates: [Mate] = []
+    var chat: [ChatLine] = []       // the latest lines, shown for a few seconds in flight
+    var talking: [String] = []      // who is speaking
+    var mic = ""                    // what the microphone is doing
+    var micLive = false
+    var unread = 0
     var slot: V3? = nil             // own slot error in metres: x right, y up, z ahead; nil when leading or without a lead
     var slotTol: Float = 1
     var onStation = false
 }
 
 /// One line of the formation list in the display.
-struct Mate: Identifiable { var id: UInt32; var number: Int; var name: String; var detail: String; var good: Bool }
+struct Mate: Identifiable { var id: UInt32; var number: Int; var name: String; var detail: String; var good: Bool; var talking = false }
+
+/// A line in the lobby's chat: something a pilot wrote, or a note from the app (someone joined, someone left).
+struct ChatLine: Identifiable { var id: Int; var name: String; var text: String; var mine = false; var system = false; var time = 0.0 }
 
 enum Overlay {
-    case none, menu, aircraft, sites, environment, help, splash, formation
+    case none, menu, aircraft, sites, environment, help, splash, formation, lobby
     /// The simulation is frozen while these are open.
-    var pausesSim: Bool { self == .menu || self == .aircraft || self == .sites || self == .splash || self == .formation }
+    var pausesSim: Bool { self == .menu || self == .aircraft || self == .sites || self == .splash || self == .formation || self == .lobby }
 }
 
 final class HUDModel: ObservableObject {
@@ -193,6 +201,14 @@ final class Game {
     var group: String = UserDefaults.standard.string(forKey: "group") ?? "" { didSet { UserDefaults.standard.set(group, forKey: "group") } }
     /// The online host last joined, kept for next time.
     var hostAddress: String = UserDefaults.standard.string(forKey: "hostAddress") ?? "" { didSet { UserDefaults.standard.set(hostAddress, forKey: "hostAddress") } }
+    // lobby: chat and voice
+    let voice = VoiceChat()
+    var chat: [ChatLine] = []
+    var chatCount = 0, unreadChat = 0
+    var chatSeq = UInt32.random(in: 1...1_000_000)
+    var chatOut: [(data: Data, left: Int, next: Double)] = []      // lines still being repeated
+    var chatSeen = Set<UInt64>()
+    var lobbyTalk = false               // the lobby's hold-to-talk button is down
     var leadEpoch: UInt32 = 0
     var order: [UInt32] = []            // the formation: lead first, then numbers 2 and 3
     var slotMarker: (pos: V3, fwd: V3, radius: Float, good: Bool)? = nil
@@ -416,7 +432,7 @@ final class Game {
         case 29: trim(0)
         case 46: sound.muted.toggle(); say(sound.muted ? "Sound off" : "Sound on")
         case 45: chooseSite((siteIndex + 1) % SiteSpec.all.count)
-        case 11: toggleChallenge()
+        case 36: cameFromMenu = false; hud.overlay = .lobby
         case 40: autopilotOn.toggle(); ownPilot = FormationPilot(); say(autopilotOn ? (isLead ? "Autopilot leading the racetrack" : "Autopilot holding your slot") : "You have control")
         case 3:
             let n = aircraft.spec.modes.count

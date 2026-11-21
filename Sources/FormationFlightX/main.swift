@@ -1,6 +1,7 @@
 import AppKit
 import GameController
 import MetalKit
+import AVFoundation
 import SwiftUI
 
 func runSelfTest() {
@@ -993,6 +994,53 @@ if CommandLine.arguments.contains("--selftest") {
     exit(0)
 }
 
+if CommandLine.arguments.contains("--voicetest") {
+    // Speech from one pilot to another without any audio hardware: a tone goes in at one end, through the
+    // coder, the message format and the decoder, and must come out at the other end as loud as it went in.
+    VoiceChat.offline = true
+    let a = VoiceChat(), b = VoiceChat()
+    var wire: [Data] = []
+    a.onFrame = { seq, payload in wire.append(NetCodec.encode(NetVoice(id: 4242, seq: seq, payload: payload))) }
+    func tone(_ seconds: Float, amp: Float) {
+        var ph: Float = 0
+        let n = Int(seconds * Float(VoiceCodec.rate))
+        let buf = (0..<n).map { _ -> Float in ph += 2 * .pi * 300 / Float(VoiceCodec.rate); return amp * (sin(ph) + 0.5 * sin(2.7 * ph)) }
+        // in uneven pieces, as a microphone delivers them
+        var at = 0
+        while at < n { let k = min(441, n - at); buf[at..<at + k].withUnsafeBufferPointer { a.process($0) }; at += k }
+    }
+    a.mode = .pushToTalk
+    tone(1, amp: 0.25)
+    print("VOICE push to talk, key up: \(wire.count) frames sent (expect 0)")
+    a.talkHeld = true; tone(2, amp: 0.25); a.talkHeld = false; tone(1, amp: 0.25)
+    let sent = wire.count, bytes = wire.reduce(0) { $0 + $1.count }
+    print(String(format: "VOICE push to talk, key down 2 s: %d frames sent (expect about 106), %.1f KB/s on the wire", sent, Float(bytes) / 2 / 1000))
+    var sum: Float = 0, n = 0, decoded = 0, refused = 0
+    for (i, d) in wire.enumerated() {
+        guard case .voice(let v)? = NetCodec.decode(d) else { refused += 1; continue }
+        guard let pcm = b.receive(from: v.id, seq: v.seq, payload: v.payload) else { continue }
+        decoded += 1
+        if i > 10 && i < 95 { for k in 0..<Int(pcm.frameLength) { let x = pcm.floatChannelData![0][k]; sum += x * x; n += 1 } }
+    }
+    print(String(format: "VOICE received: %d of %d frames decoded, %d refused by the message check, level %.3f (sent 0.198)", decoded, sent, refused, n > 0 ? sqrt(sum / Float(n)) : -1))
+    let again = wire.compactMap { d -> AVAudioPCMBuffer? in if case .voice(let v)? = NetCodec.decode(d) { return b.receive(from: v.id, seq: v.seq, payload: v.payload) }; return nil }.count
+    print("VOICE the same frames a second time: \(again) played (expect 0)")
+    wire = []; a.mode = .open
+    tone(1, amp: 0.001); let quiet = wire.count
+    tone(1, amp: 0.2); let loud = wire.count - quiet
+    print("VOICE open microphone: \(quiet) frames for near silence (expect 0), \(loud) for speech (expect about 50)")
+    a.mode = .off
+    // chat: what goes in comes out, and nonsense is refused
+    let c = NetChat(id: 7, seq: 3, kind: 0, text: "Grüezi — joining on your right wing ✈︎")
+    if case .chat(let back)? = NetCodec.decode(NetCodec.encode(c)) { print("CHAT round trip \(back.text == c.text ? "ok" : "CHANGED: \(back.text)")") } else { print("CHAT round trip FAILED") }
+    let long = String(repeating: "ä", count: 400)
+    if case .chat(let back)? = NetCodec.decode(NetCodec.encode(NetChat(id: 7, seq: 4, kind: 0, text: long))) { print("CHAT long line cut to \(back.text.utf8.count) bytes, \(back.text.count) whole characters") }
+    var junk = NetCodec.encode(c); junk.removeLast(5)
+    print("CHAT cut-off message \(NetCodec.decode(junk) == nil ? "refused" : "ACCEPTED")")
+    UserDefaults.standard.removeObject(forKey: "voiceMode")
+    exit(0)
+}
+
 if let ti = CommandLine.arguments.firstIndex(of: "--formtrace"), ti + 2 < CommandLine.arguments.count {
     let g = Game(site: 0, aircraft: Int(CommandLine.arguments[ti + 1]) ?? 0)
     g.aiPartners = true; g.unlimitedBattery = true
@@ -1113,6 +1161,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         game.netAllowed = interactive || CommandLine.arguments.contains("--net")
         if CommandLine.arguments.contains("--host") { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [unowned self] in self.game.net.setHosting(true) } }
         if let h = arg("--join") { game.net.join(h) }
+        if let v = Float(arg("--voicevolume") ?? "") { game.voice.volume = v }
+        if let text = arg("--say") { DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [unowned self] in self.game.sendChat(text) } }
+        if CommandLine.arguments.contains("--tone") {
+            // test hook: "speak" a tone instead of using the microphone
+            VoiceChat.noMicrophone = true
+            game.voice.mode = .pushToTalk; game.lobbyTalk = true
+            var ph: Float = 0
+            Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { [unowned self] _ in
+                let buf = (0..<VoiceCodec.frame).map { _ -> Float in ph += 2 * .pi * 440 / Float(VoiceCodec.rate); return 0.1 * sin(ph) }
+                buf.withUnsafeBufferPointer { self.game.voice.process($0) }
+            }
+        }
         if let n = arg("--name") { game.pilotName = n }
         if CommandLine.arguments.contains("--noai") { game.aiPartners = false }
         if CommandLine.arguments.contains("--lead") { game.leadEpoch = 1 }
@@ -1120,7 +1180,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--joinup") { for _ in 0..<600 { game.frame(dt: 1 / 60) }; game.joinUp(quiet: true) }
         if CommandLine.arguments.contains("--menu") { game.hud.overlay = .menu }
         if interactive || CommandLine.arguments.contains("--splash") { game.hud.overlay = .splash }
-        if let o = arg("--overlay") { game.hud.overlay = ["aircraft": .aircraft, "sites": .sites, "environment": .environment, "help": .help, "menu": .menu, "splash": .splash, "formation": .formation][o] ?? .none }
+        if let o = arg("--overlay") { game.hud.overlay = ["aircraft": .aircraft, "sites": .sites, "environment": .environment, "help": .help, "menu": .menu, "splash": .splash, "formation": .formation, "lobby": .lobby][o] ?? .none }
         game.hud.openControllerSetup = { [unowned self] in self.showSetup() }
         if let c = Int(arg("--cam") ?? "") { game.cameraMode = c }
         if let z = Int(arg("--zoom") ?? "") { game.zoomMode = z }
@@ -1226,6 +1286,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 var line = "NET \(g.pilotName) [port \(g.net.port)\(g.net.hosting ? " hosting at \(g.net.publicAddress ?? g.net.hostingProblem ?? "…")" : "")\(g.net.joined.map { " joined \($0.target) \($0.answering ? "ok" : "silent")" } ?? "") guests \(g.net.guestCount)] lead \(g.name(of: g.leadID)) site \(g.siteIndex)"
                 for w in g.wingmen { line += String(format: " | %@ %@ %.0f m away%@", w.name, w.present(now) ? "flying" : "absent", distance(w.aircraft.pos, g.aircraft.pos), w.ai != nil ? " (computer)" : "") }
                 if let e = g.slotError { line += String(format: " | slot error %.1f m", length(e)) }
+                for w in g.remotePilots { line += " | \(w.name) \(Game.placeNames[Int(min(w.hello.place, 2))].lowercased())\(g.voice.speaking(w.id) ? ", SPEAKING" : "")" }
+                if let c = g.chat.last { line += " | chat: \(c.system ? "" : c.name + ": ")\(c.text)" }
                 print(line); fflush(stdout)
             }
         }
@@ -1306,6 +1368,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu("Flying Site", siteItems)
         var formItems: [NSMenuItem] = [
             ClosureMenuItem("Formation and Pilots…", key: "f", mods: [.command, .shift]) { g.cameFromMenu = g.hud.overlay == .menu; g.hud.overlay = .formation },
+            ClosureMenuItem("Lobby and Chat…", key: "l", mods: [.command, .shift]) { g.cameFromMenu = g.hud.overlay == .menu; g.hud.overlay = .lobby },
             .separator(),
             ClosureMenuItem("Join Up on the Lead", key: "j") { g.keyDown(38) },
             ClosureMenuItem("Take the Lead / Hand It Back", key: "u") { g.takeLead() },
@@ -1325,7 +1388,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ClosureMenuItem("Pause / Resume", key: "p") { g.paused.toggle() },
             ClosureMenuItem("Slow Motion") { g.keyDown(17) },
             .separator(),
-            ClosureMenuItem("Balloon Burst Challenge", key: "b") { g.toggleChallenge() },
+            ClosureMenuItem("Balloon Burst Challenge") { g.toggleChallenge() },
             ClosureMenuItem("Autopilot for Your Own Wing", key: "k") { g.keyDown(40) },
             ClosureMenuItem("Unlimited Battery On / Off") { g.unlimitedBattery.toggle(); g.say(g.unlimitedBattery ? "Unlimited battery" : "Battery drains with use") },
         ])
