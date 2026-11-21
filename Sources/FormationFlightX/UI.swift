@@ -706,7 +706,7 @@ struct MainMenu: View {
                         picture: { ZStack { Backdrop { EmptyView() }; if let i = m.thumbnail(spec) { Image(nsImage: i).resizable().scaledToFit().padding(3) } } }) { g.cameFromMenu = true; m.overlay = .aircraft }
                     row("FLYING SITE", site.displayName, g.together && !g.isHost ? "Chosen by the host, \(g.name(of: g.hostID))" : site.kindLabel,
                         picture: { ZStack { Color.black.opacity(0.3); if let i = m.sitePreview(site) { Image(nsImage: i).resizable().scaledToFill() } } }) { g.cameFromMenu = true; m.overlay = .sites }
-                    row("FORMATION", "\(g.formation.name) · \(Formation.spacingNames[g.spacing].lowercased())", m.s.mates.isEmpty ? "Flying alone" : "With " + m.s.mates.map { $0.name }.joined(separator: ", "),
+                    row("OPTIONS", "\(g.formation.name) · \(Formation.spacingNames[g.spacing].lowercased())", m.s.mates.isEmpty ? "Flying alone" : "With " + m.s.mates.map { $0.name }.joined(separator: ", "),
                         picture: { ZStack { LinearGradient(colors: [Theme.brandDeep, Theme.brand.opacity(0.7)], startPoint: .bottomLeading, endPoint: .topTrailing); FormationGlyph(kind: g.formation, count: max(g.order.count, 3)).padding(10) } }) { g.cameFromMenu = true; m.overlay = .formation }
                     row("LOBBY", g.together ? (g.sessionRunning ? "Session running" : "Session stopped") : "Meet other pilots",
                         g.together ? "\(g.remotePilots.count + 1) pilots · chat and voice" : (m.s.net.isEmpty ? "Host or join, chat and voice" : m.s.net), badge: m.s.unread > 0 ? "\(m.s.unread)" : nil,
@@ -1255,7 +1255,7 @@ struct LobbyView: View {
                     if g.net.hosting, let a = g.net.publicAddress {
                         HStack(spacing: 6) {
                             Image(systemName: g.net.portOpened ? "globe" : "exclamationmark.triangle.fill").font(.system(size: 11)).foregroundColor(g.net.portOpened ? Theme.brand : Theme.amber)
-                            Text(a).font(.system(size: 12, weight: .semibold, design: .monospaced)).foregroundColor(Theme.paper).textSelection(.enabled).lineLimit(1).minimumScaleFactor(0.7)
+                            Text(a).font(.system(size: 11.5)).foregroundColor(Theme.paper.opacity(0.9)).textSelection(.enabled).lineLimit(1).minimumScaleFactor(0.7)
                             Spacer(minLength: 0)
                             Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(a, forType: .string) }.buttonStyle(.plain).font(.system(size: 11, weight: .semibold)).foregroundColor(Theme.brand)
                         }
@@ -1351,7 +1351,7 @@ private struct HostAddress: View {
             if let a = net.publicAddress {
                 Text("YOUR PUBLIC ADDRESS").font(.system(size: 9.5, weight: .heavy)).tracking(1.5).foregroundColor(Theme.paper.opacity(0.55))
                 HStack(spacing: 8) {
-                    Text(a).font(.system(size: 15, weight: .semibold, design: .monospaced)).foregroundColor(Theme.paper).textSelection(.enabled).lineLimit(1).minimumScaleFactor(0.7)
+                    Text(a).font(.system(size: 12.5, weight: .medium)).foregroundColor(Theme.paper.opacity(0.9)).textSelection(.enabled).lineLimit(1).minimumScaleFactor(0.7)
                     Button("Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(a, forType: .string) }.buttonStyle(QuietButton())
                     Spacer(minLength: 0)
                 }

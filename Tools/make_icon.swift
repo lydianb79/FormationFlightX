@@ -104,9 +104,24 @@ do {
         CTLineDraw(line, ctx)
         return CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
     }
-    let w = text("FormationFlight", size: 190, weight: .bold, color: white, at: CGPoint(x: 150, y: 330))
-    _ = text("X", size: 190, weight: .bold, color: amber, at: CGPoint(x: 150 + w + 6, y: 330))
-    _ = text("Fly wings together", size: 62, weight: .medium, color: col(1, 1, 1, 0.82), at: CGPoint(x: 158, y: 232))
-    _ = text("by Rock FPV", size: 38, weight: .medium, color: col(1, 1, 1, 0.6), at: CGPoint(x: 160, y: 150))
+    let w = text("FormationFlight", size: 190, weight: .bold, color: white, at: CGPoint(x: 150, y: 400))
+    _ = text("X", size: 190, weight: .bold, color: amber, at: CGPoint(x: 150 + w + 6, y: 400))
+    _ = text("Fly wings together", size: 62, weight: .medium, color: col(1, 1, 1, 0.82), at: CGPoint(x: 158, y: 302))
+    // the Rock FPV logo, round, beside the credit
+    let logoBox = CGRect(x: 152, y: 84, width: 150, height: 150)
+    if let img = NSImage(contentsOfFile: "Resources/RockFPV.png"), let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: -4), blur: 14, color: col(0, 0.05, 0.15, 0.5))
+        ctx.addEllipse(in: logoBox); ctx.setFillColor(navy); ctx.fillPath()
+        ctx.restoreGState()
+        ctx.saveGState()
+        ctx.addEllipse(in: logoBox); ctx.clip()
+        ctx.interpolationQuality = .high
+        ctx.draw(cg, in: logoBox)
+        ctx.restoreGState()
+        ctx.addEllipse(in: logoBox); ctx.setStrokeColor(col(1, 1, 1, 0.85)); ctx.setLineWidth(3); ctx.strokePath()
+    } else { print("warning: Resources/RockFPV.png not found; splash drawn without the logo") }
+    _ = text("Created by", size: 30, weight: .medium, color: col(1, 1, 1, 0.75), at: CGPoint(x: 330, y: 172))
+    _ = text("Rock FPV", size: 60, weight: .bold, color: white, at: CGPoint(x: 330, y: 104))
     save(ctx, args[2], jpeg: true)
 }
