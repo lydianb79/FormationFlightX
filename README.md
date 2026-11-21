@@ -92,7 +92,7 @@ What these are and are not:
 
 **The map** at the top right has your aircraft at the centre, pointing up, and everyone else round it to scale. A computer partner is a grey arrow; a real pilot is an amber arrow with their name under it and, when it matters, how many metres above or below you they are. The lead wears a ring, whoever is talking glows, and the little house is where the pilots stand. The scale steps from 15 m, for close formation, out to 2 km.
 
-**Behind the menus** the site is alive: five of the aircraft you have chosen fly it in the formation you have chosen, trailing smoke, and a camera follows them, cutting between a chase view, a view from alongside, a fly-past seen from the ground, a slow circle round the flight and a view from ahead. Change the aircraft, the site or the formation and the flight changes with it. Your own aircraft waits where you left it.
+**Behind the menus** the site is alive: five of the aircraft you have chosen fly it in the formation you have chosen, and a camera follows them, cutting between a chase view, a view from alongside, a fly-past seen from the ground, a slow circle round the flight and a view from ahead. Change the aircraft, the site or the formation and the flight changes with it. Your own aircraft waits where you left it.
 
 ## Flying sites
 

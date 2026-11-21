@@ -3,7 +3,7 @@ import Foundation
 import QuartzCore
 
 // What goes on behind the menus: a flight of five of the chosen aircraft flies the site in the chosen formation,
-// trailing smoke, and a camera follows it, cutting from one view to the next. Nothing here touches the pilot's
+// and a camera follows it, cutting from one view to the next. Nothing here touches the pilot's
 // own aircraft, which waits where it was left.
 
 extension Game {
@@ -52,6 +52,7 @@ extension Game {
         for (n, w) in showFlight.enumerated() {
             let ac = w.aircraft
             if ac.crashed || !terrain.contains(ac.pos) || !ac.pos.y.isFinite || terrain.overWater(ac.pos) || terrain.strikes(ac.pos, reach: 0.3 * ac.spec.span) {
+                if Game.showLog { print(String(format: "SHOW number %d reset: crashed %@ strikes %@ water %@ outside %@ at (%.0f %.0f %.0f) above ground %.0f", n + 1, "\(ac.crashed)", "\(terrain.strikes(ac.pos, reach: 0.3 * ac.spec.span))", "\(terrain.overWater(ac.pos))", "\(!terrain.contains(ac.pos))", ac.pos.x, ac.pos.y, ac.pos.z, ac.pos.y - terrain.gnd(ac.pos.x, ac.pos.z))); fflush(stdout) }
                 if n == 0 { launchShowcase(); return }
                 w.crashTimer += dt
                 if w.crashTimer > 0.5 { rejoin(n) }
@@ -70,24 +71,6 @@ extension Game {
             showAcc -= h
         }
         for w in showFlight { w.aircraft.updateRenderPose(ahead: showAcc) }
-
-        // smoke from all five, and the smoke already in the air drifting and thinning
-        showSmoke += dt * 48
-        let puffs = Int(showSmoke); showSmoke -= Float(puffs)
-        if puffs > 0 { for w in showFlight where !w.aircraft.crashed {
-            let ac = w.aircraft
-            for k in 0..<min(puffs, 3) {
-                particles.append(Particle(pos: ac.pos + ac.q.act(ac.spec.smokePos) - ac.vel * (Float(k) / 48), vel: env.windVec * 0.8 + ac.vel * 0.08,
-                                          age: 0, life: 2.2, size: 0.17, color: V4(0.96, 0.96, 0.97, 0.36)))
-            }
-        } }
-        for i in particles.indices {
-            particles[i].age += dt
-            particles[i].vel *= 1 - min(0.8 * dt, 1)
-            particles[i].pos += particles[i].vel * dt
-        }
-        particles.removeAll { $0.age >= $0.life }
-        if particles.count > 900 { particles.removeFirst(particles.count - 900) }
     }
 
     /// The camera for the showcase. Returns false when it does not apply and the pilot's own camera should.

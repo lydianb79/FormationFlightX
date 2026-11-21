@@ -315,7 +315,7 @@ final class Renderer: NSObject, MTKViewDelegate {
         // resolution follows the GPU load, up to a ceiling set by the quality level
         let ceiling: Float = [0.7, 0.85, 1.0][min(max(quality, 0), 2)]
         // drop resolution when frames are being missed; raise it again only with clear GPU headroom
-        if now - lastScaleChange > 0.8 && now - startTime > 3 && game.hud.overlay == .none {
+        if now - lastScaleChange > 0.8 && now - startTime > 3 && (game.hud.overlay == .none || game.showcaseActive) {
             // judged by frames that actually reached the screen late, not by callback timing
             if missed > 0.04 && dynScale > 0.5 { dynScale -= missed > 0.25 ? 0.1 : 0.05; lastScaleChange = now; missed *= 0.5 }
             // the GPU timer cannot show headroom under vsync, so after a steady spell just try the next step up

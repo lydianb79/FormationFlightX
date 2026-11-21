@@ -200,6 +200,7 @@ final class Game {
     var wingmen: [Wingman] = []
     // the flight shown behind the menus
     static var noShowcase = false
+    static var showLog = CommandLine.arguments.contains("--showlog")
     var mapRange: Float = 120
     var showFlight: [Wingman] = []
     var showAcc: Float = 0, showSmoke: Float = 0, showShotTime: Float = 0, showAngle: Float = 0
