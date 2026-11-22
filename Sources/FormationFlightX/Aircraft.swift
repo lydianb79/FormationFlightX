@@ -423,6 +423,17 @@ final class Aircraft {
                     if w > washV { washZ = p.pos.z; washR = p.diameter / 2 }
                     washV = max(washV, w)
                     if abs(p.pos.x) < 0.01 { swirlV = 0.018 * w * p.spinDir }          // spiral slipstream
+                    // Propeller normal force: air crossing the disc sideways is turned to follow the shaft, so the
+                    // propeller is pushed against the crossing. Hanging on the propeller the disc is well above the
+                    // centre of gravity, and this is what tips the nose back toward vertical when the model slides.
+                    // It fades out by a few m/s of flow through the disc: at full strength in forward flight it
+                    // yawed tractor wings hard at the hand launch.
+                    let vp = va + cross(omega, p.pos)                               // the propeller's motion through the air
+                    let vs = max(dot(vp, p.axis), 0)
+                    let ws = -vs + sqrt(vs * vs + 2 * T / (rho * A))
+                    let vperp = vp - p.axis * dot(vp, p.axis)
+                    let fn = -vperp * (rho * A * (ws / 2) / (1 + vs * vs / 9))
+                    fb += fn; tb += cross(p.pos, fn)
                 }
                 spin[i] += (n > 0.01 ? 12 + 45 * sqrt(min(n, 1)) : 0) * dt
             }
