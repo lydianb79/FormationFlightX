@@ -210,12 +210,8 @@ struct AircraftSpec {
     var mac: Float = 0.25           // mean aerodynamic chord
     var cgShift: Float = 0          // how far the wing was moved back to reach that margin when test-flown
     var trimSetting: Float = 0      // tailplane incidence (rad) or reflex chosen for level cruise
-    /// Pitch trim that eases off with speed, as a throttle-to-elevator mix on the transmitter does: above the speed
-    /// the aircraft is trimmed for, this much down elevator (as a share of full throw) is fed in, in step with how
-    /// much less lift the wing has to make. Without it a model trimmed for cruise noses up hard when it goes fast.
-    var speedTrim: Float = 0        // ... flat out
-    var speedTrimHalf: Float = 0    // ... and on half throttle; between the two speeds it is taken in proportion
-    var speedHalf: Float = 0, speedFull: Float = 0
+    /// The throttle and airspeed to elevator mix that keeps the aircraft from nosing up or under as it speeds up.
+    var trimMix: TrimMix? = nil
     var trimSpeed: Float = 0
     var rollTrim: Float = 0         // aileron trim that holds the wings level against the propeller's torque in the cruise
     var designMargin: Float = 0.1   // static margin the balance was set for, as a fraction of the mean chord
@@ -248,7 +244,9 @@ final class Aircraft {
     var crashed = false
     var onGround = false
     var airspeed: Float = 0
-    var ease: Float = 0             // how much of the speed trim is fed in at the moment
+    var ease: Float = 0             // the elevator the trim mix feeds in at the moment (negative: nose down)
+    var levelSpeed: Float = 0       // what level flight would be doing by now (the trim mix works round it); 0 = not known yet
+    var mixPower: Float = -1        // the throttle the thrust has caught up with
     var sinceReset: Float = 0
     // pose used for drawing and the camera: the physics state carried forward by the part of a step not yet simulated
     static var debugTorques = false
@@ -323,7 +321,7 @@ final class Aircraft {
         vi = 0; yawI = 0; crashed = false; onGround = false
         flap = 0; gear = 0; crashImpact = 0; detached = []; touchImpact = 0
         for i in offGround.indices { offGround[i] = 0 }
-        battery = 1; eps = 0; motorLoad = 0; vortexRing = 0; groundPhi = 1
+        battery = 1; levelSpeed = 0; mixPower = -1; eps = 0; motorLoad = 0; vortexRing = 0; groundPhi = 1
         for i in stallT.indices { stallT[i] = 0; stalled[i] = false }
         if spec.kind == .helicopter { levels[0] = 1 }    // rotor already at speed
     }
@@ -369,16 +367,24 @@ final class Aircraft {
     func step(dt: Float, c: Controls, terrain: Terrain, wind: V3, rollMu: Float) {
         let R = simd_float3x3(q)
         let Rt = R.transpose
-        // (it follows the speed with a short lag, and stays out of the first seconds after a launch: the climb-out comes first)
         var wanted: Float = 0
-        if spec.speedTrim > 0 && airspeed > spec.trimSpeed {
-            let k = spec.speedFull > spec.speedHalf + 0.5 ? lerp(spec.speedTrimHalf, spec.speedTrim, clampf((airspeed - spec.speedHalf) / (spec.speedFull - spec.speedHalf), 0, 1)) : spec.speedTrim
-            wanted = k * (1 - spec.trimSpeed * spec.trimSpeed / (airspeed * airspeed))
+        if let mix = spec.trimMix {
+            // (as the battery empties the motor gives what it gave at less throttle, and the mix goes by that)
+            let power = clampf(c.throttle, 0, 1) * (battery < 0.03 ? 0.3 : 1) * (1 - 0.22 * (1 - battery) * (1 - battery))
+            if onGround || levelSpeed == 0 { levelSpeed = max(length(vel - wind), mix.speeds[0]) }        // (after a reset or a throw: from the speed it starts with)
+            levelSpeed = mix.levelSpeed(from: levelSpeed, throttle: power, dt: dt)
+            let starting = mixPower < 0
+            mixPower = starting ? power : mixPower + (power - mixPower) * min(1, dt / TrimMix.motorLag)
+            let speed = starting ? length(vel - wind) : airspeed
+            wanted = mix.elevator(throttle: mixPower, speed: speed, expected: levelSpeed)
+            // (put into the air at speed, as joining up does, the trim is already in: a tenth of a second without it
+            // at 200 km/h is a hard pull)
+            if starting { ease = wanted; servo.y = wanted }
         }
         sinceReset += dt
         // (it acts from the throw on: easing it in lets a powerful wing zoom to the vertical in the first second)
         ease += (wanted - ease) * min(1, dt / 0.08)            // (as fast as a servo: any lag lets the nose come up first)
-        servo += (V3(c.aileron, clampf(c.elevator - ease, -1, 1), c.rudder) - servo) * min(1, dt / 0.04)
+        servo += (V3(c.aileron, clampf(c.elevator + ease, -1, 1), c.rudder) - servo) * min(1, dt / 0.04)
         if spec.hasFlaps { flap += clampf(c.flaps - flap, -dt / 1.5, dt / 1.5) }
         if spec.hasRetracts { gear += clampf((c.gearUp && !crashed ? 1 : 0) - gear, -dt / 1.2, dt / 1.2) }
         let va = Rt * (vel - wind)            // velocity through the air, body frame

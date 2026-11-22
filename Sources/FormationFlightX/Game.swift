@@ -423,10 +423,6 @@ final class Game {
     }
 
     /// How fast an aircraft leaves the hand: a good throw, and always clear of the stall.
-    /// How much of the nose-up with speed the pitch trim takes out. All of it: with any left in, an aircraft with
-    /// power to spare turns that power into a steep climb hands-off, which is what pilots call pulling up.
-    static let speedTrimShare: Float = Float(ProcessInfo.processInfo.environment["FFX_SHARE"] ?? "") ?? 1
-
     static func throwSpeed(_ spec: AircraftSpec) -> Float { max(clampf(spec.stallSpeed * 1.7, 4, 9), spec.stallSpeed * 1.45) }
     /// How far nose up an aircraft is held, and thrown.
     static let throwAngle: Float = 15 * deg
@@ -446,7 +442,7 @@ final class Game {
         inHand = false
         aircraft.pos = handPos; aircraft.q = handQ; aircraft.omega = .zero
         aircraft.vel = handQ.act(V3(0, 0, -Game.throwSpeed(aircraft.spec)))
-        aircraft.sinceReset = 0; aircraft.ease = 0
+        aircraft.sinceReset = 0; aircraft.ease = 0; aircraft.levelSpeed = 0; aircraft.mixPower = -1
         lastYReset()
         if partnersHeld { launchPartners() }
         launchGrace = 6

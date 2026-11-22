@@ -870,8 +870,11 @@ func levelElevator(_ spec: AircraftSpec, throttle: Float, seconds: Float = 30, f
     for k in 0..<steps {
         var c = Controls()
         let pitchT = clampf(0.03 * (400 - ac.pos.y) - 0.06 * ac.vel.y, -0.35, 0.35)
-        integ = clampf(integ + 0.01 * 1.5 * (pitchT - ac.pitch), -1, 1)
-        c.elevator = clampf(3 * (pitchT - ac.pitch) - 0.3 * ac.omega.x + integ, -1, 1)
+        // (the elevator bites with the square of the speed, so the test pilot's hand gets lighter in step: with one
+        // gain for all speeds a 220 km/h wing swings from stop to stop, and the average of that is not its trim)
+        let r = min(1, spec.stallSpeed * 1.8 / max(ac.airspeed, 1)), gain = max(r * r, 0.03)
+        integ = clampf(integ + 0.01 * 1.5 * gain * (pitchT - ac.pitch), -1, 1)
+        c.elevator = clampf(gain * (3 * (pitchT - ac.pitch) - 0.3 * ac.omega.x) + integ, -1, 1)
         c.aileron = clampf(2.5 * (0 - ac.roll) + 0.25 * ac.omega.z + spec.rollTrim, -1, 1)
         c.throttle = throttle
         for _ in 0..<10 { ac.step(dt: 0.001, c: c, terrain: terrain, wind: .zero, rollMu: 0.05) }
@@ -881,37 +884,114 @@ func levelElevator(_ spec: AircraftSpec, throttle: Float, seconds: Float = 30, f
     return (ac.crashed ? .nan : sum / n, ac.airspeed)
 }
 
-/// Set the pitch trim's easing with speed: fly the aircraft level flat out and on half throttle, see how much
-/// forward stick each takes, and trim exactly that out. With it the aircraft goes faster when the throttle is
-/// opened, not up; it climbs when the pilot pulls.
-func easeTrim(_ spec0: AircraftSpec) -> AircraftSpec {
+/// Pitch trim as a transmitter mix from throttle and airspeed to elevator. It knows nothing of the attitude, so it
+/// does not stabilise. It supplies the elevator that level flight needs, measured for each aircraft, and leaves
+/// speed stability round the speed level flight would have by now: one that follows the throttle only as quickly
+/// as the aircraft really speeds up and slows down, so moving the throttle changes the speed and not the height.
+/// Faster than that can only be downhill, and the nose comes up; slower is uphill, and it eases down.
+struct TrimMix {
+    static let throttles: [Float] = [0, 0.35, 0.5, 0.75, 1]
+    /// Slower than expected: the lift that is left, as a power of the speed ratio, and never under 70% of the weight.
+    static let below: Float = 0.2
+    static let leastLift: Float = 0.7
+    /// Faster than expected: lift gained per unit of the speed ratio, up to half a g over the weight.
+    static let above: Float = 3
+    static let mostLift: Float = 1.5
+    /// How long the thrust takes to follow the throttle (s): its pull on the nose is trimmed out as it comes.
+    static let motorLag: Float = 0.4
+
+    var speeds: [Float] = []
+    var level: [[Float]] = []       // by throttle and speed: the elevator that flies level
+    var perG: [[Float]] = []        // ... what one g more takes
+    var accel: [[Float]] = []       // ... and how fast level flight gains speed
+
+    private func read(_ table: [[Float]], throttle: Float, speed: Float) -> Float {
+        let th = TrimMix.throttles
+        var i = 0
+        while i < th.count - 2 && throttle > th[i + 1] { i += 1 }
+        let a = clampf((throttle - th[i]) / (th[i + 1] - th[i]), 0, 1)
+        let v = clampf(speed, speeds[0], speeds[speeds.count - 1])
+        var j = 0
+        while j < speeds.count - 2 && v > speeds[j + 1] { j += 1 }
+        let b = clampf((v - speeds[j]) / (speeds[j + 1] - speeds[j]), 0, 1)
+        return lerp(lerp(table[i][j], table[i][j + 1], b), lerp(table[i + 1][j], table[i + 1][j + 1], b), a)
+    }
+
+    /// The speed level flight would have a moment after it had `from`.
+    func levelSpeed(from: Float, throttle: Float, dt: Float) -> Float {
+        let v = clampf(from, speeds[0], speeds[speeds.count - 1])
+        return clampf(v + read(accel, throttle: throttle, speed: v) * dt, speeds[0], speeds[speeds.count - 1])
+    }
+
+    func elevator(throttle: Float, speed: Float, expected: Float) -> Float {
+        let r = clampf(speed, speeds[0], speeds[speeds.count - 1]) / expected
+        let lift = r < 1 ? max(pow(r, 2 * TrimMix.below), TrimMix.leastLift) : min(1 + TrimMix.above * (r - 1), TrimMix.mostLift)
+        let e = read(level, throttle: throttle, speed: speed) + read(perG, throttle: throttle, speed: speed) * (lift - 1)
+        return clampf(e, -0.8, 0.8)
+    }
+}
+
+/// Measure the trim mix: hold the aircraft in the air at each throttle and speed, and solve for the angle of attack
+/// and elevator at which it carries its weight with no pitching moment. Held, not flown by a test pilot, so there
+/// is no controller whose own swinging could get into the result.
+func measureTrimMix(_ spec0: AircraftSpec) -> AircraftSpec {
     var spec = spec0
     guard spec.kind == .airplane, !spec.props.isEmpty, spec.trimSpeed > 0 else { return spec }       // (a glider with a motor counts)
-    spec.speedTrim = 0
-    func run(_ thr: Float, from start: Float? = nil) -> (elev: Float, speed: Float) {
-        var f = levelElevator(spec, throttle: thr, seconds: 30, from: start)
-        // a slow starter has not settled in that time: give it longer
-        if !f.elev.isFinite || f.elev > -0.02 { f = levelElevator(spec, throttle: thr, seconds: 40) }
-        return f
-    }
-    func gain(_ f: (elev: Float, speed: Float)) -> Float { clampf(Game.speedTrimShare * -f.elev / (1 - spec.trimSpeed * spec.trimSpeed / (f.speed * f.speed)), 0, 0.8) }
-    // (both runs are flown before any easing is set; the fast one starts from the slow one's speed and a bit, so a
-    // quick aircraft reaches its top speed within the run)
-    let h = run(0.5)
-    let f = run(1, from: h.elev.isFinite ? h.speed * 1.25 : nil)
-    guard f.elev.isFinite, f.elev < -0.02, f.speed > spec.trimSpeed * 1.15 else { return spec }
-    spec.speedTrim = gain(f); spec.speedFull = f.speed
-    if h.elev.isFinite, h.elev < 0, h.speed > spec.trimSpeed * 1.15, h.speed < f.speed - 1 { spec.speedTrimHalf = gain(h); spec.speedHalf = h.speed }
-    else { spec.speedTrimHalf = spec.speedTrim; spec.speedHalf = spec.trimSpeed }
-    // check: fly the two again with the trim in, and add whatever stick each still needs (twice; it converges fast)
-    for _ in 0..<2 {
-        let f2 = levelElevator(spec, throttle: 1, seconds: 30, from: f.speed)
-        if f2.elev.isFinite, f2.speed > spec.trimSpeed * 1.15 { spec.speedTrim = clampf(spec.speedTrim + gain(f2) * (f2.elev < 0 ? 1 : -1) * (f2.elev < 0 ? 1 : 0) - (f2.elev > 0 ? f2.elev / (1 - spec.trimSpeed * spec.trimSpeed / (f2.speed * f2.speed)) : 0), 0, 0.8) }
-        if spec.speedHalf > spec.trimSpeed {
-            let h2 = levelElevator(spec, throttle: 0.5, seconds: 30, from: spec.speedHalf)
-            if h2.elev.isFinite, h2.speed > spec.trimSpeed * 1.15 { spec.speedTrimHalf = clampf(spec.speedTrimHalf - h2.elev / (1 - spec.trimSpeed * spec.trimSpeed / (h2.speed * h2.speed)), 0, 0.8) }
+    spec.trimMix = nil
+    let ground = calibrationGround
+    var mix = TrimMix()
+    // from a little under the speed of the throw to beyond the fastest the propeller can pull it
+    // (an aircraft off a runway keeps its own stability all the way up to the speed it is trimmed for; one thrown
+    // from the hand needs the mix from the speed of the throw)
+    let lo = spec.handLaunch ? min(spec.trimSpeed, Game.throwSpeed(spec)) : spec.trimSpeed
+    let hi = max((spec.props.map { $0.pitchSpeed }.max() ?? 0) * 1.05, lo * 1.8)
+    let count = 12, weight = spec.mass * gravity
+    for k in 0..<count { mix.speeds.append(lo * pow(hi / lo, Float(k) / Float(count - 1))) }
+    for thr in TrimMix.throttles {
+        let ac = Aircraft(spec); ac.unlimitedBattery = true
+        ac.reset(pos: V3(0, 300, 0), heading: 0)
+        for i in ac.levels.indices { ac.levels[i] = thr }
+        let q0 = ac.q, ahead = q0.act(V3(0, 0, -1))
+        func held(alpha: Float, elevator: Float, speed: Float, steps: Int, turning: Float = 0) -> (moment: Float, lift: Float, surplus: Float) {
+            let q = q0 * simd_quatf(angle: alpha, axis: V3(1, 0, 0)), vel = ahead * speed
+            var c = Controls(); c.throttle = thr; c.elevator = elevator
+            for _ in 0..<steps {
+                ac.pos = V3(0, 300, 0); ac.vel = vel; ac.omega = V3(turning, 0, 0); ac.q = q
+                ac.step(dt: 0.001, c: c, terrain: ground, wind: .zero, rollMu: 0)
+            }
+            return ((ac.omega.x - turning) / 0.001 * spec.inertia.x, ((ac.vel.y - vel.y) / 0.001 + gravity) * spec.mass / weight, dot(ac.vel - vel, ahead))
         }
+        var alpha: Float = 5 * deg, elev: Float = 0
+        var elevs: [Float] = [], gains: [Float] = [], surplus: [Float] = []
+        for (k, v) in mix.speeds.enumerated() {
+            let da: Float = 0.5 * deg, de: Float = 0.03
+            var r = held(alpha: alpha, elevator: elev, speed: v, steps: k == 0 ? 700 : 300)
+            let ra = held(alpha: alpha + da, elevator: elev, speed: v, steps: 250)
+            let re = held(alpha: alpha + da, elevator: elev + de, speed: v, steps: 250)
+            let ma = (ra.moment - r.moment) / da, la = (ra.lift - r.lift) / da
+            let me = (re.moment - ra.moment) / de, le = (re.lift - ra.lift) / de
+            let det = ma * le - me * la
+            var gain = gains.last ?? 0
+            if abs(det) > 1e-7 {
+                for _ in 0..<4 {
+                    r = held(alpha: alpha, elevator: elev, speed: v, steps: 250)
+                    let dm = -r.moment, dl = 1 - r.lift
+                    let turn = clampf((dm * le - dl * me) / det, -3 * deg, 3 * deg)
+                    alpha = clampf(alpha + turn, -8 * deg, 16 * deg)
+                    elev = clampf(elev + clampf((dl * ma - dm * la) / det, -0.2, 0.2), -0.8, 0.8)
+                }
+                // one g more is flown in a curve, and the tail's damping of that turn takes elevator too: on a
+                // nearly neutral aerobat it is most of what the manoeuvre takes
+                r = held(alpha: alpha, elevator: elev, speed: v, steps: 250)
+                let curve = held(alpha: alpha, elevator: elev, speed: v, steps: 250, turning: gravity / v)
+                let dampM = curve.moment - r.moment, dampL = curve.lift - r.lift
+                gain = (ma * (1 - dampL) + la * dampM) / det
+            }
+            elevs.append(elev); gains.append(gain); surplus.append(r.surplus)
+        }
+        mix.level.append(elevs); mix.perG.append(gains); mix.accel.append(surplus.map { $0 / 0.001 })
     }
+    spec.trimMix = mix
     return spec
 }
 
@@ -1734,7 +1814,7 @@ enum AircraftLibrary {
             // before it stalls, and would only seem to stall faster)
             var done = trimRoll(defaultRates(calibrateRates(trimForCruise(s))))
             if fpv.contains(done.name) { done = measureStall(done) }
-            done = easeTrim(done)
+            done = measureTrimMix(done)
             // Shown together as one category. (Set last: until here the kind of aircraft, wing or plane or
             // glider, decides its aerofoil, balance and control rates.)
             if done.category == "Wings" || fpv.contains(done.name) { done.category = "FPV Aircrafts" }

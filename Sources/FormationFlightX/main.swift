@@ -1120,7 +1120,7 @@ if let name = CommandLine.arguments.firstIndex(of: "--pitchtrace").map({ Command
     let ac = Aircraft(spec); ac.unlimitedBattery = true
     ac.reset(pos: V3(0, 1.9, 0), heading: 0, speed: Game.throwSpeed(spec))
     ac.q = ac.q * simd_quatf(angle: Game.throwAngle, axis: V3(1, 0, 0)); ac.vel = ac.q.act(V3(0, 0, -Game.throwSpeed(spec)))
-    print(String(format: "%@  (eased by %.2f flat out above %.0f km/h)", spec.name as NSString, spec.speedTrim, spec.trimSpeed * 3.6))
+    print(String(format: "%@  (trimmed for %.0f km/h, %@)", spec.name as NSString, spec.trimSpeed * 3.6, (spec.trimMix == nil ? "no trim mix" : "with the trim mix") as NSString))
     for k in 0..<36000 {
         let t = Float(k) / 1000
         var c = Controls(); c.throttle = t < 12 || t >= 24 ? 1 : 0.5; c.aileron = spec.rollTrim + clampf(-1.5 * ac.roll, -0.3, 0.3)
@@ -1130,6 +1130,39 @@ if let name = CommandLine.arguments.firstIndex(of: "--pitchtrace").map({ Command
             let gamma = atan2(ac.vel.y, length(V3(ac.vel.x, 0, ac.vel.z))) / deg
             print(String(format: "t %4.1f  thr %3.0f%%  pitch %+5.1f°  climb angle %+5.1f°  height %6.1f m  speed %5.1f km/h  trim fed in %.2f%@", t, c.throttle * 100, ac.pitch / deg, gamma, ac.pos.y, ac.airspeed * 3.6, ac.ease, ac.crashed ? "  CRASHED" : ""))
         }
+    }
+    exit(0)
+}
+
+if CommandLine.arguments.contains("--launchtest") {
+    // The real launch, through Game: held with the motor running, thrown, flown in the site's wind with the sticks
+    // let go for twenty seconds. (One Game for all: each owns a sound engine. The settings it writes are put back.)
+    let keys = ["aiOff", "lastAircraft"], saved = keys.map { UserDefaults.standard.object(forKey: $0) }
+    let g = Game(site: 0, aircraft: 0)
+    g.aiPartners = false; g.netAllowed = false
+    g.hud.overlay = .none
+    var runs = 0, grounded = 0, early = 0
+    for (i, spec) in AircraftLibrary.all.enumerated() where spec.handLaunch {
+        for thr: Float in [0.75, 1] {
+            g.selectAircraft(i); g.resetAircraft(); g.input.kbThrottle = thr
+            for _ in 0..<90 { g.frame(dt: 1 / 60) }
+            g.launch()
+            var high: Float = 0, bank: Float = 0, at: Float = -1
+            for f in 0..<1200 {
+                g.frame(dt: 1 / 60)
+                let a = g.aircraft, h = a.pos.y - g.terrain.height(a.pos.x, a.pos.z)
+                high = max(high, h); bank = max(bank, abs(a.roll) / deg)
+                if a.crashed || h < 0.3 { at = Float(f) / 60; break }
+            }
+            runs += 1
+            if at >= 0 { grounded += 1; if at < 10 { early += 1 } }
+            let result = at < 0 ? "flying after 20 s" : String(format: "on the ground after %.1f s", at)
+            print("LAUNCH \(spec.name), throttle \(Int(thr * 100))%: \(result), highest \(Int(high)) m, most bank \(Int(bank))°")
+        }
+    }
+    print("LAUNCH TEST: \(grounded) of \(runs) on the ground within 20 s, \(early) of them within 10 s")
+    for (k, v) in zip(keys, saved) {
+        if let v = v { UserDefaults.standard.set(v, forKey: k) } else { UserDefaults.standard.removeObject(forKey: k) }
     }
     exit(0)
 }
@@ -1144,17 +1177,6 @@ if CommandLine.arguments.contains("--powertest") {
         print(String(format: "%-28@ %5.0f km/h  %+4.0f%% (%+4.0f%% of low)   %5.0f km/h  %+4.0f%% (%+4.0f%% of low)", spec.name as NSString,
                      h.speed * 3.6, h.elev * 100, h.elev / spec.lowRate * 100, f.speed * 3.6, f.elev * 100, f.elev / spec.lowRate * 100))
         if f.elev.isFinite { worst = max(worst, -f.elev / spec.lowRate); sum += -f.elev / spec.lowRate; n += 1 }
-        if CommandLine.arguments.contains("--verbose") && spec.name.contains("Chupito") {
-            var plain = spec; plain.speedTrim = 0; plain.speedTrimHalf = 0
-            let p1 = levelElevator(plain, throttle: 1, seconds: 60), p2 = levelElevator(plain, throttle: 1, seconds: 30, from: 167 / 3.6)
-            let w1 = levelElevator(spec, throttle: 1, seconds: 30, from: 167 / 3.6)
-            let ac = Aircraft(spec); ac.unlimitedBattery = true; ac.reset(pos: V3(0, 400, 0), heading: 0, speed: 221 / 3.6)
-            var c = Controls(); c.throttle = 1
-            for _ in 0..<300 { ac.step(dt: 0.001, c: c, terrain: Terrain.flat, wind: .zero, rollMu: 0.05) }
-            print(String(format: "      with easing, 30 s from 167 km/h: %.0f km/h needs %+.3f; ease fed in at %.0f km/h: %.3f", w1.speed * 3.6, w1.elev, ac.airspeed * 3.6, ac.ease))
-            print(String(format: "      without easing: full throttle %.0f km/h needs %+.3f (60 s from slow) / %.0f km/h %+.3f (30 s from 167 km/h); half gain %.3f at %.0f, full gain %.3f at %.0f", p1.speed * 3.6, p1.elev, p2.speed * 3.6, p2.elev, spec.speedTrimHalf, spec.speedHalf * 3.6, spec.speedTrim, spec.speedFull * 3.6))
-        }
-        if CommandLine.arguments.contains("--verbose") { print(String(format: "      eased by %.2f flat out (%.0f km/h), %.2f on half throttle (%.0f km/h), above %.0f km/h (stall %.0f km/h)", spec.speedTrim, spec.speedFull * 3.6, spec.speedTrimHalf, spec.speedHalf * 3.6, spec.trimSpeed * 3.6, spec.stallSpeed * 3.6)) }
     }
     print(String(format: "full throttle: mean %.0f%% of the low-rate throw forward, worst %.0f%%", sum / n * 100, worst * 100))
     // and the hand launch, full throttle, sticks let go: how low it gets, and where it is after four seconds
@@ -1169,14 +1191,14 @@ if CommandLine.arguments.contains("--powertest") {
         for _ in 0..<4000 { ac.step(dt: 0.001, c: c, terrain: Terrain.flat, wind: .zero, rollMu: 0.05); low = min(low, ac.pos.y) }
         if low < lowest { lowest = low; lowName = spec.name }
         if ac.crashed || ac.pos.y < 1.9 {
-            // the same launch with the easing off, to tell what it is responsible for
-            var plain = spec; plain.speedTrim = 0
+            // the same launch with the trim mix off, to tell what it is responsible for
+            var plain = spec; plain.trimMix = nil
             let b = Aircraft(plain); b.unlimitedBattery = true
             b.reset(pos: V3(2, 1.9, -3), heading: 0, speed: Game.throwSpeed(spec))
             b.q = b.q * simd_quatf(angle: Game.throwAngle, axis: V3(1, 0, 0)); b.vel = b.q.act(V3(0, 0, -Game.throwSpeed(spec)))
             for _ in 0..<4000 { b.step(dt: 0.001, c: c, terrain: Terrain.flat, wind: .zero, rollMu: 0.05) }
             sunk += 1
-            print(String(format: "   %@: lowest %.1f m, after 4 s at %.1f m%@   (without the easing: %.1f m%@; launched at %.0f km/h, stalls at %.0f)", spec.name as NSString, low, ac.pos.y, ac.crashed ? ", CRASHED" : "",
+            print(String(format: "   %@: lowest %.1f m, after 4 s at %.1f m%@   (without the trim mix: %.1f m%@; launched at %.0f km/h, stalls at %.0f)", spec.name as NSString, low, ac.pos.y, ac.crashed ? ", CRASHED" : "",
                          b.pos.y, b.crashed ? ", CRASHED" : "", Game.throwSpeed(spec) * 3.6, spec.stallSpeed * 3.6))
         }
     }
@@ -1212,7 +1234,9 @@ if CommandLine.arguments.contains("--flighttest") {
         func level(_ ac: Aircraft, alt: Float, throttle: Float) -> Controls {
             var c = Controls()
             let pitchT = clampf(0.03 * (alt - ac.pos.y) - 0.06 * ac.vel.y, -0.35, 0.35)
-            c.elevator = clampf(3 * (pitchT - ac.pitch) - 0.3 * ac.omega.x, -1, 1)
+            // (a lighter hand the faster it goes, as in levelElevator, or a fast wing swings from stop to stop)
+            let r = min(1, 2.5 * vs / max(ac.airspeed, 1))
+            c.elevator = clampf(r * r * (3 * (pitchT - ac.pitch) - 0.3 * ac.omega.x), -1, 1)
             c.aileron = clampf(2.5 * (0 - ac.roll) + 0.25 * ac.omega.z, -1, 1)
             c.throttle = throttle
             return c
@@ -1226,9 +1250,9 @@ if CommandLine.arguments.contains("--flighttest") {
         // stall: power off, hold height until the wing lets go or the height cannot be held
         var stall: Float = -1
         do {
-            // (flown with the pitch trim's easing off: the stall is below the speed where it starts, and the dip it
+            // (flown with the trim mix off: the stall is below the speed where it starts, and the dip it
             // gives this simple pilot at the outset would be taken for the height being lost)
-            var plain = spec; plain.speedTrim = 0
+            var plain = spec; plain.trimMix = nil
             let ac = Aircraft(plain); ac.unlimitedBattery = true; ac.reset(pos: V3(0, 400, 0), heading: 0, speed: vs * 1.7)
             for i in ac.levels.indices { ac.levels[i] = 0.6 }
             fly(ac, 60, { a, _ in level(a, alt: 400, throttle: 0) }) { a, t in
