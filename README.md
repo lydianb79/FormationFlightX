@@ -54,7 +54,7 @@ There is no server and no account. Every copy of the app announces itself on the
 - **Groups.** Pilots with the same group name (Options) fly together, so two formations can share one network. An empty group flies with anyone.
 - **The host runs the session** (see below): where it flies, the weather and daylight, and when it starts and stops.
 - **The lead calls the formation.** Formation and spacing are the lead's. Until someone claims the lead, the pilot whose copy has the lowest network number leads. Press **U** (or **Take the Lead**) to claim it; press it again to hand it back.
-- **All pilots should fly the same version.** 1.0.6 and 1.0.5 understand each other, but the aircraft fly differently and only 1.0.6 allows for network delay. Much older builds are not understood.
+- **All pilots should fly the same version.** 1.0.5 to 1.0.7 understand each other, but the aircraft fly differently and only 1.0.6 and later allow for network delay. Much older builds are not understood.
 - **Network delay is allowed for.** Each pair of pilots measures its round trip four times a second, and every aircraft is drawn where it is now, predicted along its curve across the delay, so your slot ring and what the lead sees of you agree. It needs both copies to have it: with one from 1.0.5 or earlier the aircraft still fly together, but each is seen behind by the delay.
 - **Mid-air collisions** end the flight for both wings. You are put back behind your slot a few seconds later.
 - A pilot who opens a menu stops being shown to the others until they fly again.
