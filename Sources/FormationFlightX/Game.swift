@@ -397,21 +397,26 @@ final class Game {
     /// A new aircraft: its own rates, and always the low ones to begin with.
     // MARK: Pitch trim
 
-    /// Pitch trim in clicks, as on a transmitter: each click moves the elevator neutral a little. Kept per aircraft.
+    /// Pitch trim in clicks, as on a transmitter: each click moves the elevator neutral a little. Kept per aircraft
+    /// until the app quits: every start of the game begins with all of them centred, so they are never saved.
     private(set) var pitchTrim = 0
+    private var pitchTrims: [String: Int] = [:]
     static let trimStep: Float = 0.012, trimMax = 30
     func trim(_ clicks: Int) {
         let t = clicks == 0 ? 0 : min(max(pitchTrim + clicks, -Game.trimMax), Game.trimMax)
         if t == pitchTrim && clicks != 0 { say(String(format: "Pitch trim at its limit (%+d)", t)); return }
         pitchTrim = t
-        var all = UserDefaults.standard.dictionary(forKey: "pitchTrim") as? [String: Int] ?? [:]
-        all[aircraft.spec.name] = t == 0 ? nil : t
-        UserDefaults.standard.set(all, forKey: "pitchTrim")
+        pitchTrims[aircraft.spec.name] = t
         say(t == 0 ? "Pitch trim centred" : String(format: "Pitch trim %+d (%@)", t, t > 0 ? "nose up" : "nose down"))
     }
 
+    private func sayRates() {
+        let name = input.lowRates ? String(format: "Low rates (%.0f%%)", input.lowRateInUse * 100) : "High rates"
+        say(input.calibrating ? name + " after calibration, 100% until then" : name)
+    }
+
     private func newSession() {
-        pitchTrim = (UserDefaults.standard.dictionary(forKey: "pitchTrim") as? [String: Int])?[aircraft.spec.name] ?? 0
+        pitchTrim = pitchTrims[aircraft.spec.name] ?? 0
         input.aircraftLowRate = aircraft.spec.lowRate; input.aircraftExpo = aircraft.spec.expo
         input.lowRates = true
         rotorSpeed = 1
@@ -622,7 +627,7 @@ final class Game {
         case 32: takeLead()
         case 34: nextSpacing()
         case 16: toggleSmoke()
-        case 37: input.lowRates.toggle(); say(input.lowRates ? String(format: "Low rates (%.0f%%)", input.lowRateInUse * 100) : "High rates")
+        case 37: input.lowRates.toggle(); sayRates()
         case 24: trim(1)
         case 27: trim(-1)
         case 29: trim(0)
@@ -668,7 +673,7 @@ final class Game {
             if !positional { if pos == 1 { keyDown(a.key) }; continue }
             let spec = aircraft.spec
             switch a.id {
-            case "rates": input.lowRates = pos == 0; say(input.lowRates ? String(format: "Low rates (%.0f%%)", input.lowRateInUse * 100) : "High rates")
+            case "rates": input.lowRates = pos == 0; sayRates()
             case "mode": if spec.modes.count > 1 { flightMode = min(pos, spec.modes.count - 1); say("Flight mode: " + spec.modes[flightMode]) }
             case "rotor": if spec.kind == .helicopter { rotorSpeed = pos; say("Rotor speed: " + Game.rotorNames[rotorSpeed]) }
             case "hold": if spec.kind == .helicopter { hold = pos == 1; say(hold ? "Throttle hold — autorotate!" : "Engine engaged") }
@@ -1085,7 +1090,7 @@ final class Game {
         case 4: s.lx = controls.aileron; s.ly = tY; s.rx = controls.rudder; s.ry = eY; s.leftLabel = "THR / AIL"; s.rightLabel = "ELE / RUD"
         default: s.lx = controls.rudder; s.ly = tY; s.rx = controls.aileron; s.ry = eY
         }
-        s.rates = input.lowRates ? String(format: "Low %.0f%%", input.lowRateInUse * 100) : "High"
+        s.rates = input.calibrating ? "Calibrating at 100%" : input.lowRates ? String(format: "Low %.0f%%", input.lowRateInUse * 100) : "High"
         if pitchTrim != 0 { s.rates += String(format: " rates · Trim %+d", pitchTrim) } else { s.rates += " rates" }
         var cfg: [String] = []
         if spec.hasFlaps { cfg.append(["Flaps up", "Flaps ½", "Flaps full"][Int(flapSetting * 2)]) }

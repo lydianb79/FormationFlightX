@@ -239,6 +239,11 @@ final class InputManager {
     // calibration recording
     private(set) var calibrating = false
     private var recMin = [Float](repeating: 0, count: 9), recMax = [Float](repeating: 0, count: 9)
+    /// The share of a USB axis's range that a stick has to cover to be taken as calibrated on 100% rates. The
+    /// transmitter's own rates can't be seen or changed from here, only the shorter travel they leave.
+    static let fullTravel: Float = 0.95
+    /// The dual rate in effect: always 100% while calibrating, whatever is selected.
+    var rateInUse: Float { calibrating || !lowRates ? 1 : lowRateInUse }
 
     init() {
         if let d = UserDefaults.standard.data(forKey: "inputSettings"), let m = try? JSONDecoder().decode(InputSettings.self, from: d), m.valid {
@@ -257,7 +262,7 @@ final class InputManager {
         if m <= db { return 0 }
         let v = (x < 0 ? -1 : 1) * min((m - db) / (1 - db), 1)
         let k = clampf(settings.ownRates == true ? settings.expo[i] : aircraftExpo, 0, 1)
-        return ((1 - k) * v + k * v * v * v) * (lowRates ? lowRateInUse : 1)
+        return ((1 - k) * v + k * v * v * v) * rateInUse
     }
 
     /// Calibrated value of a USB axis: centred channels map min/centre/max to -1/0/+1, throttle maps min/max to -1/+1.
@@ -281,9 +286,22 @@ final class InputManager {
         calibrating = true
     }
 
-    /// Call with the sticks centred. Axes that were not moved keep their previous calibration.
-    func finishCalibration() {
-        guard calibrating else { return }
+    /// The channels that have not reached full travel in this recording, with the share they did reach.
+    var shortTravel: [(channel: Int, travel: Float)] {
+        guard calibrating else { return [] }
+        return (0..<4).compactMap { i in
+            let a = min(max(settings.axis[i], 0), 8), travel = (recMax[a] - recMin[a]) / 2
+            return travel < InputManager.fullTravel ? (i, travel) : nil
+        }
+    }
+
+    /// Closing the setup window: back to the selected rates, the saved calibration untouched.
+    func cancelCalibration() { calibrating = false }
+
+    /// Call with the sticks centred. Saves nothing and keeps recording while a channel is short of full travel,
+    /// unless the pilot accepts that. Axes that were not moved keep their previous calibration.
+    func finishCalibration(acceptShort: Bool = false) {
+        guard calibrating, acceptShort || shortTravel.isEmpty else { return }
         calibrating = false
         var s = settings
         for a in 0..<9 where recMax[a] - recMin[a] > 0.5 {
@@ -305,7 +323,7 @@ final class InputManager {
         if calibrating { for a in 0..<9 { recMin[a] = min(recMin[a], hid.axes[a]); recMax[a] = max(recMax[a], hid.axes[a]) } }
 
         // keyboard: arrows = elevator / aileron, A/D = rudder, W/S = throttle
-        let full: Float = (keys.contains(56) || keys.contains(60) ? 1 : 0.75) * (lowRates ? lowRateInUse : 1)
+        let full: Float = (keys.contains(56) || keys.contains(60) ? 1 : 0.75) * rateInUse
         let tgt = V3(down(124) - down(123), down(125) - down(126), down(2) - down(0)) * full
         for i in 0..<3 {
             let rate: Float = tgt[i] == 0 ? 7 : 4.5

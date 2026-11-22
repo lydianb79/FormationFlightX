@@ -1824,7 +1824,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Open the controller setup, or close it if it is already open (the same button does both).
     private func showSetup() {
-        if let w = setupWindow, w.isVisible { w.orderOut(nil); window.makeKey(); return }
+        if let w = setupWindow, w.isVisible { game.input.cancelCalibration(); w.orderOut(nil); window.makeKey(); return }
         if setupWindow == nil {
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 640), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
             w.title = "Controller Setup"
@@ -1838,6 +1838,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             w.minSize = NSSize(width: 640, height: 320)
             w.level = .floating             // above the flight window, also when that covers the screen
             w.center()
+            // an unfinished calibration must not leave the aircraft on 100% rates
+            NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: w, queue: .main) { [unowned self] _ in self.game.input.cancelCalibration() }
             setupWindow = w
         }
         setupWindow?.makeKeyAndOrderFront(nil)
@@ -1850,6 +1852,9 @@ final class SetupModel: ObservableObject {
     @Published var device = ""
     @Published var connected = false
     @Published var calibrating = false
+    /// What stopped the last Done: kept up to date as the sticks move, empty once all have reached full travel.
+    @Published var short: [(channel: Int, travel: Float)] = []
+    private var refused = false
     @Published var s: InputSettings { didSet { input.settings = s } }
     @Published var listening: String? = nil         // action waiting for a switch or button to be moved
     @Published var listeningKey = false             // waiting for the key that will be push to talk
@@ -1888,15 +1893,22 @@ final class SetupModel: ObservableObject {
             guard let m = self else { return }
             m.values = (0..<4).map { m.input.channel($0) }
             m.watch()
+            m.syncCalibration()
             m.connected = m.input.hid.connected
             m.device = m.connected ? m.input.hid.name : "No USB transmitter or joystick detected"
         }
     }
     func calibrate() {
-        if calibrating { input.finishCalibration(); s = input.settings } else { input.startCalibration() }
-        calibrating = input.calibrating
+        if input.calibrating { input.finishCalibration(); refused = input.calibrating; s = input.settings } else { input.startCalibration(); refused = false }
+        syncCalibration()
     }
-    func resetCalibration() { input.resetCalibration(); s = input.settings; calibrating = false }
+    func saveShortCalibration() { input.finishCalibration(acceptShort: true); s = input.settings; syncCalibration() }
+    func resetCalibration() { input.resetCalibration(); s = input.settings; syncCalibration() }
+    private func syncCalibration() {
+        calibrating = input.calibrating             // also ended by closing the window
+        if !calibrating { refused = false }
+        short = refused ? input.shortTravel : []
+    }
 }
 
 struct SetupView: View {
@@ -1932,9 +1944,16 @@ struct SetupView: View {
             HStack {
                 Button(model.calibrating ? "Done — sticks are centred" : "Calibrate…") { model.calibrate() }
                 Button("Reset Calibration") { model.resetCalibration() }.disabled(model.calibrating)
+                if !model.short.isEmpty { Button("Save Anyway") { model.saveShortCalibration() } }
+            }
+            if !model.short.isEmpty {
+                Text("Not saved, short of full travel: "
+                     + model.short.map { "\(InputSettings.channelNames[$0.channel]) \(Int($0.travel * 100))%" }.joined(separator: ", ")
+                     + ". Set the transmitter to 100% rates and move those sticks to both ends again. Use Save Anyway only if it already is at 100%: some transmitters and dongles never send the full range.")
+                    .font(.caption.bold()).foregroundColor(.red).fixedSize(horizontal: false, vertical: true)
             }
             Text(model.calibrating
-                 ? "Move both sticks through their full travel several times, then let them centre (throttle can stay anywhere) and click Done."
+                 ? "The simulator is on 100% rates until you finish. Set the transmitter's own rates to 100% too, move both sticks through their full travel several times, then let them centre (throttle can stay anywhere) and click Done."
                  : "After calibrating, each bar should reach −1 and +1 at the stick ends. Throttle should read −1 at idle and elevator +1 with the stick pulled back; tick Reverse if not.")
                 .font(.caption).foregroundColor(model.calibrating ? .orange : .secondary).fixedSize(horizontal: false, vertical: true)
 
