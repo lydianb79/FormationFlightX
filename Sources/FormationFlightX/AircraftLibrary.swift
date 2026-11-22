@@ -1752,7 +1752,7 @@ enum AircraftLibrary {
             wing("TBS Chupito", "800 mm of black EPP on six cells: stalls at forty, cruises at well over a hundred and runs to two hundred and twenty kilometres an hour") {
                 $0.span = 0.8; $0.rootChord = 0.32; $0.tipChord = 0.18; $0.sweep = -0.06; $0.mass = 0.65; $0.thrust = 18; $0.pitchSpeed = 125; $0.propDia = 0.13
                 $0.fuseLen = 0.5; $0.noseZ = -0.24; $0.fuseW = 0.08; $0.fuseH = 0.07; $0.finH = 0.12; $0.finChord = 0.16; $0.thick = 0.06; $0.washout = 1
-                $0.winglets = false; $0.finZ = 0.1; $0.margin = 0.08; $0.trimCL = 0.14; $0.ailThrow = 12; $0.elevThrow = 10; $0.tough = 1.8; $0.cdA = 0.0008; $0.endurance = 300
+                $0.winglets = false; $0.finZ = 0.1; $0.margin = 0.08; $0.trimCL = 0.14; $0.ailThrow = 12; $0.elevThrow = 10; $0.tough = 1.8; $0.cdA = 0.0016; $0.endurance = 300
                 $0.fuse = rgb(0.07, 0.07, 0.08); $0.wingTop = rgb(0.07, 0.07, 0.08); $0.wingBottom = rgb(0.07, 0.07, 0.08); $0.tail = rgb(0.07, 0.07, 0.08); $0.accent = rgb(0.07, 0.07, 0.08); $0.dihedral = 3; $0.foamLook = true; $0.sound = 420 },
             wing("AtomRC Penguin", "750 mm lifting body with stub wings and two motors: slow enough to learn FPV on, with the pull of a twin when you want it") {
                 $0.span = 0.75; $0.rootChord = 0.34; $0.tipChord = 0.17; $0.sweep = 0.1; $0.mass = 0.68; $0.thrust = 9.5; $0.pitchSpeed = 30; $0.propDia = 0.127
