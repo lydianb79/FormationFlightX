@@ -77,6 +77,8 @@ extension Game {
         var p = s - f * max(8, 2 * spacingMetres)
         p.y = max(p.y, terrain.height(p.x, p.z) + 6)
         aircraft.reset(pos: p, heading: atan2(-f.x, -f.z), speed: max(length(lead.vel), aircraft.spec.stallSpeed * 1.4))
+        racePrev = p                // (being moved there is not flying through a gate)
+        inHand = false              // (a reset puts a hand-launched aircraft back in the hand; this one is flying)
         input.resetThrottle(aircraft.spec.kind, launch: true)
         lastYReset()
         snapCamera()

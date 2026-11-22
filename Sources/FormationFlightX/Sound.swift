@@ -173,6 +173,10 @@ final class SoundEngine {
     private var thumpEnv: Float = 0, thumpDecay: Float = 0.999, thumpHz: Float = 90, thumpPhase: Float = 0
     private var touchEnv: Float = 0, touchAmp: Float = 1, touchDecay: Float = 0.999, touchFc: Float = 2000, touchQ: Float = 1, touchSweep: Float = 0
     private var touchLo: Float = 0, touchBd: Float = 0, touchGrit: Float = 0, touchPan: Float = 0
+    // race gate: a bing. The game only counts them and the audio thread only follows the count, so neither can
+    // overwrite the other's write, and two gates close together ring twice without a click.
+    private(set) var gateBings = 0
+    private var bingsHeard = 0, bingDrive: Float = 0, bingEnv: Float = 0, bingPhase: Float = 0, bingPhase2: Float = 0
     // ambience
     private var voices = [Voice](repeating: Voice(), count: 7)     // songbird, second songbird, cuckoo, crow, gull, frog, cowbell
     private var lapLo: Float = 0, lapBd: Float = 0, lap1: Float = 0, lap2: Float = 0.3
@@ -224,6 +228,9 @@ final class SoundEngine {
         if woody { leafEnv = max(leafEnv, s); twigs = s; twigTimer = 0 }
         else { knockEnv = max(knockEnv, s); knockPhase = 0 }
     }
+
+    /// Through a race gate.
+    func gate() { gateBings += 1 }
 
     /// Impact: `strength` 0...1; `water` makes it a splash.
     func crash(_ strength: Float, water: Bool = false, pan: Float = 0) {
@@ -334,6 +341,8 @@ final class SoundEngine {
         let k: Float = 0.0012                      // parameter smoothing per sample (~20 ms)
         let masterTarget: Float = (muted || st.paused) ? 0 : 1
         let dt = 1 / sampleRate
+        let bings = gateBings
+        if bings != bingsHeard { bingsHeard = bings; bingDrive = 1 }
         for i in 0..<count {
             sHz += (st.shaftHz - sHz) * k; sPower += (st.power - sPower) * k; sRun += (st.running - sRun) * k * 0.5
             sGain += (st.gain - sGain) * k; sMuffle += (st.muffle - sMuffle) * k; sPan += (st.pan - sPan) * k
@@ -589,6 +598,14 @@ final class SoundEngine {
                 splashLo += (n0 - splashLo) * 0.2
                 let c = (hissy * 0.25 + splashLo * 0.5) * splashEnv * max(sGain, 0.25)
                 L += c * (1 - crashPan) * 0.6; R += c * (1 + crashPan) * 0.6
+            }
+            if bingDrive > 0.0005 || bingEnv > 0.0005 {
+                // a small bell in the middle, as loud however far off the aircraft is
+                bingDrive *= 0.99991        // rings for about a second
+                bingEnv += (bingDrive - bingEnv) * 0.012
+                wrap(&bingPhase, 1568); wrap(&bingPhase2, 3136)         // G6 and the octave above
+                let b = (sin(twoPi * bingPhase) + 0.3 * sin(twoPi * bingPhase2) * bingEnv) * bingEnv * 0.3
+                L += b; R += b
             }
 
             // soft limiter

@@ -299,6 +299,7 @@ extension Game {
         guard !aircraft.crashed, s0 < 0, s1 >= 0, s1 - s0 < 30 else { return }
         let hit = p0 + (p1 - p0) * (-s0 / (s1 - s0)) - g.c
         guard abs(dot(hit, g.right)) < g.w / 2, abs(hit.y) < g.h / 2 else { return }
+        sound.gate()
         if raceNext == 0 {
             if raceRunning {
                 raceLaps += 1
