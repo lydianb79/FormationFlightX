@@ -54,7 +54,8 @@ There is no server and no account. Every copy of the app announces itself on the
 - **Groups.** Pilots with the same group name (Options) fly together, so two formations can share one network. An empty group flies with anyone.
 - **The host runs the session** (see below): where it flies, the weather and daylight, and when it starts and stops.
 - **The lead calls the formation.** Formation and spacing are the lead's. Until someone claims the lead, the pilot whose copy has the lowest network number leads. Press **U** (or **Take the Lead**) to claim it; press it again to hand it back.
-- **All copies need the same version.** This version's messages are not understood by earlier builds.
+- **All pilots should fly the same version.** 1.0.6 and 1.0.5 understand each other, but the aircraft fly differently and only 1.0.6 allows for network delay. Much older builds are not understood.
+- **Network delay is allowed for.** Each pair of pilots measures its round trip four times a second, and every aircraft is drawn where it is now, predicted along its curve across the delay, so your slot ring and what the lead sees of you agree. It needs both copies to have it: with one from 1.0.5 or earlier the aircraft still fly together, but each is seen behind by the delay.
 - **Mid-air collisions** end the flight for both wings. You are put back behind your slot a few seconds later.
 - A pilot who opens a menu stops being shown to the others until they fly again.
 
@@ -73,7 +74,7 @@ If the router does not open the port by itself, the panel says so, in amber unde
 
 The public address comes from the router when it opens the port. Otherwise the app asks a public "what is my address" service (api.ipify.org, then checkip.amazonaws.com, then icanhazip.com); this happens only while hosting is on, and it is the one thing the app ever asks of anyone outside the formation. The address is shown in Options and the lobby, not on the flight screen, so it does not end up in a stream or a screenshot by accident. A host name works as well as a number. If the internet provider shares one public address between customers (carrier-grade NAT), that connection cannot host; let someone else host, or put the Macs on one virtual network (ZeroTier, Tailscale) and join the host's address there.
 
-Who hosts has nothing to do with who leads: any pilot can take the lead. Pilots on the host's own network join in by themselves and fly with the online ones. Everyone's traffic to an online pilot goes by way of the host, so the host's connection sets the delay.
+Who hosts has nothing to do with who leads: any pilot can take the lead. Pilots on the host's own network join in by themselves and fly with the online ones. Everyone's traffic to an online pilot goes by way of the host, so the host's connection adds to the delay (which is measured and allowed for, through the host as well).
 
 Anyone who knows the address can connect while hosting is on. Set a group name to keep strangers out of the formation, and switch hosting off afterwards; that also closes the port on the router.
 
@@ -89,7 +90,7 @@ Forty-one fixed-wing aircraft; there are no helicopters or multirotors. The **FP
 | HeeWing F-01 | FPV Aircrafts | 0.69 m | 500 g | 37 | 60 | 111 |
 | AtomRC Dolphin | FPV Aircrafts | 0.85 m | 620 g | 36 | 54 | 101 |
 | SonicModell AR Wing | FPV Aircrafts | 0.90 m | 620 g | 35 | 53 | 99 |
-| TBS Chupito | FPV Aircrafts | 0.80 m | 650 g | 40 | 134 | 222 |
+| TBS Chupito | FPV Aircrafts | 0.80 m | 650 g | 40 | 134 | 235 |
 | AtomRC Penguin | FPV Aircrafts | 0.75 m | 680 g | 40 | 47 | 91 |
 | HeeWing T1 Ranger | FPV Aircrafts | 0.73 m | 480 g | 29 | 43 | 83 |
 | HeeWing T2 Cruza | FPV Aircrafts | 1.20 m | 1900 g | 37 | 52 | 100 |
@@ -103,8 +104,8 @@ What these are and are not:
 - The **figures** are the makers' and retailers': span, flying weight, wing area where given, motor size, and for the Chupito the published stall, cruise and top speeds. Where sources disagree (the Dolphin's weight, the Flik's span) a middle value is used. For the others the speeds are what pilots usually report for aircraft of that size and power, not measurements of mine.
 - The **shapes** are built from photographs of the real aircraft: the Flik's large dark winglets, the F-01's down-turned red tips, the Dolphin's long pointed nose and single fin, the AR Wing in black with a red leading edge, white bands and chequered fins, the black forward-swept Chupito with its fin on the body, the Penguin's wide lifting body with two motors and two leaning fins, the grey T1 Ranger and T2 Cruza as a pod on a thin boom with a tall fin, the Altus and Swordfish with their V-tails, the Hunter's tube fuselage and red dashes, and the Drift with its motor on a pylon behind the wing. They are made from simple generated shapes: wings are straight-tapered, bodies are not blended into the wing, and there are no printed graphics. V-tails are drawn as V-tails but fly as the plain tail of the same size.
 - The Penguin is modelled as the tailless lifting body it is, and with its small listed wing area stalls at about 40 km/h.
-- Each is trimmed in pitch for a cruise (25 km/h for the Hunter up to 106 km/h for the Chupito) and in roll against its propeller's torque, as you would on the first flights, so it flies straight with the sticks let go.
-- **Pitch trim follows the speed.** A model trimmed for cruise noses up hard when it goes fast, so every powered aircraft except the two 3D foamies has that trimmed out: calibrated from level runs on half and on full throttle, the trim feeds in down elevator as the speed rises, as fast as a servo. In level flight on full throttle none needs more than 3% of the low-rate stick to stay level. It is not a stabiliser: in a climb with the stick left alone the nose still wanders, and some aircraft end in a stall or a dive (see [Not yet done](#not-yet-done)), so fly the climb-out. `--powertest` measures it, `--pitchtrace <aircraft>` follows one through a throw and throttle changes, hands off. `--spintrace <aircraft>` follows a spin and `--rolltrace <aircraft>` a torque roll, with the moment of each surface.
+- Each is trimmed in pitch for a cruise (26 km/h for the ZOHD Drift up to 106 km/h for the TBS Chupito) and in roll against its propeller's torque, as you would on the first flights, so it flies straight with the sticks let go.
+- **Pitch trim follows throttle and speed.** A model trimmed for cruise noses up hard when it goes fast, and one trimmed for speed noses under when it is thrown. So every powered aircraft except the two 3D foamies has a trim mix, as a transmitter has: a table, measured for each aircraft at five throttle settings and twelve speeds, of the elevator that level flight needs. From the same measurements it keeps track of the speed level flight would have by now as the throttle moves, and leaves speed stability round that. Opening or closing the throttle therefore changes the speed rather than pitching the aircraft into a climb; faster than expected, as in a dive, the nose comes up (hold forward stick to keep a dive going), and slower, as in a climb, it eases down. The mix knows nothing of the attitude, so it is no stabiliser: the wings do not level themselves. `--powertest` measures the level flight, `--launchtest` throws every hand-launched aircraft through the game itself and watches it for twenty seconds, `--pitchtrace <aircraft>` follows one through a throw and throttle changes, hands off. `--spintrace <aircraft>` follows a spin and `--rolltrace <aircraft>` a torque roll, with the moment of each surface.
 - **Launching.** A hand-launched aircraft stays in your hand, motor running, until you press **Launch**: Space, the right shoulder button of a gamepad, or a transmitter switch assigned to Launch under **Switches and buttons** in Controller Setup. The computer pilots beside you throw theirs at the same moment. On the autopilot the aircraft throws itself.
 - **Trim gauge.** Under the map: the pitch trim in clicks, laid out as the elevator trim on a transmitter: the arrow above trims nose down, the one below nose up, and the marker moves the same way. Each aircraft keeps its trim until you quit; every start of the game begins with all trims at zero.
 - None of them has a flight controller: no stabilisation, no return to home.
@@ -113,7 +114,7 @@ What these are and are not:
 
 **The other categories** each have two or three aircraft from FlightCore OSX: trainers, scale civil, warbirds, aerobatic, foam 3D, jets and gliders. Those that are not hand-launched start on the runway, one behind the other in formation order. The eleven original flying wings are in FPV Aircrafts with the rest.
 
-**Computer partners** fly every aircraft. In `--formtest`, with four of them in a five-ship, they hold their slots to 1.7 m RMS on average over all forty-one aircraft and without a crash; the worst are the big gliders in the outer places (7 m for the Thermal Wing 2.4, 6 m for the Thermal 2M). For fast aircraft the computer lead flies a larger racetrack.
+**Computer partners** fly every aircraft. In `--formtest`, with four of them in a five-ship, they hold their slots to 1.7 m RMS on average over all forty-one aircraft and without a crash; the worst are the big gliders in the outer places (5 m for the Thermal Wing 2.4 and the ASK 21). For fast aircraft the computer lead flies a larger racetrack.
 
 **Views.** The app opens covering the whole screen. FPV aircraft start in the view from on board, everything else in the view from behind; the first button of the bar at the top right switches between the two at any time (the C key still steps through all three cameras).
 
@@ -163,7 +164,7 @@ Twenty-nine sites, none of them from FlightCore OSX. The site browser filters by
 
 **How the sites are drawn.** There are no picture textures: every surface is drawn by the shader from what it is. Buildings get framed windows (some lit after sunset, some with blinds down), shopfronts with name boards on the ground floor of offices and towers, shutters on houses, cladding, brickwork and concrete panels, so a tower is one box and still has a thousand windows. Roofs are tiled in courses, timber is boarded with the grain showing. The ground knows what it is from its colour: turf grows in clumps and dries in patches, sand has wind ripples and grain, snow has drifts and crystals that glint in the sun, bare earth has stones lying on it, the yards are concrete slabs with stains and the Old Town is cobbled. Steep ground turns to layered, fractured rock. Farmland round the open sites is divided into fields of different crops. Lamps, runway lights and lighthouse lanterns glow at dusk. The terrain grid is 16 m.
 
-**Racing.** On a race track the next gate glows. Fly through the first gate to start the clock, then through the gates in order; a gate out of order does not count. Every lap's time is shown, your best is kept until the site changes, and when you fly with others each lap is announced in the chat. The host's **Start Session** puts everyone on the launch line at once, which makes it a race. Gate posts are solid.
+**Racing.** On a race track the next gate glows. Fly through the first gate to start the clock, then through the gates in order; a gate out of order does not count. Each gate that counts rings with a bing (**M** mutes it with the rest of the sound). Every lap's time is shown, your best is kept until the site changes, and when you fly with others each lap is announced in the chat. The host's **Start Session** puts everyone on the launch line at once, which makes it a race. Gate posts are solid.
 
 **Hitting things.** Everything built on a site is solid: gate posts, pylons, walls, containers, cranes, buildings and their roofs, bridges, ships and boats, turbine blades, conveyor belts, power lines and lift cables, rock needles, lamp posts. Animals, fences and the chairs on the lift are only to look at. So are trees, as before. A wing that touches one is wrecked and starts again a few seconds later.
 
@@ -218,7 +219,7 @@ The computer lead turns wider the wider the formation is, so the pilot on the in
 
 ## Holding your slot
 
-- A **ring** in the air marks your slot: amber while you are off station, green when you are in it.
+- A **ring** in the air marks your slot: amber while you are off station, green when you are in it (height counts as well). The lead has none. The ring is as wide as your wingspan, which is not the tolerance: that is 0.35 of the spacing, at least 0.6 m. Real pilots wear an amber ring too, round their aircraft and only from about 20 m away. From on board you don't see your own ring once you are in it: the circle in the formation box turns green just the same.
 - **Formations** in the main menu holds the five shapes and the spacing; **Options** holds the rest: the pilots, your name and group, the network, hosting and joining.
 - The **formation box** (top left) shows your number, the formation, every other wing's distance, and how far you are from your slot. The little scope beside it is a top view with your wing in the middle and the slot as a circle; the bar on its right is the height difference.
 - **On station** counts the share of your flying time spent inside the slot. The lead sees how far each wingman is off their slot instead.
@@ -273,8 +274,10 @@ Command-line checks: `--powertest` reports how much stick each aircraft needs to
 
 ## Not yet done
 
-- Left alone on full throttle after the throw, some aircraft reach the ground. TBS Chupito, Twin Trekker 1.3 and HeeWing H1 Hunter climb first and then dive in, 5 to 9 seconds after the throw; HeeWing T1 Ranger, T2 Cruza, ZOHD Altus, AtomRC Swordfish, ZOHD Drift and Thermal 2M sink straight away. Hold the climb with the elevator.
-- Hands off through a steep climb, a throttle cut and the stall that follows, HeeWing F-01, AtomRC Dolphin and Speed Arrow 900 do not pull out of the dive before the ground.
+- With the sticks left alone after the throw, in the wind of Heather Downs, 7 of the 50 launches in `--launchtest` (each aircraft on 75% and on full throttle) reach the ground within twenty seconds, none within ten: Voyager 2.1 and Slope Racer 60 on either throttle, and Thermal Wing 2.4, Micro Delta 420 and ASK 21 on 75%.
+- On half throttle some slow aircraft fly below the speed they are trimmed for and need back stick. Let go there, they dip and rise again, by up to 12° (Plank 1.5 Soarer) or sink at up to 15° (BAe Hawk, Aero L-39).
+- The TBS Chupito reaches 235 km/h flat out, above the 220 km/h it is meant to; `--flighttest` reports it as the one aircraft outside its range.
+- Slots follow the lead's direction over the ground, not its bank: over the top of a loop they change sides.
 - Calibration was tested with simulated sticks, not with a real transmitter.
 - The new aircraft were checked by the automated flight test, not flown by hand or compared against flight logs of the real ones.
 
@@ -282,12 +285,12 @@ Command-line checks: `--powertest` reports how much stick each aircraft needs to
 - Computer wingmen do not steer round buildings, gate posts or trees. Behind a computer lead they stay above everything; behind you they follow where you go, and hit what is in the way.
 - Buildings and containers do not disturb the wind.
 
-- Tested with copies on one Mac only: local discovery with two copies, and a host with two joiners (local discovery switched off, so everything went by way of the host). Separate Macs, peer-to-peer Wi-Fi and a real internet path with its delay have not been tried, and the router on the test network did not open the port by itself, so the automatic port opening has only been seen to fail politely.
+- Tested with copies on one Mac only: local discovery with two copies, and a host with two joiners (local discovery switched off, so everything went by way of the host). Separate Macs, peer-to-peer Wi-Fi and a real internet path have not been tried, and the router on the test network did not open the port by itself, so the automatic port opening has only been seen to fail politely.
 - The session controls and the five-pilot limit were tested with copies on one Mac: a host and one guest through start, stop, restart, a change of site and daylight, and the wing lock; and a host with five joiners, of whom each flew with four others. With more than five copies, who ignores whom is not coordinated.
 - Push to talk on a gamepad or a USB transmitter could not be tried here: no controller was connected. Only the logic was exercised.
 - Voice has been tested without a microphone: a generated tone went through the coder, the network (direct and by way of the host) and the decoder and came out at the right level, and the players started. Capture from a real microphone, how it sounds, and the delay have not been checked by ear.
 - No echo cancellation or noise suppression, and no per-pilot mute.
-- Positions are predicted forward to cover network delay; this suits a local network, and has not been tuned for the 50 to 150 ms of an internet path.
+- The delay compensation was tested with copies on one Mac through an artificial delay of up to 150 ms each way, with jitter and lost packets, not over a real internet path. It takes the delay to be the same both ways: where it is not, aircraft are drawn out by half the difference times their speed (0.3 m at 17 m/s with 30 ms one way and 70 ms the other). A sudden manoeuvre shows on the other screens only when the news of it arrives.
 - The other wings make no sound, cast no shadow on the ground beyond 14 m from yours, and do not break apart when they crash.
 - No wake turbulence behind another wing.
 - `main.swift` still carries FlightCore's test commands, several of which name aircraft that are no longer in the library.
