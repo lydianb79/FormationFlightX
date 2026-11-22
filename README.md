@@ -8,7 +8,7 @@
 
 | | |
 |---|---|
-| ![In flight as number 2: formation box, slot ring, map, smoke](Resources/Screenshots/flight.jpg) | ![Choosing a flying site](Resources/Screenshots/sites.jpg) |
+| ![In flight as number 2: formation box, map, trim gauge, smoke](Resources/Screenshots/flight.jpg) | ![Choosing a flying site](Resources/Screenshots/sites.jpg) |
 | ![Choosing an aircraft](Resources/Screenshots/aircraft.jpg) | ![Choosing the formation](Resources/Screenshots/formation.jpg) |
 
 - **41 aircraft**, 23 of them FPV wings and planes, 12 of those modelled on ones you can buy.
@@ -86,13 +86,13 @@ Forty-one fixed-wing aircraft; there are no helicopters or multirotors. The **FP
 | Aircraft | Category | Span | Weight | Stall | Half throttle | Flat out |
 |---|---|---|---|---|---|---|
 | Alight Flik Wing | FPV Aircrafts | 0.50 m | 235 g | 31 | 44 | 83 |
-| HeeWing F-01 | FPV Aircrafts | 0.69 m | 500 g | 37 | 60 | 110 |
+| HeeWing F-01 | FPV Aircrafts | 0.69 m | 500 g | 37 | 60 | 111 |
 | AtomRC Dolphin | FPV Aircrafts | 0.85 m | 620 g | 36 | 54 | 101 |
-| SonicModell AR Wing | FPV Aircrafts | 0.90 m | 620 g | 35 | 53 | 98 |
+| SonicModell AR Wing | FPV Aircrafts | 0.90 m | 620 g | 35 | 53 | 99 |
 | TBS Chupito | FPV Aircrafts | 0.80 m | 650 g | 40 | 134 | 222 |
 | AtomRC Penguin | FPV Aircrafts | 0.75 m | 680 g | 40 | 47 | 91 |
 | HeeWing T1 Ranger | FPV Aircrafts | 0.73 m | 480 g | 29 | 43 | 83 |
-| HeeWing T2 Cruza | FPV Aircrafts | 1.20 m | 1900 g | 38 | 52 | 100 |
+| HeeWing T2 Cruza | FPV Aircrafts | 1.20 m | 1900 g | 37 | 52 | 100 |
 | HeeWing H1 Hunter | FPV Aircrafts | 0.68 m | 245 g | 22 | 33 | 63 |
 | ZOHD Altus | FPV Aircrafts | 0.98 m | 920 g | 32 | 46 | 88 |
 | AtomRC Swordfish | FPV Aircrafts | 1.20 m | 1150 g | 39 | 54 | 101 |
@@ -103,17 +103,17 @@ What these are and are not:
 - The **figures** are the makers' and retailers': span, flying weight, wing area where given, motor size, and for the Chupito the published stall, cruise and top speeds. Where sources disagree (the Dolphin's weight, the Flik's span) a middle value is used. For the others the speeds are what pilots usually report for aircraft of that size and power, not measurements of mine.
 - The **shapes** are built from photographs of the real aircraft: the Flik's large dark winglets, the F-01's down-turned red tips, the Dolphin's long pointed nose and single fin, the AR Wing in black with a red leading edge, white bands and chequered fins, the black forward-swept Chupito with its fin on the body, the Penguin's wide lifting body with two motors and two leaning fins, the grey T1 Ranger and T2 Cruza as a pod on a thin boom with a tall fin, the Altus and Swordfish with their V-tails, the Hunter's tube fuselage and red dashes, and the Drift with its motor on a pylon behind the wing. They are made from simple generated shapes: wings are straight-tapered, bodies are not blended into the wing, and there are no printed graphics. V-tails are drawn as V-tails but fly as the plain tail of the same size.
 - The Penguin is modelled as the tailless lifting body it is, and with its small listed wing area stalls at about 40 km/h.
-- Each is trimmed in pitch for a gentle cruise (37 to 60 km/h) and in roll against its propeller's torque, as you would on the first flights, so it flies straight with the sticks let go.
-- **Pitch trim follows the speed, and the throttle.** A model trimmed for a gentle cruise noses up hard when it goes fast. Every powered aircraft now has that trimmed out, as a transmitter mix would: calibrated from level runs on half and on full throttle, it holds the aircraft level at any speed with the stick centred, and acts from the moment of the throw, as fast as a servo. On top of that a throttle-to-elevator mix cancels what the motor's own thrust does to the pitch (a motor on a pylon pushes the nose down). The result flies where it is pointed: open the throttle and it goes faster, not up. A climb is kept, not steepened, until you push. `--powertest` measures it, `--pitchtrace <aircraft>` follows one through a throw and throttle changes, hands off. `--spintrace <aircraft>` follows a spin and `--rolltrace <aircraft>` a torque roll, with the moment of each surface.
-- **Launching.** A hand-launched aircraft stays in your hand, motor running, until you press **Launch**: Space, the right shoulder button of a gamepad, or a transmitter switch assigned to Launch in Controller Setup. The computer pilots beside you throw theirs at the same moment. On the autopilot the aircraft throws itself.
-- **Trim gauge.** Under the map: the pitch trim in clicks, laid out as the elevator trim on a transmitter: the arrow above trims nose down, the one below nose up, and the marker moves the same way.
+- Each is trimmed in pitch for a cruise (25 km/h for the Hunter up to 106 km/h for the Chupito) and in roll against its propeller's torque, as you would on the first flights, so it flies straight with the sticks let go.
+- **Pitch trim follows the speed.** A model trimmed for cruise noses up hard when it goes fast, so every powered aircraft except the two 3D foamies has that trimmed out: calibrated from level runs on half and on full throttle, the trim feeds in down elevator as the speed rises, as fast as a servo. In level flight on full throttle none needs more than 3% of the low-rate stick to stay level. It is not a stabiliser: in a climb with the stick left alone the nose still wanders, and some aircraft end in a stall or a dive (see [Not yet done](#not-yet-done)), so fly the climb-out. `--powertest` measures it, `--pitchtrace <aircraft>` follows one through a throw and throttle changes, hands off. `--spintrace <aircraft>` follows a spin and `--rolltrace <aircraft>` a torque roll, with the moment of each surface.
+- **Launching.** A hand-launched aircraft stays in your hand, motor running, until you press **Launch**: Space, the right shoulder button of a gamepad, or a transmitter switch assigned to Launch under **Switches and buttons** in Controller Setup. The computer pilots beside you throw theirs at the same moment. On the autopilot the aircraft throws itself.
+- **Trim gauge.** Under the map: the pitch trim in clicks, laid out as the elevator trim on a transmitter: the arrow above trims nose down, the one below nose up, and the marker moves the same way. Each aircraft keeps its trim until you quit; every start of the game begins with all trims at zero.
 - None of them has a flight controller: no stabilisation, no return to home.
 
-**The 3D foamies** (Foam Extra XL, Shock Flyer 800) are built 0–0, wing and tailplane at zero incidence, as their builders set them up: neutral, so they fly the same upright and inverted and hang without wanting to go anywhere. They get no cruise trim and no speed trim; with the stick centred they settle at about 30 and 18 km/h. Their fin and rudder run as far below the fuselage line as above it, as real profile planes are cut. So rolling in a hover (a torque roll) no longer swings the nose over: with full aileron and the rudder and elevator left alone, the Foam Extra XL is 3° off vertical after half a second, where it was 15°, and a pilot holding the hover needs 1% rudder instead of 6%. The rudder no longer rolls them either, which helps in knife-edge. Their sticks are set up as 3D pilots set theirs: 65% expo (other aerobats 35%), so on high rates the hover is calm around the centre and full stick still has the full throw.
+**The 3D foamies** (Foam Extra XL, Shock Flyer 800) are built 0–0, wing and tailplane at zero incidence, as their builders set them up: neutral, so they fly the same upright and inverted and hang without wanting to go anywhere. They get no cruise trim and no speed trim; with the stick centred they settle at about 30 and 18 km/h. Their fin and rudder run as far below the fuselage line as above it, as real profile planes are cut. Their propellers, like every propeller in the simulator, resist being moved sideways through the air (propeller normal force), which steadies a hover. So rolling in a hover (a torque roll) no longer swings the nose over: two seconds into a roll with full aileron and the rudder and elevator left alone, the Foam Extra XL is 7° off vertical and the Shock Flyer 9°, and a pilot holding the hover needs 1% rudder. The rudder no longer rolls them either, which helps in knife-edge. Their sticks are set up as 3D pilots set theirs: 65% expo (other aerobats 35%), so on high rates the hover is calm around the centre and full stick still has the full throw.
 
 **The other categories** each have two or three aircraft from FlightCore OSX: trainers, scale civil, warbirds, aerobatic, foam 3D, jets and gliders. Those that are not hand-launched start on the runway, one behind the other in formation order. The eleven original flying wings are in FPV Aircrafts with the rest.
 
-**Computer partners** fly every aircraft. In `--formtest`, with four of them in a five-ship, they hold their slots to 1.7 m RMS on average over all forty-one aircraft and without a crash; the worst are the big gliders in the outer places (up to 7 m for the Thermal 2M). For fast aircraft the computer lead flies a larger racetrack.
+**Computer partners** fly every aircraft. In `--formtest`, with four of them in a five-ship, they hold their slots to 1.7 m RMS on average over all forty-one aircraft and without a crash; the worst are the big gliders in the outer places (7 m for the Thermal Wing 2.4, 6 m for the Thermal 2M). For fast aircraft the computer lead flies a larger racetrack.
 
 **Views.** The app opens covering the whole screen. FPV aircraft start in the view from on board, everything else in the view from behind; the first button of the bar at the top right switches between the two at any time (the C key still steps through all three cameras).
 
@@ -159,7 +159,7 @@ Twenty-nine sites, none of them from FlightCore OSX. The site browser filters by
 | Tundra | Winter | Snow-patched grass and black meltwater pools; a research station on legs |
 | Ski Resort | Winter | Three pistes through snowy forest, a chairlift with a solid cable, chalets |
 
-**Changing site** builds the new landscape and everything drawn on it in the background while the old one stays on screen, and swaps it in when it is ready (about a tenth of a second), so the menu never stalls. The preview pictures in the site list are decoded in the background at launch. `--loadtime` times each step for every site.
+**Changing site** builds the new landscape and everything drawn on it in the background while the old one stays on screen, and swaps it in when it is ready (a tenth to a fifth of a second), so the menu does not stall. The preview pictures in the site list are decoded in the background at launch. `--loadtime` times each step for every site.
 
 **How the sites are drawn.** There are no picture textures: every surface is drawn by the shader from what it is. Buildings get framed windows (some lit after sunset, some with blinds down), shopfronts with name boards on the ground floor of offices and towers, shutters on houses, cladding, brickwork and concrete panels, so a tower is one box and still has a thousand windows. Roofs are tiled in courses, timber is boarded with the grain showing. The ground knows what it is from its colour: turf grows in clumps and dries in patches, sand has wind ripples and grain, snow has drifts and crystals that glint in the sun, bare earth has stones lying on it, the yards are concrete slabs with stains and the Old Town is cobbled. Steep ground turns to layered, fractured rock. Farmland round the open sites is divided into fields of different crops. Lamps, runway lights and lighthouse lanterns glow at dusk. The terrain grid is 16 m.
 
@@ -197,7 +197,7 @@ The **Lobby** (main menu, the speech-bubble button in the top bar, or **Return**
     - Keyboard: **B** in flight.
     - Gamepad: left shoulder button; works in the lobby too.
     - USB transmitter or joystick: assign "Push to talk" to a switch or button.
-    - A transmitter switch is assigned in Controller Setup (⌘,).
+    - A transmitter switch is assigned in Controller Setup (⌘,), under **Switches and buttons**.
   - *Open mic:* sends whenever you speak. Wear headphones, or the others hear themselves through your speakers; there is no echo cancellation.
   - The slider sets how loud the others are.
 
@@ -244,7 +244,15 @@ Formations for up to five: vic, echelon right, echelon left, line astern, line a
 | − =, 0 | Pitch trim nose down / up, centre (also the two arrows of the trim gauge: upper nose down, lower nose up) |
 | Esc, Tab | Main menu, wing browser |
 
-**H** in the app lists the rest. Gamepads and USB RC transmitters work as in FlightCore OSX (Controller Setup, ⌘,).
+**H** in the app lists the rest.
+
+## Controller Setup
+
+**⌘,** or the gamepad button in the top bar opens Controller Setup, and closes it again. Gamepads and USB RC transmitters are detected automatically, as in FlightCore OSX. The window holds the channels and calibration of a transmitter, the stick mode, rates and expo, and **Switches and buttons**, where any action can be put on a switch or button.
+
+**Rates:** each aircraft has its own low rate and expo unless you switch on your own, and every flight starts on low rates; **L** or an assigned switch changes between low and high.
+
+**Calibration** always runs on 100% rates on every axis; the selected rates return when it ends, and closing Controller Setup cancels it. The simulator cannot change a transmitter's own rates, so set those to 100% first: if aileron, elevator, throttle or rudder covers less than 95% of the USB range, the calibration is not saved and the short channels are named. **Save Anyway** is for transmitters and dongles that never send the full range.
 
 ## What is in the source
 
@@ -265,6 +273,9 @@ Command-line checks: `--powertest` reports how much stick each aircraft needs to
 
 ## Not yet done
 
+- Left alone on full throttle after the throw, some aircraft reach the ground. TBS Chupito, Twin Trekker 1.3 and HeeWing H1 Hunter climb first and then dive in, 5 to 9 seconds after the throw; HeeWing T1 Ranger, T2 Cruza, ZOHD Altus, AtomRC Swordfish, ZOHD Drift and Thermal 2M sink straight away. Hold the climb with the elevator.
+- Hands off through a steep climb, a throttle cut and the stall that follows, HeeWing F-01, AtomRC Dolphin and Speed Arrow 900 do not pull out of the dive before the ground.
+- Calibration was tested with simulated sticks, not with a real transmitter.
 - The new aircraft were checked by the automated flight test, not flown by hand or compared against flight logs of the real ones.
 
 - The new sites were checked by rendering each one and by `--sitetest`; none of the race tracks or obstacle courses has been flown by hand, so how hard they are is a guess.
@@ -273,7 +284,7 @@ Command-line checks: `--powertest` reports how much stick each aircraft needs to
 
 - Tested with copies on one Mac only: local discovery with two copies, and a host with two joiners (local discovery switched off, so everything went by way of the host). Separate Macs, peer-to-peer Wi-Fi and a real internet path with its delay have not been tried, and the router on the test network did not open the port by itself, so the automatic port opening has only been seen to fail politely.
 - The session controls and the five-pilot limit were tested with copies on one Mac: a host and one guest through start, stop, restart, a change of site and daylight, and the wing lock; and a host with five joiners, of whom each flew with four others. With more than five copies, who ignores whom is not coordinated.
-- Push to talk on a gamepad or a USB transmitter could not be tried here: no controller was connected. The keyboard key and the setup window were built but only the logic was exercised.
+- Push to talk on a gamepad or a USB transmitter could not be tried here: no controller was connected. Only the logic was exercised.
 - Voice has been tested without a microphone: a generated tone went through the coder, the network (direct and by way of the host) and the decoder and came out at the right level, and the players started. Capture from a real microphone, how it sounds, and the delay have not been checked by ear.
 - No echo cancellation or noise suppression, and no per-pilot mute.
 - Positions are predicted forward to cover network delay; this suits a local network, and has not been tuned for the 50 to 150 ms of an internet path.
