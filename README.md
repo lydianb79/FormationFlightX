@@ -274,7 +274,7 @@ Command-line checks: `--powertest` reports how much stick each aircraft needs to
 
 ## Not yet done
 
-- With the sticks left alone after the throw, in the wind of Heather Downs, 7 of the 50 launches in `--launchtest` (each aircraft on 75% and on full throttle) reach the ground within twenty seconds, none within ten: Voyager 2.1 and Slope Racer 60 on either throttle, and Thermal Wing 2.4, Micro Delta 420 and ASK 21 on 75%.
+- With the sticks left alone after the throw, in the wind of Heather Downs, 6 or 7 of the 50 launches in `--launchtest` (each aircraft on 75% and on full throttle) reach the ground within twenty seconds, none within ten: Voyager 2.1 and Slope Racer 60 on either throttle, and Thermal Wing 2.4, Micro Delta 420 and ASK 21 on 75%.
 - On half throttle some slow aircraft fly below the speed they are trimmed for and need back stick. Let go there, they dip and rise again, by up to 12° (Plank 1.5 Soarer) or sink at up to 15° (BAe Hawk, Aero L-39).
 - The TBS Chupito reaches 235 km/h flat out, above the 220 km/h it is meant to; `--flighttest` reports it as the one aircraft outside its range.
 - Slots follow the lead's direction over the ground, not its bank: over the top of a loop they change sides.
