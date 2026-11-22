@@ -51,7 +51,17 @@ struct NetVoice {
     var payload = Data()
 }
 
-enum NetMessage { case state(NetState), hello(NetHello), chat(NetChat), voice(NetVoice) }
+/// Sent four times a second to measure the delay: the sender's clock, and for each pilot it has lately heard from
+/// the clock reading they sent and how long ago that came in. A reading that comes home gives the round trip.
+/// (Copies from before this message drop it, and hosts of any version pass it on.)
+struct NetClock {
+    struct Echo { var to: UInt32, sent: Double, held: Float }
+    var id: UInt32 = 0
+    var time: Double = 0
+    var echoes: [Echo] = []
+}
+
+enum NetMessage { case state(NetState), hello(NetHello), chat(NetChat), voice(NetVoice), clock(NetClock) }
 
 private struct Writer {
     var d = Data()
@@ -86,6 +96,16 @@ private struct Reader {
 enum NetCodec {
     static let magic: UInt8 = 0xF7, version: UInt8 = 3
     static let maxSize = 1200, maxChat = 240
+    static let maxEchoes = 8
+
+    static func encode(_ k: NetClock) -> Data {
+        var w = Writer()
+        w.u8(magic); w.u8(version); w.u8(5); w.u32(k.id)
+        let echoes = k.echoes.prefix(maxEchoes)
+        w.f64(k.time); w.u8(UInt8(echoes.count))
+        for e in echoes { w.u32(e.to); w.f64(e.sent); w.f(e.held) }
+        return w.d
+    }
 
     static func encode(_ c: NetChat) -> Data {
         var w = Writer()
@@ -166,6 +186,17 @@ enum NetCodec {
             guard r.ok, data.count - r.i > 0, data.count - r.i <= 400 else { return nil }
             v.payload = data.subdata(in: data.startIndex + r.i..<data.endIndex)
             return .voice(v)
+        case 5:
+            var k = NetClock(); k.id = id
+            k.time = r.f64()
+            let n = Int(r.u8())
+            guard r.ok, k.time.isFinite, n <= maxEchoes else { return nil }
+            for _ in 0..<n {
+                let e = NetClock.Echo(to: r.u32(), sent: r.f64(), held: r.f())
+                guard r.ok, e.sent.isFinite, e.held.isFinite, e.held >= 0, e.held < 5 else { return nil }
+                k.echoes.append(e)
+            }
+            return .clock(k)
         default: return nil
         }
     }
@@ -445,6 +476,7 @@ final class FormationNet {
             case .hello(let h): return h.id == id ? nil : (m, t)
             case .chat(let c): return c.id == id ? nil : (m, t)
             case .voice(let v): return v.id == id ? nil : (m, t)
+            case .clock(let k): return k.id == id ? nil : (m, t)
             }
         }
     }

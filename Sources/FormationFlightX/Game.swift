@@ -311,7 +311,7 @@ final class Game {
     var leadEpoch: UInt32 = 0
     var order: [UInt32] = []            // the formation: lead first, then numbers 2 and 3
     var slotMarker: (pos: V3, fwd: V3, radius: Float, good: Bool)? = nil
-    var sendAcc: Float = 0, helloAcc: Float = 1
+    var sendAcc: Float = 0, helloAcc: Float = 1, clockAcc: Float = 1
     var stationTime: Float = 0, flownTime: Float = 0
     var slotError: V3? = nil, slotTol: Float = 1
     var wingSmokeAcc: Float = 0

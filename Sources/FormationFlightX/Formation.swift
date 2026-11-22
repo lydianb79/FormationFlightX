@@ -75,7 +75,17 @@ final class Wingman {
     var hello = NetHello()
     private var base = NetState()               // latest state, and the local time at which it was true
     private var baseTime = 0.0
-    private var clockOff = Double.infinity      // sender's clock to ours, estimated from the fastest deliveries
+    private var clockOff = Double.infinity      // sender's clock to ours by the fastest delivery: only until the delay is known
+    private var accel = V3.zero                 // how the sender's velocity is changing, for predicting along the curve
+    private var trips: [(roundTrip: Double, offset: Double)] = []       // the last ten seconds of round trips
+    private var syncedOff: Double? = nil        // sender's clock to ours, with the delay allowed for
+    private var heard: (time: Double, at: Double)? = nil                // their latest clock reading, to send back
+    /// The one-way delay to this pilot (half the quickest recent round trip); nil until it has been measured.
+    private(set) var delay: Double? = nil
+    /// The furthest ahead a position is predicted, and for how much of that the curve and the turning are followed.
+    static let aheadMost = 0.5
+    static let curveMost: Float = 0.3
+    static let turnMost: Float = 0.06           // (a roll that has stopped would be drawn well past where it ended)
     private var errPos = V3.zero                // what is drawn minus what is predicted: eased to zero, so corrections never jump
     private var errQ = simd_quatf(ix: 0, iy: 0, iz: 0, r: 1)
     private var hasState = false
@@ -90,21 +100,46 @@ final class Wingman {
     /// Flying and up to date: drawn, and part of the formation.
     func present(_ now: Double) -> Bool { ai != nil || (hasState && now - lastState < 1.0) }
 
-    private func predict(_ t: Double) -> (V3, simd_quatf) {
-        let age = Float(min(max(t - baseTime, 0), 0.5))
-        let p = base.pos + base.vel * age
-        let w = length(base.omega)
-        let q = w > 1e-5 && !base.crashed ? simd_normalize(base.q * simd_quatf(angle: w * age, axis: base.omega / w)) : base.q
-        return (p, q)
+    private func predict(_ t: Double) -> (pos: V3, q: simd_quatf, vel: V3) {
+        let age = Float(min(max(t - baseTime, 0), Wingman.aheadMost))
+        let bent = min(age, Wingman.curveMost)
+        let curve: V3 = accel * (bent * (age - 0.5 * bent))
+        let p: V3 = base.pos + base.vel * age + curve
+        let v: V3 = base.vel + accel * bent
+        let w = length(base.omega), turn = min(age, Wingman.turnMost)
+        let q = w > 1e-5 && !base.crashed ? simd_normalize(base.q * simd_quatf(angle: w * turn, axis: base.omega / w)) : base.q
+        return (p, q, v)
+    }
+
+    /// Their clock message, which came in at local time `at`. A reading of ours that it brings home gives the round
+    /// trip; the quickest lately is the one least held up on the way, and half of it is taken as the delay.
+    func receive(_ k: NetClock, at: Double, me: UInt32) {
+        if let h = heard, k.time <= h.time, at - h.at < 1 { return }     // out of order, or the same by a second path
+        heard = (k.time, at)
+        guard let e = k.echoes.first(where: { $0.to == me }) else { return }
+        let trip = at - e.sent - Double(e.held)
+        guard trip > -0.005, trip < 2 else { return }
+        let offset = at - k.time - max(trip, 0) / 2
+        if let o = syncedOff, abs(offset - o) > 1 { trips = [] }        // a clock jumped (their Mac slept)
+        trips.append((max(trip, 0), offset))
+        if trips.count > 40 { trips.removeFirst() }
+        if let best = trips.min(by: { $0.roundTrip < $1.roundTrip }) { syncedOff = best.offset; delay = best.roundTrip / 2 }
+    }
+
+    /// What goes back to this pilot in our next clock message.
+    func echo(now: Double) -> NetClock.Echo? {
+        guard let h = heard, now - h.at < 2, now >= h.at else { return nil }
+        return NetClock.Echo(to: id, sent: h.time, held: Float(now - h.at))
     }
 
     /// A new state from the network, received at local time `at`.
     func receive(_ s: NetState, at: Double) {
         if hasState && s.time <= base.time && at - lastState < 1 { return }     // out of order
         let now = at
-        // The fastest delivery so far gives the clock difference; later, slower packets are placed by their own
-        // time stamps, so jitter on the network does not shake the aircraft. The estimate creeps up slowly in
-        // case the clocks drift apart.
+        // Packets are placed by their own time stamps, so jitter on the network does not shake the aircraft, and
+        // the measured round trip turns those into our time, so the delay is predicted across. Until that is
+        // known (or for a copy that does not answer) the fastest delivery stands in for it, which hides the delay;
+        // that estimate creeps up slowly in case the clocks drift apart.
         let off = at - s.time
         clockOff = clockOff.isFinite && abs(off - clockOff) < 1 ? min(clockOff + 0.0002, off) : off
         let was = hasState && now - lastState < 1 ? predict(now) : nil
@@ -112,9 +147,23 @@ final class Wingman {
             specIndex = min(Int(s.spec), AircraftLibrary.all.count - 1)
             aircraft = Aircraft(AircraftLibrary.all[specIndex])
         }
-        base = s; baseTime = s.time + clockOff; lastState = at; hasState = true
-        let (p, q) = predict(now)
-        if let (wp, wq) = was, distance(wp + errPos, p) < 8 {
+        let step = Float(s.time - base.time), justCrashed = s.crashed && !base.crashed
+        if !hasState || s.crashed || base.crashed || step <= 0 || step > 0.3 {
+            accel = .zero
+        } else {
+            let change: V3 = (s.vel - base.vel) / max(step, 0.005)
+            if length(change) > 150 { accel = .zero }       // put somewhere else, not flown there
+            else { accel += (change - accel) * min(1, step / 0.1) }
+        }
+        var toOurs = clockOff
+        if let o = syncedOff {
+            // (far out: a clock jumped, and is measured again)
+            if at - (s.time + o) > -0.05, at - (s.time + o) < 1.5 { toOurs = o } else { trips = []; syncedOff = nil; delay = nil }
+        }
+        base = s; baseTime = min(s.time + toOurs, at); lastState = at; hasState = true
+        let (p, q, _) = predict(now)
+        // (what is predicted across a delay can be further out than a little jitter; and a wreck lies where it fell)
+        if !justCrashed, let (wp, wq, _) = was, distance(wp + errPos, p) < 8 {
             errPos = wp + errPos - p
             errQ = simd_normalize(q.inverse * (wq * errQ))
         } else {
@@ -129,9 +178,9 @@ final class Wingman {
         let k = exp(-dt * 12)
         errPos *= k
         errQ = simd_slerp(simd_quatf(ix: 0, iy: 0, iz: 0, r: 1), errQ, k)
-        let (p, q) = predict(now)
+        let (p, q, v) = predict(now)
         let ac = aircraft
-        ac.pos = p + errPos; ac.q = simd_normalize(q * errQ); ac.vel = base.vel; ac.omega = base.omega
+        ac.pos = p + errPos; ac.q = simd_normalize(q * errQ); ac.vel = v; ac.omega = base.omega
         ac.servo = base.servo; ac.crashed = base.crashed; ac.airspeed = length(base.vel)
         for i in ac.levels.indices { ac.levels[i] = base.level }
         for i in ac.spin.indices { ac.spin[i] += (base.level > 0.01 ? 12 + 45 * sqrt(min(base.level, 1)) : 0) * dt }

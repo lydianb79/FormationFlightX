@@ -275,6 +275,8 @@ extension Game {
             case .state(let s):
                 wingmen.first { $0.id == s.id && $0.ai == nil }?.receive(s, at: t)
             case .chat(let c): received(c)
+            case .clock(let k):
+                wingmen.first { $0.id == k.id && $0.ai == nil }?.receive(k, at: t, me: net.id)
             case .voice(let v):
                 if wingmen.contains(where: { $0.id == v.id && $0.ai == nil }) { voice.receive(from: v.id, seq: v.seq, payload: v.payload) }
             }
@@ -454,6 +456,16 @@ extension Game {
             h.name = pilotName; h.group = group; h.place = place
             h.hosting = net.hosting; h.running = sessionRunning; h.session = sessionCount
             net.broadcast(NetCodec.encode(h))
+        }
+        clockAcc += realDt
+        if clockAcc >= 0.25 {
+            clockAcc = 0
+            var k = NetClock()
+            k.id = net.id
+            let sent = CACurrentMediaTime()             // (read here, so this frame's own work is not counted as delay)
+            k.time = sent
+            k.echoes = remotePilots.compactMap { $0.echo(now: sent) }
+            net.broadcast(NetCodec.encode(k))
         }
         sendAcc += realDt
         if running && sendAcc >= 1 / 60 {
